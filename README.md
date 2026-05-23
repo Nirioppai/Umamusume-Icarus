@@ -10,6 +10,8 @@
 
 <img width="1080" height="262" alt="image" src="https://github.com/user-attachments/assets/41fb609c-9c3b-4624-a956-f38143f95b11" />
 
+T500 to T10 in 4 days btw.
+
 # ! Instalation for dummies:
 
 Need python 3.19 or below + tools.
@@ -57,7 +59,7 @@ Cap your fans to 30-50M if you care don't want to get banned but at this point w
 2-3 accounts running full time should be enough for T10, 4+ is needed for rank 1. 
 
 
-
+<img width="1415" height="928" alt="image" src="https://github.com/user-attachments/assets/0bb28922-f882-4b05-8240-6973a2d6b011" />
 
 
 
