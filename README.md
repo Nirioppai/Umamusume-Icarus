@@ -26,10 +26,10 @@ For C++ Tools, this is what you need, just check that box. <img width="1221" hei
 
 Step 1: Download bot directly from this repo, unzip file
 
-Step 2: Open the bot folder (usually second one) in cmd like this
+Step 2: Open the bot folder (usually second one) in cmd like this, please note, this is an example link, yours will be different.
 
 ```cmd
-example: cd C:\Users\yourusernamehere\Downloads\Umamusume-API-Bot-main\Umamusume-API-Bot-main
+cd C:\Users\yourusernamehere\Downloads\Umamusume-API-Bot-main\Umamusume-API-Bot-main
 ```
 Step 3: Paste the following lines in order. 
 
