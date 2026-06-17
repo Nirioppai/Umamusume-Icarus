@@ -1,0 +1,3415 @@
+# Changelog
+
+## SweepyCLv7.1.2
+
+Bug fix: the userdata popup was firing on `DOMContentLoaded`, which runs
+before authentication. That meant it appeared on top of the Steam auth
+form, blocking the user from logging in.
+
+### Fix
+
+The popup now waits for a new `sweepycl:dashboard-ready` event dispatched
+at the end of `renderDashboard()` in app.js. This event fires for both
+manual login and cached-session auto-login, so the popup auto-opens
+after either path. It also fires after the brand-intro animation
+completes, so the popup doesn't cover a transition mid-flight.
+
+A 1.5s safety fallback handles a rare race condition where the listener
+attaches after the event has already fired (e.g. very fast cached
+auto-login): it checks whether the dashboard view is visible and runs
+the same handler. The handler itself is idempotent (`_autoOpenFired`
+flag) so there's no risk of double-opening.
+
+The diagnostics card injection and the binding of buttons still happen
+on DOMContentLoaded, so when the user reaches the dashboard everything
+is already wired and the auto-open is instant.
+
+### What didn't change
+
+- All v7.1.1 fixes carry over: no click-outside-to-close, no
+  Escape-to-close, prominent red × button, Diagnostics fallback card.
+- API endpoints, pointer file location, resolution order, migration
+  behavior — all identical.
+- The popup still auto-opens whenever it should (first load after auth,
+  detection warnings, or via the USERDATA top-bar button / Diagnostics
+  card).
+
+## SweepyCLv7.1.1
+
+Bug fixes for the userdata popup from v7.1:
+
+### Fixes
+
+- **The popup no longer closes on click-outside or Escape.** In v7.1 the
+  modal had a click-outside-to-close handler and an Escape-to-close
+  handler, but in practice that meant: pasting a path via the OS context
+  menu (right-click → Paste) would dismiss the context menu with a click
+  that registered on the modal backdrop, instantly closing the popup
+  with the path you hadn't yet pasted. Same thing for stray clicks just
+  outside the input padding. Both handlers are removed entirely. The
+  only ways to close the popup now are:
+  - The red **×** close button (now styled prominently in the header)
+  - The **I'LL HANDLE IT LATER** dismiss button (marks intro seen)
+  - Successfully applying a path (the popup stays open so you can read
+    the "restart required" confirmation)
+
+- **Userdata setup is now reachable from Diagnostics as a fallback.**
+  A new "Userdata Folder" card lives inside the Diagnostics modal,
+  showing the current resolved path, source, pointer-file target, and
+  any detection warnings inline — plus an `OPEN USERDATA SETUP` button
+  that reopens the popup. This is in addition to the existing USERDATA
+  button in the top action row. If you dismissed the startup popup
+  before finishing, or the popup ever gets into a weird state, the
+  Diagnostics card is always there.
+
+### What didn't change
+
+- The resolution order, pointer-file location (`~/.sweepycl/userdata_pointer.json`),
+  API endpoints, and migration behavior are all identical to v7.1.
+- The popup still auto-opens on first load and whenever a detection
+  warning fires.
+- All v6.7.x and v7.0/7.1 carryovers (Bot Speed, Dumper Watcher, the
+  rename, etc) are unchanged.
+
+## SweepyCLv7.1
+
+Adds a first-load **Userdata folder** popup that walks users through
+setting up a stable, version-independent location for settings, presets,
+and Steam auth. Solves the upgrade scenario where you download a new
+build into a fresh folder (without overwriting the previous version) and
+the new install can't see the old userdata.
+
+### What the popup does
+
+- On first dashboard load after Steam auth, the popup explains what the
+  userdata folder is for and shows where settings currently live.
+- Lets the user enter a custom path (text field; the folder will be
+  created if missing and probed for writability before the path is
+  saved).
+- A `USE SUGGESTED` button fills in the recommended convention
+  (`<build's parent>/SweepyCL_userdata`).
+- Optional **migrate** checkbox — copy currently-loaded
+  settings/presets/auth into the new folder when applying. Non-destructive:
+  files already at the destination are never overwritten.
+- An `I'LL HANDLE IT LATER` dismiss button records the choice so the
+  intro doesn't pop up again on every load.
+- Reopen any time via the new **USERDATA** button in the top action row.
+
+### How upgrades find the old userdata
+
+New resolver step: a pointer file at `~/.sweepycl/userdata_pointer.json`
+(or `%USERPROFILE%/.sweepycl/userdata_pointer.json` on Windows). Lives
+outside the build folder so a fresh install of any future SweepyCL
+version automatically picks up where the user told a previous version
+their data lives. The resolution order is now:
+
+1. `$SWEEPYCL_USERDATA_DIR` env var
+2. `$SWEEPYCLAUDE_USERDATA_DIR` (legacy env var)
+3. **NEW** Pointer file at `~/.sweepycl/userdata_pointer.json`
+4. `../SweepyCL_userdata` sibling folder
+5. `../SweepyClaude_userdata` (legacy sibling folder)
+6. In-build `DIR` (fallback — the popup warns about this case)
+
+### Detection warnings the popup surfaces
+
+- **Pointer file references a folder that doesn't exist anymore** —
+  "Your saved userdata path (…) doesn't exist or isn't a folder.
+  Settings will fall back to a default location until you fix this."
+  Fires when the user moves/deletes the userdata folder, or when they
+  point an old install at a path that doesn't exist on a new machine.
+- **No userdata configured at all** — "Settings will be saved inside
+  the build folder, which means they'll be lost when you upgrade to a
+  new version unless you overwrite the install."
+- **Using a legacy SweepyClaude path** — informational only; still
+  works, but the popup offers to migrate to a SweepyCL path cleanly.
+- **Path change pending a restart** — after applying a new path in this
+  session, the popup notes that some consumers of the path are cached
+  and a restart is needed for the new location to take full effect.
+
+### Why a restart is required after changing the path
+
+`USERDATA_DIR` is read once at module import and cached by several
+consumers (preset_store, settings reads, accounts.json, auth, the
+active-selection file, etc). Hot-swapping it mid-session would risk
+inconsistent reads/writes. The popup writes the pointer file
+immediately and explicitly tells the user to restart SweepyCL — much
+safer than trying to invalidate every cache live.
+
+### What didn't change
+
+- Existing v7.0 installs continue to work exactly as before. The popup
+  only opens when there's something to set up or warn about.
+- Env var overrides (`$SWEEPYCL_USERDATA_DIR`,
+  `$SWEEPYCLAUDE_USERDATA_DIR`) still beat the pointer file, so power
+  users with scripted setups are unaffected.
+- Legacy `SweepyClaude_userdata` sibling folders are still resolved
+  with no changes.
+- All v6.7.x carryovers (Bot Speed scaling, Dumper Watcher, etc) are
+  preserved.
+
+### Files changed
+
+- `main.py` — new pointer-file helpers, expanded `_resolve_userdata_dir`
+  with source tracking and warning generation, six new endpoints under
+  `/api/userdata/*`, and Pydantic models for the two POST bodies.
+- `public/index.html` — userdata modal markup; new USERDATA button in
+  the top action row.
+- `public/app.js` — self-contained IIFE (matches the v6.7.19 help
+  modal's pattern) that auto-opens on load when needed, handles apply
+  / dismiss / suggest / reopen, and never blocks the rest of the
+  dashboard from booting.
+- `public/styles.css` — modal styling.
+
+## SweepyCLv7.0
+
+**Project renamed: SweepyClaude → SweepyCL.** Major version bump to mark
+the rename cleanly. No new features — this is purely a rebrand release.
+The functional behavior of v6.7.27 is preserved exactly, including the
+Bot Speed dropdown, Dumper Watcher, screenshot-driven solver fix, and
+everything else from the v6.7.x series.
+
+Future releases follow `SweepyCLv7.x` for new features and `SweepyCLv7.x.y`
+for patches. Historical changelog entries below keep their original
+`SweepyClaudev6.7.x` and `SweepyModvX.x` names because those releases
+shipped under those names — rewriting the history would just be
+confusing.
+
+### What changed
+
+- **User-facing UI**: help modal title, footer, in-app documentation, and
+  Discord webhook identity all now say "SweepyCL" instead of
+  "SweepyClaude" / "SweepyMod".
+- **Active code**: docstrings, comments, version label constants (e.g.
+  AI dataset version stamps for newly-written rows), and the build_version
+  string written into freshly-rebuilt AI datasets all use "SweepyCL".
+- **INSTALL.md**: rebranded throughout.
+
+### What did NOT change (and why)
+
+- **`SweepyClaude_userdata` folder discovery still works.** The userdata
+  resolver now prefers `SweepyCL_userdata` and `$SWEEPYCL_USERDATA_DIR`,
+  but falls back to the legacy `SweepyClaude_userdata` folder and
+  `$SWEEPYCLAUDE_USERDATA_DIR` env var if the new ones aren't present.
+  Existing v6.7.x installs upgrade without any data migration required.
+  Brand-new installs use the new names.
+- **The "paste an old SweepyMod folder" import dialog** still says
+  "SweepyMod" because that text describes folder names that exist on
+  users' disks from the original SweepyMod era. Renaming the prompt
+  would just be misleading — those folders are still called what they're
+  called.
+- **Test file names** like `test_sweepymodv544_event_outcomes.py` and
+  archive docs under `docs/` keep their original names. They document
+  features introduced under the SweepyMod name; renaming them serves no
+  purpose.
+- **Historical version stamps** already written into past data files
+  (`SweepyModv5.40AI` build_version, `SweepyMod Event Outcome KB v1`
+  label that's been replaced with `SweepyCL` for new exports but
+  recognized as legacy when reading old files) are not retroactively
+  rewritten in existing user data.
+
+### Upgrade path
+
+Drop this build over your v6.7.27 install. Your `SweepyClaude_userdata`
+folder will continue to be picked up automatically. If you want to rename
+it to `SweepyCL_userdata` to match the new convention you may, but it's
+optional — both names work.
+
+## SweepyClaudev6.7.27
+
+Adds a **Bot Speed** preset selector that actually makes the bot fast. The
+existing **Tempt Fate** button only zeroes the between-turn pause; it does
+**not** touch the per-endpoint anti-detection sleeps in
+`career_bot/delay.py:_BASE_DELAYS`. Those were the real bottleneck —
+`exec_command` averages ~5 s/call and `gain_skills` averages ~48 s/call, so
+even with Tempt Fate on, a career sits around 25-30 min.
+
+### What changed
+
+- `career_bot/delay.py` — new `DELAY_SCALE` global (default 1.0) plus
+  `set_delay_scale()` / `get_delay_scale()`. Applied inside
+  `simulate_delay()` (both the known-endpoint and unknown-endpoint paths,
+  including the distraction bonus) and `simulate_turn_delay()`. Scaling
+  the lognormal target mean and the min/max clamps in proportion preserves
+  the human-looking distribution shape; it just compresses it.
+- `main.py` — settings persistence under `bot_speed_scale`, applied on
+  startup and on every config write so the value survives restarts. New
+  endpoints: `GET /api/settings/bot-speed` and `POST /api/settings/bot-speed`.
+  Four presets: `realistic` 1.0×, `brisk` 0.5×, `fast` 0.25×, `speedrun` 0.05×.
+- `public/index.html` / `app.js` / `styles.css` — a SPEED dropdown sits in
+  the top control bar next to Tempt Fate. Independent of Tempt Fate: stack
+  them for max effect.
+
+### Measured impact (simulated against actual per-career call frequencies)
+
+| Preset | scale | exec_command avg | gain_skills avg | est. career |
+|---|---|---|---|---|
+| Realistic | 1.0× | 6.16 s | 44.5 s | ~27 min |
+| Brisk | 0.5× | 2.92 s | 21.4 s | ~14 min |
+| **Fast** | **0.25×** | **1.47 s** | **11.2 s** | **~7 min** ← target |
+| Speedrun | 0.05× | 0.29 s | 2.2 s | ~1.5 min |
+
+These are anti-detection sleeps only; actual network round-trips add to all
+of them, so real-world careers will run slightly slower than the simulated
+floor.
+
+### What is NOT scaled (and why)
+
+`dna_sleep()` calls in `uma_api/client.py` (the 0.83 s / 2.5 s / 4.15 s
+backoffs after HTTP 709 / 394 / 202 errors) and `runner.py`'s 10-second
+recovery wait are **not scaled**. These are tuned to the game server's own
+recovery timing — compressing them risks immediately re-tripping the same
+error. They also don't fire on a clean career, so they're not the
+bottleneck anyway.
+
+### Risk tradeoff (read before picking Speedrun)
+
+The lognormvariate distributions in `_BASE_DELAYS` were designed to mimic
+human reaction-time variance. Scaling them down doesn't change the *shape*
+but it does compress the timing window into something a server-side
+behavioral classifier might flag as bot-like. Higher scales = safer.
+Defaults to 1.0 (realistic); the user has to explicitly choose faster.
+
+### How to use it
+
+1. Top control bar, next to TEMPT FATE: new `SPEED` dropdown.
+2. Pick a preset. Saves immediately, applies to the next API call.
+3. Stack with Tempt Fate (which zeroes the between-turn pause) for max
+   speed. Fast + Tempt Fate is the recommended setting for the ~6 min
+   target.
+
+## SweepyClaudev6.7.26
+
+Adds **Dumper Watcher** — a background poller that auto-imports event
+outcome data from the community dumper tool's `outcomes.json` into an
+**isolated staging file** the bot never reads. Lets observations
+accumulate from real play without ever changing how the bot scores
+events. You review the diff in the AI Learning panel and click PROMOTE
+when you're ready to feed the new data into live decisions.
+
+### Why isolation matters
+
+The bot's `EventManager` (in `career_bot/events.py`) reads exactly one
+file when deciding event choices: `data/event_outcomes.json`. The AI
+Dataset reads exactly one jsonl: `event_outcome_rows.jsonl`. The
+watcher writes to neither of those — it writes to
+`data/event_outcomes_staging.json` and
+`uma_runtime/ai/event_outcome_staging_rows.jsonl`. Until you click
+**PROMOTE** in the dashboard, staged data has zero effect on bot
+behavior. Verified with a smoke test against the dumper's
+`outcomes.json`: live file byte-identical before and after import.
+
+### How to use it
+
+1. Run the community dumper as you normally would.
+2. In SweepyClaude, open **AI LEARNING** → **Dumper Watcher**.
+3. Paste the path to the dumper's `outcomes.json`, set a poll interval
+   (default 30 s), check **Enable**, click **SAVE**. The watcher will
+   re-import in the background whenever the file's mtime changes.
+4. The status block shows the watcher's state: enabled / thread alive,
+   last poll time, last import time and event count, and any error.
+5. The diff block shows how staging compares against live:
+   - **new vs live** — events the dumper has captured that aren't yet
+     in the live KB.
+   - **updated** — events whose actual outcome data differs from live
+     (provenance-only differences are filtered out so you don't see
+     phantom updates).
+6. When the diff looks healthy, click **PROMOTE NEW EVENTS** (safe; only
+   adds events that don't yet exist in live) or **PROMOTE ALL** (also
+   overwrites existing entries where the staging values have changed).
+   Both buttons confirm before writing.
+7. **CLEAR STAGING** wipes the staging file and resets the watcher
+   mtime so the next poll re-imports from scratch. The live KB is
+   never touched by this.
+
+### What changed
+
+- `career_bot/event_outcomes.py` — new `import_outcomes_to_staging()`
+  that mirrors `import_outcomes()`'s merge semantics but writes to
+  `STAGING_FILE` and `STAGING_DATASET_FILE` only.
+- `main.py` — background watcher thread (off by default), settings
+  persistence under `dumper_watcher` key, and six endpoints:
+  `GET /api/dumper-watcher/status`, `POST /api/dumper-watcher/config`,
+  `POST /api/dumper-watcher/run-now`, `GET /api/dumper-watcher/diff`,
+  `POST /api/dumper-watcher/promote`, `POST /api/dumper-watcher/clear-staging`.
+  The watcher starts on app boot but self-gates on the `enabled` flag,
+  so it's a no-op until you turn it on.
+- `public/index.html` / `app.js` / `styles.css` — new Dumper Watcher
+  card inside the existing AI Learning modal, sitting next to the
+  Event Outcome KB card. Both promote actions show a confirm dialog
+  before writing to live.
+
+### Caveat carried over from the dumper itself
+
+The dumper's README notes its "take most extreme observed delta"
+approach means early observations under-report variable events
+(e.g. an event that gives −20 energy will be recorded as −5 if it
+fired while you had 5 energy). The watcher imports whatever the
+dumper writes; the staging file inherits this noise. Stage data for
+a while before promoting, and spot-check `event_outcomes_staging.json`
+for entries with implausibly tiny deltas or uniformly large gains
+before clicking PROMOTE.
+
+## SweepyClaudev6.7.25
+
+UI bug-fix and feature pass. Six items: the Event Choices panel finally lets
+you actually pick a choice, the panel gets a one-click bulk Reset to Auto,
+the parent grid stops "swallowing" parents when you hover after a Refresh,
+hovering a deck now shows a per-card breakdown with real bonuses and a
+deck-quality score against the selected trainee, the rest → recreation
+chain that ate three turns in a row is guarded, and clicking an already-
+focused turn in the Action Log unlocks it so the Decision Reasoning panel
+resumes tail-following.
+
+### Event Choices — clicking a Choice actually sticks now
+
+The dropdowns in **Event Choices** were unresponsive to user picks. The
+change handler was disabling the `<select>` and then awaiting a full re-
+render of the entire list, which destroyed the very element the user was
+still interacting with — dropping the click on the floor. The handler now
+updates the row's local state (`has-override` class flip) and POSTs the
+override without tearing down the DOM. Optimistic update on success, roll
+back the class on failure, no more interrupted clicks.
+
+### Event Choices — Reset All to Auto
+
+A new **RESET ALL TO AUTO** button sits next to **REFRESH EVENTS** at the
+top of the Event Choices modal. One click wipes every saved override so
+every event falls back to Auto (the bot's own scoring) without having to
+walk down the list and reset each one by hand. Backed by a new endpoint
+`POST /api/events/overrides/clear` that empties `event_overrides.json`.
+
+### Guest Parents — hover no longer hides the parents
+
+After Refresh (which "searches" guest/rental/follow/friend/succession
+sources), hovering any parent card made the surrounding parents appear to
+disappear. Root cause: the sparks tooltip is a fixed-position panel that
+defaults to ~620px wide and up to full viewport height. The positioning
+helper clamped its top to `8px` when the card was near the top of the
+viewport, but that meant the tooltip landed *on top of* the hovered card
+plus the next three to four cards in the row. Two fixes:
+
+- `positionSparkTooltip()` now flips below the card when the above
+  placement would clip, instead of clamping the tooltip on top of the
+  card it's describing.
+- Inside `#guest-parent-grid` the tooltip is capped to ~420px wide and
+  ~440px tall so it can no longer span four 145px columns. The owned-
+  parent tooltip on the larger Parents grid is unchanged.
+
+### Deck hover info + deck-quality score
+
+Hovering a deck container (own or any saved deck slot) now opens a
+breakdown panel:
+
+- Per card: name, type chip (speed / stamina / power / guts / wit /
+  friend), rarity badge, LB level, resolved character level, and the
+  top bonuses at that level. Numbers come from
+  `support_effects_resolved_core.json` so they match what the card
+  actually grants (Friendship, Training Effectiveness, Motivation, Race
+  Bonus, Skill Points, stat bonuses, etc.).
+- A deck-quality score on a 0–10 scale and a one-line verdict ("Strong
+  fit for X — speed-heavy, good LB", "Workable but mismatched: trainee
+  grows stamina, deck leans speed", and so on). Scoring weights
+  type-match against the trainee's `growth` profile from
+  `trainee_profiles_core.json`, with secondary contributions from total
+  bonus strength, LB density, rarity, and type variety.
+- A footer with the breakdown: total LB, type-match %, bonus strength %,
+  LB density %.
+
+Backed by a new endpoint `GET /api/supports/details?ids=…&lbs=…&trainee_card_id=…`.
+If `support_effects_resolved_core.json` is missing (no master data sync
+yet), the panel says so politely instead of erroring out.
+
+### Solver — break the rest → recreation chain
+
+The screenshot showed a Mant career (Oguri Cap, scenario 4) picking rest
+at turn 35 (HP 0/108, MOOD 4), then recreation at turn 36 (HP 30/108,
+MOOD 4 → 5), then **recreation again at turn 37 with motivation already
+at Great (5)** — a wasted turn. The career log confirmed both turn 36
+and turn 37 sent `command_type=3` (recreation). The actual culprit is
+the **summer-camp recreation branch** in `_best_command`:
+
+```python
+if turn in SUMMER_CAMP_TURNS and recreation and (vital <= rest_threshold or failure >= 35 or best_score < 0):
+    return recreation
+```
+
+It fires on energy / failure / score alone and never looks at mood, so
+once vital is low during summer camp the bot will recreate every turn
+until vital recovers — even after motivation has already hit Great,
+where the action gives essentially nothing. Fixes:
+
+- The summer-camp branch now skips recreation when motivation is at
+  Great (5), or when motivation already reached Great after a previous-
+  turn recreation. Turn 37 in the screenshot now falls through to the
+  rest gate (vital 30 ≤ rest_threshold 48) and returns rest, which is
+  what should have happened.
+- `_should_recreate()` separately tightens the motivation-driven trigger
+  (vital ceiling from `< 90` to `< 60`) and adds a previous-recovery-turn
+  guard against recreation-after-recreation on the PAL-thresholds path.
+  These cover the non-summer-camp loop variants where the trigger is
+  mood + weak rainbows rather than the summer-camp special.
+- `_best_command` records the turn number and kind whenever it returns
+  rest or recreation via a small `_record_recovery` helper, so the next
+  turn can see "we just recovered" and act on it.
+
+If you re-run with v6.7.25 and still see a recovery chain, the most
+likely remaining path is the trackblazer race-streak safety at
+`mant.py:1255` (only fires after many consecutive races) — send the log
+and I'll guard that path too.
+
+### Action Log — second click unlocks the focus
+
+Clicking a turn in the **Action Log** (or a card in **Decision Reasoning**)
+focuses that turn — Decision Reasoning scrolls to it and stops following
+the live run. Clicking the same row a second time now unlocks the
+selection: `state.reasonSelectionLocked` is cleared, the highlight is
+removed, and the panel re-pins to the bottom so it resumes tail-following
+as new turns arrive. No need to scroll back to the bottom by hand.
+
+## SweepyClaudev6.7.24
+
+Groundwork for race win-probability analysis. This release adds data and an
+offline analysis tool ONLY — it changes nothing about how the bot plays. The
+goal is to find out, on real career logs, whether "field strength vs your
+stats" actually separates wins from losses before any of it touches the solver.
+
+### New competitor-stat export (Phase 0)
+
+The master-data export now includes `single_mode_npc_core.json`, built from the
+`single_mode_npc` table in master.mdb. `rival_races_core.json` already told the
+bot which rival appears in which race, but only their identity — this new file
+adds their actual stat block (speed/stamina/power/guts/wit) and aptitudes
+(distance/style/ground, as letter grades), keyed by NPC id. It is generated the
+next time you run a master-data sync. Nothing reads it during a run yet.
+
+### New offline analyzer (Phase 1)
+
+`tools/race_winnability_report.py` reads a finished-career log and reports
+whether simple strength signals predict your results. It runs two checks:
+
+- Analysis A (log only): does your stat strength at each race separate wins
+  from losses, overall and per grade? Reported as an AUC (0.50 = no signal,
+  0.70+ = useful).
+- Analysis B (needs the new export): for races where a named rival appeared,
+  does the gap between your stats and the rival's actual stats predict the
+  result?
+
+Run it with `python tools/race_winnability_report.py <career_log.json>`. On an
+example log, Analysis A returned an AUC around 0.70 — meaningful, but partly
+driven by stats naturally rising over a career, with the high-stat losses
+explained by 0-energy racing and long-distance stamina rather than raw
+strength. That is exactly the kind of finding this tool exists to surface.
+
+### Next
+
+If the analysis holds up on more logs, Phase 2 would wire a win-probability
+estimate into the solver as an optional, gated race-preference nudge (prefer
+winnable races, skip unwinnable ones), defaulting off and validated before
+becoming a default — same posture as the LPA and event-driven toggles.
+
+## SweepyClaudev6.7.23
+
+UI and documentation pass: a full per-race history in Career History, a much
+clearer Event Choices panel, an overhauled Help section (now covering the
+Local LLM advisor), and the decision-reasoning panel follows the live run
+again.
+
+### Career History — per-race breakdown
+
+VIEW DETAILS on any completed career now includes a **Race History** section
+listing every race that career ran, styled like the in-game Career Info
+screen: grade badge (G1/G2/G3/EX/Debut), race name, venue, surface and
+distance, the in-game date, your finishing place, and fans earned. It also
+adds information the game does not surface in one place — the **stats and
+energy you had at the moment of each race**, the race type (mandatory vs
+solver-planned), and whether a clock was used. A summary line flags how many
+races were run at 0 energy, making over-racing easy to spot at a glance.
+
+### Event Choices — shows what each choice does
+
+The panel previously listed events with bare "Choice 1/2/…" dropdowns. It now
+shows **the effect of each choice** (e.g. "speed +6, stamina +6", "skill hints
+1"), pulled from the outcome database and colour-coded for gains vs losses,
+both inline under each event and inside the dropdown itself. The auto line is
+clearer about what the bot would pick and why, and "Auto" vs a forced choice
+is explained. Events with no recorded data are labelled plainly. (Backend:
+`/api/events` now returns per-choice `outcomes`.)
+
+### Help section overhaul
+
+Every area got more practical detail, and a new **Event choices** topic was
+added. The big addition is the **AI Learning** rewrite, which now documents:
+
+- Outcome risk, Shadow Mode, and Live Policy Assistance (and the shadow-
+  precision gate that keeps learned hints off until they are reliable).
+- The **Local LLM advisor** end to end — how to set it up with LM Studio or
+  Ollama (provider, base URL, model), what each mode does (Off / Offline
+  Analysis / Shadow Advisor / Recommend Only), the fact that it is
+  advisory-only and cannot control the runner, how it could ever influence
+  decisions (only via the precision-gated policy path, never directly), and a
+  clear recommendation to use Offline Analysis for post-run insight.
+
+The Smart Race Solver topic now explains event-driven re-planning (v6.7.22)
+and the energy/streak interaction, and the History topic documents the new
+per-race detail.
+
+### Decision Reasoning — tail-follow restored
+
+The Decision Reasoning panel follows the live run again: while scrolled to the
+bottom it stays pinned as new turns arrive; scrolling up pauses it; scrolling
+back to the bottom resumes following. Focusing a specific turn still works.
+
+## SweepyClaudev6.7.22
+
+The big one: aligns the re-planning model with the Android bot and fixes the
+"raced 12 in a row with Max Streak 5" bug. Two changes that share one root
+cause — the old every-turn, forward-only re-solve.
+
+### Background (from a real v6.7.20 career log)
+
+A career raced 12 times in a row (turns 48–59) with Max Streak set to 5, and
+the last eight of those were at **0 energy**, which lost the big races
+(including a 15,000-fan Tenno Sho Spring at 9th). Root cause: the solver was
+re-solved after every race, forward-only, and each re-solve reset its streak
+counter to 0 — so races already run just before the re-solve weren't counted
+and consecutive races piled up far past the limit. The Android bot doesn't do
+this: it solves once and only re-plans on real events.
+
+### What's new
+
+**1. Re-Plan Only on Race Events (Android-style) — new toggle, defaults ON.**
+The schedule is now solved once and reused. Winning a race keeps the plan;
+only a **loss** (unless you've also disabled loss re-planning) or a **planned
+race that became unavailable** triggers a re-solve. This removes the per-turn
+churn that piled up race streaks and, in earlier versions, dropped winnable
+high-fan races. Turn it OFF to restore the old every-turn behavior.
+
+**2. Carry-in streak seeding (always on).** Whenever the solver does run, it
+now counts the races on the turns immediately before it and keeps the
+consecutive-race limit correct across the re-solve boundary — both in the
+exact MILP backend (a boundary constraint) and the beam backend (a seeded
+streak). So Max Streak is now respected even across a re-solve, not just
+within one solve's window. Verified end-to-end against the live solver.
+
+**3. Re-solve diagnostics now actually appear in the career log.** v6.7.20's
+`replan_log` was written to the wrong place and never surfaced; it's now part
+of the saved log, so each re-solve's backend, fallback, race count, current
+stamina, and any dropped high-value races are visible.
+
+### Recommended companion setting
+
+Independently of these fixes: "Ignore Low Energy Racing Block" + energy
+threshold 0 makes the bot race at 0 energy, which loses races. The Android bot
+wins more *because* it manages energy. Turning that block off and setting a
+real energy threshold (~30) is strongly recommended for win rate.
+
+### Notes
+
+Defaulting event-only re-planning to ON changes behavior for everyone on
+upgrade — this is intentional, since the every-turn re-solve was the source of
+the streak blowout, the high-value-race drops (v6.7.17), and run-to-run plan
+churn. The v6.7.20 beam-fallback guard and v6.7.21 loss toggle both still
+apply and compose with this.
+
+## SweepyClaudev6.7.21
+
+Adds a **Disable Schedule Re-Plan Upon Race Loss** option to the Smart Race
+Solver page, mirroring the feature the Android bot (steve1316) shipped in
+its 5.7.x line.
+
+### What's new
+
+A new "Re-Planning" card on the Smart Race Solver page with a single toggle,
+**Disable Schedule Re-Plan Upon Race Loss** (defaults to **off**). By default,
+losing a race re-plans the remaining turns — the lost race may be re-routed
+to a later turn and epithet branches re-evaluated. When the toggle is on, the
+original schedule is kept after a loss instead.
+
+The loss itself is still recorded either way; only the *re-planning* is
+suppressed. Epithets that depended on the lost race won't be re-routed when
+the toggle is on (matching the Android bot's wording exactly).
+
+### How it works
+
+Two re-solve paths honor the setting when it is on:
+
+  * The **race-result re-solve** that runs after each race is skipped on any
+    non-1st finish (a 1st-place finish still re-solves normally).
+  * The routine **every-turn re-solve** reuses the plan already held once the
+    run has recorded any loss, so the schedule stays locked in for the
+    remaining turns.
+
+The **missing-race re-solve** (a planned race that genuinely became
+unavailable that turn) is never gated — the route must still adapt around a
+race it can no longer run. With the toggle off, all behavior is exactly as
+before.
+
+### Notes
+
+The setting reads with the same precedence as the other solver knobs
+(`mant_config` override, then the Smart Race Solver panel value) and is
+saved into `trackblazer_solver_settings`, so it travels with the preset and
+shows up in the settings banner. This pairs naturally with v6.7.20's
+beam-fallback guard: together they keep a good plan stable rather than
+churning it after a loss.
+
+## SweepyClaudev6.7.20
+
+Diagnoses and guards against the run-to-run race-count / fan swings (some
+careers hit 40 races and 700K+ fans, others stall at 32 races and ~360K).
+
+### Background
+
+Tracing real career logs showed the entire fan gap comes from the big
+repeated G1s — Japan Cup and Arima Kinen (30,000 fans each), plus Tenno
+Sho. Good runs race and win all of them; weak runs skip almost all. It is
+not HP and not stamina (the weak run often had *more* stamina at the
+skipped turns), and the initial solver plan is stable at 42 races. The
+difference is the runtime re-solve: in some runs it leaves a high-value
+turn unscheduled and the training scorer fills the gap.
+
+The solver tries an exact MILP first and falls back to a heuristic beam
+search on any MILP failure (including a solve-time-limit timeout). The
+exact solver always keeps the highest-scored races; the beam can drop
+them. Running the exact solver many times per career on a slower machine
+can intermittently time out into the beam — which fits the observed
+inconsistency.
+
+### What's new
+
+  * **Re-solve diagnostics.** Every turn-by-turn re-solve now records which
+    backend ran, whether it fell back from the exact solver to the beam
+    (and why), the resulting race count, current stamina, and any
+    high-value races (15,000+ fans) it dropped relative to the plan
+    already held. These accumulate in a new `replan_log` saved in the
+    career log, so the cause of any future skipped race is visible at a
+    glance instead of inferred.
+
+  * **Beam-fallback guard.** A degraded beam re-solve is no longer allowed
+    to overwrite a good exact plan. When the exact backend fails on a given
+    turn but the plan already held was exact, the prior exact plan's
+    upcoming races are kept rather than churning to the beam result. This
+    directly prevents the beam from silently dropping a winnable Japan Cup
+    or Arima. The guard is skipped only when a planned race genuinely
+    vanished that turn (so a fresh plan is required) and when there is no
+    prior exact plan to fall back on (the first solve still uses the beam
+    if that is all that is available).
+
+### Notes
+
+If a future career still skips a big race, the `replan_log` will now show
+exactly why (which backend, what was dropped, at what stamina), turning
+the remaining diagnosis into a single look rather than guesswork. The
+immediate workaround of locking the key G1s via Manual selection still
+applies and guarantees they run regardless of the re-solve.
+
+## SweepyClaudev6.7.19
+
+Adds an in-app Help & Documentation page so the bot is approachable to
+new users without external notes.
+
+### What's new
+
+A HELP button now sits in the top action row, between SETUP
+and ACCOUNTS, styled to match the existing buttons (it carries a blend
+of the pink and cyan accents that flank it). Clicking it opens a
+full documentation modal built in the same neon panel language as the
+SETUP and ACCOUNTS modals.
+
+The modal is a proper docs page, not a wall of text:
+
+  * **Sidebar navigation** grouped into Getting Started, Core Features,
+    Intelligence, and Strategy, with the current section highlighted as
+    you scroll (scroll-spy).
+  * **Search box** that filters sections live as you type, with an
+    empty-state message when nothing matches.
+  * **Readable content column** with section eyebrows, callouts (tips,
+    warnings, key points), comparison tables, and numbered how-to
+    steps.
+
+### Topics covered
+
+Overview and how a career run flows; a five-step quick start; Setup and
+the support deck; Accounts and login (including userdata persistence);
+the Smart Race Solver (data source, how it chooses, Max Streak and the
+other settings, the race-vs-stat tradeoff, **Smart vs. Manual
+selection**); Training (priority, blacklist, targets, event/summer
+priorities, failure tolerance); Character profiles and scorer modes;
+**Run controls & toggles** (Start/Stop/Pause, turn delay and Tempt Fate,
+Burn Clocks, Loop, Rescue, Discord notifications, Scenario Overrides and
+Event Choices); AI Learning (outcome risk, LPA, shadow precision, when
+to reset); Items and skills; Career history and the Decision Reasoning
+panel; Diagnostics; Strategy and tips (parent sparks, the race-vs-stat
+tradeoff, realistic race targets); and a Troubleshooting / FAQ.
+
+### Implementation notes
+
+  * The Help module is self-contained and renders its content on first
+    open; it does its own element lookups and uses the same idempotent
+    bound-guard event wiring as the other modals.
+  * Close via the DONE button, clicking the backdrop, or the Escape key.
+  * Fully responsive: on narrow screens the sidebar stacks above the
+    content. Reduced-motion preferences are respected.
+  * A standalone preview of the modal (assembled from the exact shipped
+    CSS, JS, and markup) is available for review outside the app.
+
+### Files touched
+
+  * ``public/index.html``: HELP button between SETUP and ACCOUNTS; the
+    Help modal shell; cache-busters bumped (``app.js?v=545``,
+    ``styles.css?v=537``).
+  * ``public/styles.css``: the full Help modal stylesheet (launch
+    button, overlay/panel/topbar, sidebar nav, content, callouts,
+    tables, keyword chips, step lists, responsive + reduced-motion).
+  * ``public/app.js``: the self-contained Help documentation module
+    (content, render, search, scroll-spy, open/close wiring).
+  * ``tests/test_v6719_fixes.py`` (new, 17 tests): button placement
+    between setup and accounts, modal markup and render targets, JS
+    module wiring and section coverage, CSS classes, active-state,
+    responsive/reduced-motion, and a guard against dev-time typos.
+
+Curated regression set: 339/339 tests pass (17 new + 322 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.19``.
+
+## SweepyClaudev6.7.18
+
+Fixes Steam headless-bypass auth not surviving version upgrades -- you
+had to re-authenticate (manual Steam launch) after every update, even
+though SweepyClaude_userdata was supposed to persist it.
+
+### The bug (two halves)
+
+v6.7.6 added external-userdata persistence so settings survive upgrades.
+For Steam auth it persisted ``steam_token.txt`` to userdata -- but that
+is NOT the file the auth check actually reads:
+
+  1. ``check_saved_auth()`` reads ``auth_config.json`` (which holds
+     steam_id, session ticket, and obfuscated credentials), and it read
+     it ONLY from ``RUNTIME_DIR`` -- the build folder, which is wiped on
+     every version upgrade.
+  2. ``auth_config.json`` was never written to userdata. Only
+     ``steam_token.txt`` was, and nothing reads that on startup.
+
+So after upgrading to a new build folder: the folder is empty ->
+``check_saved_auth()`` finds no ``auth_config.json`` -> headless bypass
+fails -> falls back to a manual Steam launch. The userdata copy couldn't
+help because the file the check needs was never saved there.
+
+### The fix
+
+  * The full ``auth_config.json`` is now written to BOTH the runtime
+    build folder and userdata (new ``_save_auth_config_both`` helper),
+    at every point auth is saved -- initial login and ticket refresh.
+  * ``check_saved_auth()`` now reads userdata FIRST
+    (``SweepyClaude_userdata/auth/<profile>/auth_config.json``), falls
+    back to ``RUNTIME_DIR``, and when it falls back it MIGRATES the
+    runtime copy into userdata so the next upgrade is covered.
+
+After this fix, your Steam auth persists across upgrades: authenticate
+once and the headless bypass keeps working on every future version.
+
+### For your current situation
+
+Because the file was never in userdata before, the very first launch on
+v6.7.18 will still need a normal authentication (there's nothing in
+userdata to migrate yet). After that one time, it's saved to userdata
+and every subsequent upgrade will reuse it. If your current build folder
+still has a working ``auth_config.json``, launching v6.7.18 will migrate
+it into userdata automatically -- so you may not need to re-auth at all.
+
+### Note on credential safety
+
+This change only moves the SAME already-obfuscated ``auth_config.json``
+that was already being written to the build folder. It does not change
+what is stored or how it's protected; it just also stores it in the
+userdata location so it isn't lost on upgrade. SweepyClaude continues to
+never store credentials in plain text.
+
+### Files touched
+
+  * ``main.py``:
+    - new ``_user_auth_config_path`` and ``_save_auth_config_both``
+      helpers
+    - initial-login save now writes auth_config to both locations
+    - ``check_saved_auth`` reads userdata-first, falls back to runtime,
+      and migrates runtime -> userdata
+    - ticket-refresh re-save writes to both locations
+  * ``tests/test_v6718_fixes.py`` (new, 6 tests): save-to-both,
+    upgrade-reads-from-userdata (the reported bug), userdata-preferred,
+    runtime-fallback-with-migration, none-anywhere, per-profile
+    isolation. (Mirrors main.py path logic since main.py can't be
+    imported in the test sandbox.)
+
+Curated regression set: 322/322 tests pass (6 new + 316 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.18``.
+
+## SweepyClaudev6.7.17
+
+Fixes a confusing display mismatch: the Decision Reasoning panel showed
+a different stat priority order than the Training Settings panel.
+
+### The discrepancy
+
+A user reordered their training priorities in the Training Settings
+panel (moving Stamina above Wit), but the Decision Reasoning log kept
+showing the old order ("speed > power > wit > stamina > guts"). It
+looked like the change hadn't taken effect.
+
+### What was actually happening
+
+There are TWO separate stat-priority lists, read by two different
+pieces of code:
+
+  * ``preset.training_stat_priority`` -- set by the Training Settings
+    panel. The actual training STRATEGY reads this (``mant.py``
+    ``_priority_indices``) to make decisions.
+  * ``profile.training_scorer_overrides.stat_priority`` -- the
+    character profile's separate scorer priority. The Decision
+    Reasoning DISPLAY was reading this.
+
+So the bot WAS training with the user's new panel order (Stamina #3) --
+that part worked correctly. But the reasoning text displayed the
+character profile's order (Wit #3), which the user hadn't changed. The
+behavior was right; only the displayed explanation was wrong.
+
+**Answer to "which one is active": the Training Settings panel.** That
+is what the bot uses for training decisions in hint and disabled scorer
+modes (which is the default). The profile's separate priority only
+drives decisions in authoritative scorer mode.
+
+### The fix
+
+The Decision Reasoning panel now displays the priority that ACTUALLY
+drove each decision:
+
+  * **hint / disabled mode** (strategy decides) -> shows
+    ``preset.training_stat_priority`` (the Training Settings panel)
+  * **authoritative mode** (scorer overrides the strategy) -> shows the
+    profile's ``stat_priority``
+
+The preset priority is captured into run status at career start so the
+reasoning can reach it. Older logs without it fall back to the profile
+priority so the line still renders.
+
+After this fix, the priority shown in Decision Reasoning will match
+what you set in Training Settings (in the default hint mode), so there's
+no more apparent contradiction.
+
+### Note on the "target" numbers
+
+The reasoning also shows a target value (e.g. "253/1150 target"). That
+number comes from the character profile's ``stat_targets`` and may
+differ from the per-distance default the strategy actually trains
+toward (v6.7.15 derives the training-target distance from the scheduled
+races). That display is not changed in this release; if it causes
+confusion, it can be aligned in a follow-up. The priority-order
+mismatch -- the one flagged -- is fixed here.
+
+### Files touched
+
+  * ``career_bot/runner.py``:
+    - ``_run`` captures ``preset.training_stat_priority`` into status at
+      career start
+    - ``_decision_reasoning`` selects the priority to display based on
+      scorer mode (preset priority in hint/disabled, profile priority
+      in authoritative)
+  * ``tests/test_v6717_fixes.py`` (new, 5 tests):
+    - hint mode shows preset priority, authoritative shows profile
+      priority, disabled shows preset, fallback to profile when preset
+      priority absent, preset priority used with no profile
+
+Curated regression set: 316/316 tests pass (5 new + 311 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.17``.
+
+## SweepyClaudev6.7.16
+
+**This is the real root cause of the persistent low race count.** Every
+fix since v6.7.11 was correct but incomplete -- they patched the
+initial race plan while a second code path silently undid the most
+important setting after the first race of every career.
+
+### The bug that was hiding behind all the others
+
+v6.7.11 found that the Smart Race Solver Settings UI panel writes to
+``preset.trackblazer_solver_settings`` while the runner read from
+``preset.mant_config`` -- so Max Streak was stuck at 2. v6.7.11 fixed
+that in ``runner.py`` (the INITIAL plan), which is why the manual
+"Solve Smart" preview correctly showed ~37-42 races.
+
+But there are TWO solver call sites, and v6.7.11 only fixed one:
+
+  * ``runner.py`` -- builds the INITIAL race plan at career start.
+    Fixed in v6.7.11. Reads Max Streak 5 -> plans 37 races.
+  * ``races.py`` -- ``_replan_smart_schedule``, the RUNTIME RE-SOLVE
+    that fires after EVERY race to update the remaining schedule.
+    **Never fixed.** Still read ``cfg.get("max_races_in_row") or 2``
+    from the (empty) mant_config -> defaulted Max Streak back to 2.
+
+So every career played out like this:
+
+  1. Career starts: initial plan built at Max Streak 5 -> 37 races
+  2. Bot runs the first race
+  3. Re-solve fires -> reads Max Streak 2 (the bug) -> remaining plan
+     shrinks to ~2-streak behavior
+  4. Every subsequent race re-solves and keeps the streak capped at 2
+  5. Career finishes at ~28 races regardless of the UI setting
+
+This is exactly why the user reported "it hasn't changed much" across
+v6.7.11-v6.7.15 -- the initial plan looked right (and the manual
+preview showed 42), but the moment racing started, the re-solve quietly
+reverted Max Streak to 2. Diagnosed by running the solver directly:
+Max Streak 5 yields 37 races, Max Streak 2 yields 32, and the user's
+careers landed at ~28 -- consistent with the re-solve running at
+streak 2 the whole time.
+
+The same line also mis-read ``include_op`` (-> False) and
+``min_aptitude_floor`` (-> 6/B instead of the user's C/5), so the
+re-solve was also slightly stricter on race eligibility than intended.
+
+### The fix
+
+``RacePlanner`` gains the same ``_solver_setting`` and
+``_solver_aptitude_floor`` precedence helpers the runner got in
+v6.7.11 (mant_config -> trackblazer_solver_settings -> default), and
+the re-solve's three settings now use them:
+
+```python
+max_races_in_row=int(self._solver_setting(preset, "max_races_in_row", 2)),
+include_op=bool(self._solver_setting(preset, "include_op", False)),
+floor=self._solver_aptitude_floor(preset, 6),
+```
+
+Now the initial plan and the re-solve resolve solver settings
+IDENTICALLY, so the plan no longer shrinks after the first race. With
+Max Streak 5, the bot should now actually run ~37 races instead of
+collapsing to ~28.
+
+### Reaching the Android benchmark of 41 races
+
+With the re-solve fixed, the solver math (verified directly against the
+race calendar for this trainee's aptitudes) is:
+
+  * Max Streak 5 -> 37 races
+  * Max Streak 8 -> 41 races (matches the Android bot)
+  * Max Streak 5 + Include OP races -> 40 races
+  * Max Streak 10 + Include OP -> 44 races
+
+**Recommendation: set Max Streak to 8** in Smart Race Solver Settings
+to match the Android bot's 41 races. (The Android bot effectively
+races in longer streaks than the old default-2 cap allowed.) Now that
+the re-solve honors the setting, this will actually take effect for the
+whole career instead of only the first race.
+
+### On the fan gap (354k vs 800k)
+
+The fan difference is partly the race count (28 vs 41) and partly race
+GRADE. This trainee has 34 Mile/Medium G1 races available (Japan Cup
+alone is 30,000 fans, recurring in Classic and Senior years), but the
+careers were running only ~5 G1s. With more races scheduled (streak 8)
+and the re-solve no longer pruning the plan, more of the high-fan G1s
+will be picked up. The solver already prioritizes by fan/epithet value;
+it simply wasn't getting to schedule enough races. Fan total should
+rise substantially once race count climbs toward 41.
+
+### Files touched
+
+  * ``career_bot/races.py``:
+    - New ``_solver_setting`` and ``_solver_aptitude_floor`` helpers on
+      ``RacePlanner`` (+ ``_APTITUDE_LETTER_TO_INT``)
+    - ``_replan_smart_schedule`` re-solve now uses them for
+      max_races_in_row, include_op, and min_aptitude_floor
+  * ``tests/test_v6716_fixes.py`` (new, 10 tests):
+    - 8 re-solve setting tests (UI honored, default only when unset,
+      mant override wins, include_op, aptitude-floor letter, garbage
+      fallback, zero/false valid, None-preset safe)
+    - 2 parity tests confirming the re-solve and the runner now resolve
+      settings identically
+
+Curated regression set: 311/311 tests pass (10 new + 301 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.16``.
+
+## SweepyClaudev6.7.15
+
+Corrects an over-correction in v6.7.14. The training-target distance is
+now derived from the races the solver ACTUALLY SCHEDULES, not from the
+trainee's aptitude. This was a good catch: v6.7.14's aptitude tie-break
+was building stamina for a distance the trainee never raced.
+
+### The problem with v6.7.14's aptitude tie-break
+
+v6.7.14 resolved a tied-aptitude trainee's training target by picking
+the longest distance it had aptitude for. But aptitude is NOT the same
+as what the solver schedules. Concretely, for the user's Oguri Cap:
+
+  * Aptitudes (post-parent-spark): Mile A, Medium A, **Long A** (tied)
+  * What the solver actually scheduled: **14 Mile + 12 Medium, ZERO
+    Long** (longest race 2400m = top of Medium)
+
+v6.7.14's tie-break picked **Long** (stamina target ~1000) because Long
+aptitude was A. But the trainee never ran a Long race. Building toward
+1000 stamina wastes training turns on stamina it doesn't need, starving
+Speed/Power -- the opposite of helpful.
+
+### The fix: follow the schedule, not the aptitude
+
+New ``_scheduled_distance_target(preset)`` reads the solver's scheduled
+race list (``preset.extra_race_list``), buckets each race by distance
+via the race planner's ``_distance_bucket``, and picks the **longest
+distance bucket with meaningful representation** -- at least 20% of
+scheduled races, or at least 3 races.
+
+  * 14 Mile + 12 Medium -> **Medium** (stamina ~800, enough for the
+    2400m races), NOT Long
+  * 8 Medium + 6 Long -> **Long** (the Long block is substantial)
+  * 20 Mile + 1 Long -> **Mile** (one outlier Long doesn't drag the
+    build)
+
+The Medium target (800) is the right answer for the user's trainee:
+high enough to win the 2400m races it was losing (it finished at 441),
+but not so high it wastes turns on stamina for Long races that don't
+exist.
+
+### Resolution priority for the training-target distance
+
+  1. Explicit ``preferred_distance`` in mant_config (user override)
+  2. **Scheduled race list** (v6.7.15) -- the authoritative signal
+  3. Aptitude tie-break (v6.7.14) -- fallback when no schedule exists
+     (manual mode, or before the first solve)
+
+Explicit ``stat_targets_by_distance`` entries still win over the
+defaults for whichever distance is resolved.
+
+### Why aptitude is only a fallback now
+
+Aptitude tells you what a trainee CAN race well, not what it WILL race.
+The solver picks races for fan value, epithet progress, and race
+density -- which often means a Mile/Medium schedule even for a trainee
+with high Long aptitude. The schedule is the ground truth for "what
+stats does this trainee actually need", so it takes precedence. The
+aptitude tie-break is retained only for the brief window before the
+first solve, or for manual race-selection mode where no solver schedule
+exists.
+
+### Files touched
+
+  * ``career_bot/scenarios/mant.py``:
+    - New ``_scheduled_distance_target`` helper
+    - ``_training_targets`` "auto" branch now tries the schedule first,
+      falling back to the aptitude tie-break only when no schedule is
+      available
+  * ``tests/test_v6715_fixes.py`` (new, 10 tests):
+    - 7 ``_scheduled_distance_target`` tests (Mile/Medium -> middle, no
+      schedule -> None, no planner -> None, substantial long block ->
+      long, single outlier doesn't drag, 3-race floor, sprint alias)
+    - 3 end-to-end ``_training_targets`` tests (schedule overrides
+      aptitude, no-schedule falls back to aptitude, explicit target
+      still wins)
+
+Curated regression set: 301/301 tests pass (10 new + 291 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.15``.
+
+## SweepyClaudev6.7.14
+
+Three stat-build and finale-handling fixes found by analyzing a
+completed v6.7.12 career. The career finished cleanly (the v6.7.12
+crash fix held), but the trainee finished with only 441 Stamina and
+lost the longest races (Japanese Oaks 2400m rank 2, finale rank 9).
+Root cause: a distance tie-break quirk was giving all-rounder trainees
+a Mile-tier stamina target even though they race Medium/Long.
+
+### 1. Distance aptitude tie-break now favors the LONGER distance
+
+**The bug.** When a trainee's distance aptitudes tie -- e.g. Oguri Cap
+with Mile = Middle = Long all at aptitude 7 -- the code picked the
+"preferred" distance with Python's ``max()``, which returns the FIRST
+key on a tie. The aptitude dict was ordered short -> mile -> middle ->
+long, so a tie resolved to **mile**, giving a Mile-tier stamina target
+(~600). But the Trackblazer senior calendar is full of Medium
+(1800-2400m) and the trainee also runs 2400m races, which need
+800-1000 stamina. The trainee was trained to the wrong target and
+under-built stamina for the races it actually ran.
+
+**The fix.** Ties now resolve to the LONGER distance (order long ->
+middle -> mile -> short). A tied Mile/Middle/Long trainee now gets the
+Long stamina target (~1000) instead of Mile (~600). Erring toward the
+longer distance is the safe direction: extra stamina never loses a
+shorter race, but missing stamina loses a longer one. Trainees with a
+clear single best distance are unaffected -- the tie-break only
+changes behavior on actual ties. Users who set ``preferred_distance``
+explicitly override the tie-break entirely.
+
+### 2. No-targets fallback uses aptitude defaults instead of the 9999 sentinel
+
+**The bug.** When a trainee had NO explicit ``stat_targets_by_distance``
+AND ``preferred_distance`` was unset/auto, the code returned the
+``[9999, 9999, ...]`` sentinel immediately -- which means "no stamina
+target, train everything equally" and builds Speed-heavy, starving
+Stamina. This was an even earlier exit than the v6.7.12 fix addressed.
+
+**The fix.** The early-return now only fires when ``expect_attribute``
+carries real (non-9999) values. Otherwise the code falls through to
+the aptitude-based per-distance defaults, so every trainee gets a
+sensible stamina target for the distance it will race. The
+``disable_stat_targets`` escape hatch is unaffected.
+
+### 3. Finale race continue (205) recognized and handled cleanly
+
+**The issue.** Your PowerShell log showed a burst of 205 and 208
+errors on ``single_mode_free/continue`` at the end of the run. The
+v6.7.12 mandatory-clock-rescue correctly TRIED to use a clock to
+rescue the rank-9 finale loss, but the Trackblazer finale races
+(Twinkle Star Climax) don't support the standard clock-continue
+mechanism -- the server rejects the continue with 205. The bot
+retried the doomed call a few times before giving up.
+
+**The fix.** A 205 result on the continue call is now recognized as
+"this race does not support clock retries" and stops the retry loop
+immediately, logging ``race_continue_unavailable`` instead of burning
+the retry budget on calls the server will always reject. The career
+still finishes gracefully (the v6.7.12 graceful-finale handling
+already ensured no crash); this just makes the bot stop wasting
+attempts and keeps the log clean. (208 SERVER BUSY remains transient
+and is retried by the client internally.)
+
+### What this means for your careers
+
+The stamina fixes are automatic -- no setting change needed. An
+all-rounder like your Oguri Cap will now train toward a Long-distance
+stamina target (~1000) instead of the Mile target (~600), so it
+should reach the longer races (Japanese Oaks 2400m, the finale) with
+enough stamina to actually compete. Combined with v6.7.11's Max
+Streak fix and v6.7.12's mandatory clock rescue, this should improve
+both race wins and completed-race count.
+
+### Files touched
+
+  * ``career_bot/scenarios/mant.py``:
+    - ``_training_targets`` aptitude tie-break reordered to favor
+      longer distances
+    - No-targets early-return now only fires for real
+      ``expect_attribute`` values, else falls through to defaults
+  * ``career_bot/runner.py``:
+    - Race-continue retry loop recognizes 205 and stops cleanly with
+      a ``race_continue_unavailable`` log entry
+  * ``tests/test_v6713_stamina.py`` (new, 9 tests):
+    - 5 distance tie-break tests (tied -> long, tied mile/middle ->
+      middle, clear mile stays mile, clear long -> long, explicit
+      preferred overrides)
+    - 3 no-targets fallback tests (aptitude defaults used, real
+      expect_attribute honored, disable_stat_targets unaffected)
+    - 1 205-detection predicate test
+
+Curated regression set: 291/291 tests pass (9 new + 282 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.14``.
+
+## SweepyClaudev6.7.13
+
+Fixes the Character Profile panel showing "default" between runs. This
+is the same class of issue as v6.7.9 tried to address, but v6.7.9's fix
+was incomplete -- it surfaced the trainee's name but couldn't actually
+resolve a profile from a name.
+
+### The "shows default" bug (round 2)
+
+When you opened the Character Profile panel between runs, it showed
+"Default / Matched via default / auto-derived from aptitudes" even
+though your last career used the Oguri Cap profile (matched via
+card_id, hand-curated).
+
+**Why v6.7.9 didn't fully fix it.** v6.7.9 added a fallback that read
+the trainee's ``display_name`` from the persisted
+``active_character_profile`` status dict. But that dict carries
+``display_name`` WITHOUT a ``card_id``, and ``resolve_profile`` had
+no name-based match path -- it only matched by card_id, chara_id, or
+preset_name. So a name-only resolution fell straight through to
+"default". v6.7.9 set the name but the resolver ignored it.
+
+**The complete fix (v6.7.13):**
+
+  1. **``resolve_profile`` gains a ``display_name`` parameter** and a
+     name-based match path. Resolution order is now:
+       1. card_id
+       2. chara_id
+       3. preset_name
+       4. **display_name** (NEW)
+       5. auto-derive from aptitudes
+       6. default
+  2. **The profile index builds a ``by_name`` map** from each profile
+     JSON's ``display_name`` field, so name lookups are O(1) and cover
+     every shipped + user profile.
+  3. **``CharacterProfile`` gains ``matched_card_id``** -- the card_id
+     the profile resolved from. This is now persisted into the
+     ``active_character_profile`` status dict, so future resolutions
+     have a real card_id to use (the strongest match path) rather than
+     relying on name matching. Older logs without it still work via
+     the name path from fix #1.
+
+**Result.** The panel now correctly shows your last-used profile
+between runs: "Oguri Cap / Matched via name (or card_id) / hint mode /
+your stat priorities". When a fresh career starts and live chara_info
+loads, it flips back to card_id matching automatically.
+
+### Why this kept happening
+
+The dashboard panel resolves profile independently from the running
+bot. During a career the bot has live ``chara_info`` with the card_id,
+so it always matched correctly -- your Oguri tuning was ALWAYS applied
+at runtime (confirmed across every career log). The panel only
+mis-displayed between runs because it had a weaker resolution path.
+This was always a display-only bug; runtime behavior was never
+affected. But it was confusing, so it's now fixed properly.
+
+### Files touched
+
+  * ``career_bot/character_profiles.py``:
+    - ``resolve_profile`` gains ``display_name`` param + name-match path
+    - ``_load_index`` builds a ``by_name`` map from profile display_names
+    - ``CharacterProfile`` dataclass gains ``matched_card_id`` field
+    - ``to_dict`` includes ``matched_card_id``
+    - Hand-curated resolution sets ``matched_card_id`` from the
+      resolved card_id
+  * ``main.py``:
+    - ``api_character_profile_active`` passes ``display_name=selected_name``
+      into ``resolve_profile`` so the name path can fire
+  * ``tests/test_v6713_fixes.py`` (new, 11 tests):
+    - 5 name-resolution tests (resolve by name, case-insensitive,
+      unknown name falls to default, card_id wins over name, preset
+      wins over name)
+    - 3 matched_card_id tests (set on card_id resolution, in to_dict,
+      zero on name resolution)
+    - 3 index by_name tests (map exists, maps Oguri, other keys intact)
+
+Curated regression set: 282/282 tests pass (11 new + 271 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.13``.
+
+## SweepyClaudev6.7.12
+
+The v6.7.11 solver fix worked -- the bot now plans 42 races (up from 36).
+This release fixes the crash you hit and the underlying stat-build problem
+that was capping completed-race count and causing finale losses.
+
+### 1. Crash fix: mandatory race loss no longer kills the runner
+
+**The crash.** Your PowerShell log showed:
+
+  > RuntimeError: Mandatory race failed at turn 78, rank 6
+
+Turn 78 is the final race of the Trackblazer finale (Twinkle Star
+Climax). The trainee finished 6th, and because
+``complete_career_on_failure: false``, the bot raised a fatal
+exception that crashed the runner and abandoned the entire career --
+throwing away all the fans and stats earned across 78 turns.
+
+**The fix.** Mandatory race failures are now handled gracefully:
+
+  * **Finale races (turn >= 73)**: the career is already over, so the
+    bot logs the loss, records it in status, and completes the career
+    normally. The report is written with whatever was earned. No crash.
+  * **Non-finale mandatory races (turn < 73)** with
+    ``complete_career_on_failure: false``: the career stops cleanly via
+    a ``career_stopped_reason`` status flag instead of an exception.
+    The runner loop detects it, ends gracefully, and writes the report.
+    No stack trace.
+
+### 2. Mandatory races can spend paid clocks to avoid the loss
+
+**The deeper issue.** At turn 78 you had **5 paid clocks available**
+but ``burn_clocks: false``, so the retry loop never fired -- the bot
+took the rank-6 loss without trying to rescue it. A finale loss is
+catastrophic (ends the career), so spending a clock there is almost
+always worth it.
+
+**The fix.** ``_race_retry_policy`` gains an ``is_mandatory`` flag.
+Mandatory races (forced races) may now use paid clocks even when the
+Burn Clocks toggle is off for optional races. Mandatory races also
+bypass the grade filter (a forced race must be retried regardless of
+its grade). Opt out with ``disable_mandatory_race_clocks: true`` in
+mant_config if you genuinely never want paid clocks spent.
+
+This means: with your current ``burn_clocks: false`` setting, the bot
+will still try to rescue a mandatory race loss using available clocks,
+but won't burn clocks on optional races. Best of both worlds.
+
+### 3. Stamina-target fix: the actual cause of finale losses AND low race count
+
+**The root cause.** Your trainee finished with **Stamina 425** -- but
+its race schedule was heavily Medium distance: Japanese Oaks (2400m),
+Kobe Shimbun Hai (2400m), Kyoto Shimbun Hai (2200m), American JCC
+(2200m), plus a dozen 2000m races. Medium distance (1800-2400m) needs
+600-800 stamina; Long needs 900-1100. The trainee was racing at
+Mile-tier stamina (425) for its entire Medium/Long schedule.
+
+Why? Your preset's ``stat_targets_by_distance`` only specifies
+``mile`` targets. The strategy code resolved the trainee's best
+distance as **Middle**, looked for a Middle target, found none, and
+fell through to the ``expect_attribute`` sentinel ([9999, 9999, ...])
+-- which means "train everything equally" and builds Speed-heavy,
+starving Stamina.
+
+There WAS a sensible built-in defaults table (Middle: 800 stamina,
+Long: 1000 stamina) but it was listed AFTER the 9999 sentinel in the
+fallback chain, so it never got used.
+
+**The fix.** ``_training_targets`` now falls back to the built-in
+per-distance defaults BEFORE the 9999 sentinel:
+
+  * Preset specifies the trainee's distance -> use the explicit target
+  * Preset doesn't cover it -> use the built-in default for that
+    distance (Sprint 450 / Mile 600 / Middle 800 / Long 1000 stamina)
+  * Only if both are missing -> 9999 sentinel
+
+**Impact**: Medium/Long trainees will now build appropriate stamina.
+This directly addresses both symptoms:
+
+  * **Finale losses**: the trainee will reach the finale with enough
+    stamina to actually compete in Medium/Long finale races
+  * **Race count**: a trainee that can win its races (rather than
+    scraping by or losing) lets the solver schedule and complete more
+    races -- under-staminaed trainees were losing races that then
+    couldn't be retried
+
+### Recommended action
+
+The stamina fix is automatic -- no setting change needed. But for the
+best results, you can also add Medium/Long targets to your Oguri preset
+explicitly. The shipped Oguri **profile** already has them; if you want
+your saved **preset** to carry them too, set in mant_config:
+
+```json
+"stat_targets_by_distance": {
+    "mile":   [1200, 700, 1100, 400, 1000],
+    "medium": [1150, 850, 1050, 400, 1000],
+    "long":   [1050, 1100, 1000, 400, 1000]
+}
+```
+
+(Stamina is the 2nd value. Medium 850, Long 1100 for a stayer build.)
+
+With the stamina fix + Max Streak 5 (v6.7.11) + mandatory clock rescue,
+expect: more races completed, finale wins instead of crashes, race
+count closer to the high-30s/40.
+
+### Files touched
+
+  * ``career_bot/runner.py``:
+    - ``_race_retry_policy`` gains ``is_mandatory`` kwarg; mandatory
+      races get paid-clock rescue + grade-filter bypass
+    - ``_race_retry_allowed`` threads the kwarg
+    - ``_race`` captures ``is_mandatory_race`` from the payload and
+      threads it through all retry-policy calls
+    - Mandatory-race-failure handling: finale completes gracefully,
+      non-finale sets ``career_stopped_reason`` instead of raising
+    - Main run loop checks ``career_stopped_reason`` after a race step
+      and ends cleanly
+  * ``career_bot/scenarios/mant.py``:
+    - ``_training_targets`` fallback order fixed: built-in per-distance
+      defaults now beat the 9999 sentinel
+  * ``tests/test_v6712_fixes.py`` (new, 10 tests):
+    - 5 mandatory-clock-rescue tests (rescue with burn off, optional
+      still blocked, opt-out, grade bypass, max-retries respected)
+    - 5 stat-target fallback tests (Middle uses default, Long uses
+      default, explicit wins, senior not scaled, junior scaled)
+
+Curated regression set: 271/271 tests pass (10 new + 261 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.12``.
+
+## SweepyClaudev6.7.11
+
+**This release fixes the actual root cause of the persistent low-race-count
+issue.** Every Smart Race Solver Settings UI knob has been silently doing
+NOTHING since the panel was added. After upgrading, raise Max Streak in
+that panel to 5 and you should see race count climb noticeably.
+
+### The race-count bug
+
+The user reported across multiple releases that race count was stuck
+around 27-31, far below the Android benchmark's 41. Previous releases
+chased symptoms (chain-break behavior, hijack thresholds, irregular
+training rules, profile resolution, raceCostPct tuning) without
+finding the actual cause.
+
+The actual cause: **Smart Race Solver Settings UI knobs write to
+``preset.trackblazer_solver_settings`` but the runner only read from
+``preset.mant_config``.** Two different sub-dicts that never overlap.
+Every UI knob in the panel was a no-op:
+
+  * **Max Streak** -- UI value 2 / runner default 2 -- by coincidence
+    the user's UI value matched the default, but this was THE
+    constraint capping race streaks at 2. Raising the slider had zero
+    effect because the runner ignored it.
+  * **Fan Bonus** -- UI value 0 / runner default 0 -- coincidental
+    match, but raising it does nothing
+  * **Include OP Races** -- UI False / runner default False
+  * **Min Aptitude Floor** -- UI "C" (letter) / runner default 6
+    (integer), and the runner would have crashed if it had ever
+    tried to read the letter form
+  * **Distance Preference Mode** -- UI "balanced" / runner default
+    "balanced"
+
+Verified by inspecting the user's actual smart_solver_config.json and
+settings_presets.json side-by-side: every UI knob was in the
+trackblazer_solver_settings dict, NONE were in mant_config.
+
+### The fix
+
+Two new helpers on ``CareerRunner``:
+
+  * ``_solver_setting(preset, key, default)`` -- returns the first
+    non-None value from:
+      1. ``preset.mant_config[key]`` (explicit per-preset override)
+      2. ``preset.trackblazer_solver_settings[key]`` (UI panel knob)
+      3. the supplied default
+    Empty strings count as unset; numeric zero and boolean False
+    are valid (don't collapse to default).
+  * ``_solver_aptitude_floor(preset, default_int)`` -- handles both
+    the letter form (S/A/B/C/D/E/F/G -> 8/7/6/5/4/3/2/1) and the
+    int form. Invalid values fall back to default instead of
+    crashing.
+
+Five sites in ``runner.py`` updated to call these helpers:
+``fan_bonus``, ``max_races_in_row``, ``include_op``,
+``min_aptitude_floor`` (via the aptitude helper), and
+``distance_preference_mode``.
+
+**Backward compatibility**: presets that explicitly set a value in
+mant_config still win (precedence stage 1). The fix only changes
+behavior for presets without an explicit override -- which is the
+default case for every shipped preset and almost every user-saved
+preset.
+
+### What this means for you in practice
+
+After upgrading, your Smart Race Solver Settings panel now actually
+controls runtime planning. To climb past your current race count:
+
+  1. Open **Smart Race Solver Settings** in the dashboard.
+  2. Set **Max Streak** to **5** (matches the Android benchmark).
+  3. Optionally drop **Race Cost %** to **75** for more races per
+     career value.
+  4. Save the preset, start a new career.
+
+Expected impact: race count should jump from 27-31 to the
+high-30s/low-40s range, much closer to Android. The actual ceiling
+depends on the trainee's aptitudes and the rest of the solver
+weights -- but the bottleneck (Max Streak silently capped at 2)
+is gone.
+
+### Documentation overhaul
+
+Per user request, ``docs/`` has been reorganized:
+
+  * **New top-level guides** consolidating overlapping single-feature
+    notes:
+    - ``docs/trackblazer-guide.md`` -- everything race-related: how
+      the smart race solver decides, the four knobs that drive race
+      count, the chain-break safety layer, irregular training
+      hijacks, items, profiles. The "Quick start" section at the
+      top is the single-screen answer to "how do I get more races".
+    - ``docs/ai-learning.md`` -- LPA vs Training Scorer Mode, the
+      shadow precision gate, when to enable LPA, the dataset, style
+      adaptation.
+    - ``docs/settings-and-presets.md`` -- the three-tier storage
+      model, the userdata folder convention, the v6.7.11 fix
+      explained, where every config file lives.
+  * **README.md** rewritten as a navigable index pointing to the
+    consolidated guides with quick-links for the three most-asked
+    questions.
+  * **archive/** subfolder created. Pure-internal dev notes moved:
+    - ``code-analysis-v5.3.md``, ``v5.4.md``, ``v5.7.md``
+    - ``v524-reverted-ui-selective-keep.md``
+    - ``settings-windows-and-ui-refactor.md``
+    - ``api-error-recovery.md``
+  * Single-feature notes that are still valid kept in place;
+    README sections call them out for users who want depth.
+
+Net: 56 root-level docs -> 53 (3 new guides + 6 moved to archive +
+3 historical docs that didn't fit categories were left in place but
+linked from README under "Other topics").
+
+### Files touched
+
+  * ``career_bot/runner.py``:
+    - New ``_solver_setting`` helper
+    - New ``_solver_aptitude_floor`` helper
+    - ``_APTITUDE_LETTER_TO_INT`` constant
+    - Five sites in ``make_schedule`` call updated to use the helpers
+  * ``tests/test_v6711_fixes.py`` (new, 16 tests):
+    - 7 precedence tests for ``_solver_setting`` (mant wins over UI,
+      UI used when mant missing, default when both missing, safe on
+      None preset, empty string treated as unset, zero is valid,
+      False is valid)
+    - 7 aptitude-floor tests (S/C/G letter, integer pass-through,
+      integer-string pass-through, invalid fallback, missing fallback)
+    - 2 user-scenario reproduction tests: user's actual state with
+      Max Streak=2 resolves correctly; raising to 5 takes effect
+  * ``docs/`` -- consolidation pass:
+    - ``README.md`` rewritten
+    - ``trackblazer-guide.md`` new
+    - ``ai-learning.md`` new
+    - ``settings-and-presets.md`` new
+    - ``archive/`` subfolder with 6 moved files
+
+Curated regression set: 261/261 tests pass (16 new + 245 baseline).
+
+``main.py`` build_version bumped to ``SweepyClaudev6.7.11``.
+
+## SweepyClaudev6.7.10
+
+Four user-requested changes addressing dashboard UX clarity and a
+real retry-policy bug.  Oguri profile recommendation: stays in
+``hint`` mode (the shipped default) -- previous override to
+``authoritative`` was causing the scorer to consistently swap your
+higher-priority stats (Speed/Power) to lower-priority ones
+(Wit/Guts), since the v6.1 scorer's value function isn't priority-
+driven.
+
+### 1. Free continue retries are now ALWAYS usable, even with Burn Clocks OFF
+
+**The bug.**  The pre-v6.7.10 retry policy gated the ENTIRE retry
+loop behind ``burn_clocks=True``.  With the toggle off, free continues
+that the game gave the user (e.g. the first free retry per race) were
+silently wasted -- the loop never even started.  Result: lost wins
+that would have been free.
+
+**The fix.**  ``_race_retry_policy`` now takes ``free_clocks_available``
+and returns a 3-state result:
+
+  * **paid + free** -- ``burn_clocks=True`` (both kinds usable)
+  * **free-only** -- ``burn_clocks=False`` AND ``free_clocks_available>0``;
+    ``policy["free_only"] == True``, ``disabled_reason`` is
+    ``"burn_clocks_disabled_by_user_paid_only"`` (preserved for AI
+    dataset labeling so learned policy can distinguish the regimes)
+  * **disabled** -- everything else (max retries hit, grade not
+    allowed, preset disable, or no clocks of any kind)
+
+The retry loop in ``_race`` was updated to pass the current free-clock
+count into the policy each iteration and to break out the moment
+free clocks run out in ``free_only`` mode -- paid clocks must never
+be spent when the toggle is off.
+
+For users who set ``burn_clocks=True``, behavior is identical to
+pre-v6.7.10 (paid clocks fire after free clocks are exhausted, same
+as before).  Users with ``burn_clocks=False`` now get the free retry
+they were missing.
+
+### 2. "v6.1 scorer agrees" suppressed when an authoritative override just fired
+
+**The bug.**  A user reported screenshots showing reasoning text like:
+
+  > "Trained Wit -- #3 priority, ..., v6.1 scorer agrees (score 17.66),
+  > v6.3 authoritative override swapped strategy's pick (power) -> wit
+  > (margin 10.19)"
+
+The two clauses read as a contradiction.  In fact they were both
+true -- "scorer agrees" referred to the POST-override action matching
+the scorer's pick, which is tautological since the override mutated
+the action to be the scorer's pick.  But the user read it as "scorer
+and strategy agreed, no swap needed... so why does it say a swap
+happened?"
+
+**The fix.**  ``_decision_reasoning`` now detects when an authoritative
+override fired this turn and suppresses the redundant "scorer agrees"
+line.  The scorer's score is appended to the override line so no
+information is lost:
+
+  > "Trained Wit -- #3 priority, ...,
+  > v6.3 authoritative override swapped strategy's pick (power) -> wit
+  > (margin 10.19, scorer score 17.66)"
+
+In hint mode (where no override fires) and on natural-agreement
+turns, the "scorer agrees" line is unchanged.
+
+### 3. Items used this turn are surfaced in Decision Reasoning
+
+Per user request, the dashboard's reasoning panel now includes a
+dedicated "Items used this turn" line whenever the item manager
+attempted to use one or more items.  Each item is followed by a
+category-based "why" tag:
+
+  > "Items used this turn: Charm (training failure protection),
+  > Energy Drink (HP recovery), Cupcake (mood boost)"
+
+Failed / skipped attempts are also surfaced so visibility is
+complete:
+
+  > "Items used this turn (skipped: no_targets): ..."
+
+Stale item state from a prior turn is NOT attributed to the current
+turn (the manager's ``use_attempt_events`` timestamp is checked).
+
+Category mapping covers all currently-shipped consumables: Good Luck
+Charm, Energy Drink / Drink Max, Vita Juice / Royal Vita Juice /
+Royal Kale Juice, Cupcake / Sweet Cupcake, Megaphone / Reflective
+Megaphone, Reset Whistle, Master Hammer / Artisan Hammer / Glow
+Stick, Healthy Manju / Pure Manju / Aroma Bath, Wristlet Anklet.
+Unknown items fall back to "selected by item manager" so adding new
+consumables won't crash the path.
+
+### 4. Oguri profile recommendation: stay in `hint` mode
+
+Following analysis of the user's screenshots, the v6.1 scorer's
+value function (rainbow bonus, training level, support density,
+failure rate) wasn't matching the user's priority-driven goal
+(Speed > Power > Wit > Stamina > Guts).  In authoritative mode the
+scorer was consistently swapping Speed/Power picks to Wit/Guts.
+
+The shipped Oguri profile remains ``"training_scorer_mode": "hint"``.
+Users who had set authoritative via the dashboard UI in a previous
+version will be reset back to hint on upgrade (the build's shipped
+profile JSON overwrites local changes on extraction; userdata-level
+character profile persistence is a planned future enhancement).
+
+Users who genuinely want authoritative behavior with a calmer
+override frequency can use the v6.7.9 margin gate config:
+
+```json
+"training_scorer_overrides": {
+    ...,
+    "override_margin_floor": 15.0,
+    "override_margin_pct": 0.5
+}
+```
+
+### Files touched
+
+  - ``career_bot/runner.py``:
+    - ``_race_retry_policy`` signature gains ``free_clocks_available``
+      kwarg.  Returns ``free_only`` flag.
+    - ``_race_retry_allowed`` updated to thread the kwarg.
+    - Retry loop in ``_race`` calls the policy with current free-clock
+      count and breaks early when ``free_only`` + no free clocks.
+    - ``_decision_reasoning`` suppresses "scorer agrees" when the
+      override fired this turn; adds scorer score to the override line.
+    - New ``_items_used_reason_line`` helper called from the end of
+      ``_decision_reasoning``.
+    - New ``_ITEM_REASON_BY_NAME`` category mapping.
+  - ``tests/test_v6710_fixes.py`` (new, 14 tests):
+    - 6 retry-policy tests (free-only, free+paid, max retries, grade
+      filter, preset disable, no clocks at all)
+    - 3 scorer-agrees suppression tests (suppression on override,
+      preservation on agreement, stale-override no-suppression)
+    - 5 items-used reasoning tests (single item, multiple items,
+      no items, stale prior-turn selection, unknown item fallback)
+
+Curated regression set: 245/245 tests pass (14 new + 231 baseline).
+
+`main.py` build_version bumped to `SweepyClaudev6.7.10`.
+
+## SweepyClaudev6.7.9
+
+Four targeted fixes addressing user-reported issues with the dashboard
+and runtime behavior.  No solver-weight changes; race-count tuning is
+still a manual exercise (set `raceCostPct` lower in Smart Race Solver
+Settings).
+
+### 1. Authoritative scorer override -- margin gate now configurable
+
+**The problem.**  In authoritative mode the v6.1 training scorer's
+top pick should swap the strategy engine's choice when they disagree.
+But the override included a hardcoded margin gate -- the scorer's
+pick had to beat the strategy's by at least `max(1.0, runner_up * 0.10)`
+or the override silently suppressed itself.  Users in authoritative
+mode saw `"v6.1 scorer would have picked X"` in the reasoning panel
+with no swap happening AND no explanation why -- which looked like
+the mode wasn't honored.
+
+**Fix.**  The two gate parameters are now read from the profile's
+`training_scorer_overrides`:
+
+  * **`override_margin_pct`** -- the multiplier (default `0.10`).
+    Lower it to be more aggressive; raise it for less.
+  * **`override_margin_floor`** -- the absolute minimum (default `1.0`).
+    Set to `0.0` to disable the floor entirely (override fires on any
+    non-trivial disagreement).
+
+To make the v6.1 scorer fully authoritative on every disagreement,
+set both to `0.0` in the profile JSON or via a per-character override.
+
+### 2. Blocked-override recording + reasoning text
+
+When the margin gate blocks the swap, the override now writes
+`last_scorer_override_blocked` to runner status with `from_stat`,
+`to_stat`, the actual margin, and the threshold.  The decision-reasoning
+panel reads this and emits:
+
+  > v6.1 scorer would have picked guts (score 0.31); authoritative
+  > override blocked -- margin 0.01 below threshold 1.0 (tune via
+  > training_scorer_overrides.override_margin_pct / _floor)
+
+instead of the bare `"would have picked X"` line.
+
+Hint-mode profiles see the original `"would have picked X"` text since
+the override doesn't apply to them.
+
+### 3. Irregular-training hijack now prominent in Decision Reasoning
+
+When the strategy hijacks a planned race for irregular training, the
+hijack reason was buried inside the catch-all action description.
+Users wanted hijack-vs-normal-training distinguishable at a glance.
+
+`_decision_reasoning` now emits a dedicated leading line for hijacks:
+
+  > Irregular-training hijack: planned race dropped for training --
+  > Osaka Hai · G1 · 2000m · Turf score=1.733 main_gain=35 fail=0
+
+The `| v6.3 scorer override` suffix is stripped from this line so it
+stays focused on the hijack itself (the override message still
+appears below it via the normal scorer-override reasoning).
+
+### 4. Character Profile panel: better resolution between runs
+
+**The problem.**  The `/api/character-profile/active` endpoint resolved
+profile in three stages:
+
+  1. Live runner's `chara_info` (only available during turn execution)
+  2. `active_selection.trainee` (an in-memory global, lost on restart)
+  3. Fallback to "default"
+
+Between runs / before any career started / after a server restart,
+stages 1 and 2 were both empty, so the panel showed `"default"`
+even when the user's last career was tuned to a specific profile
+(e.g. `oguri_cap`).  This caused at least one user to believe their
+profile customizations weren't being applied at runtime, when they
+in fact were.
+
+**Fix.**  Two changes:
+
+  * **New fallback stage:** before defaulting, read
+    `runner_status.active_character_profile` (the persisted record of
+    the profile used in the most recent turn / run).  When that's
+    populated, use its `display_name` + `card_id` + `scenario_id` to
+    re-resolve the profile.
+  * **`resolved_from.source` adds a new value `"last_run"`** so the
+    dashboard can render a "showing last run's profile" badge.  When
+    a fresh career starts and live `chara_info` becomes available,
+    the source flips back to `"runner"` automatically.
+
+### 5. `active_selection` persistence to userdata
+
+The Smart Race Solver Settings picker (deck / friend / trainee /
+veterans / guestParents) lived only in an in-memory global on the
+server.  Restarting the server forgot the picks.
+
+**Fix.**  Every `POST /api/selection` now persists to
+`<userdata>/active_selection.json`.  On server startup, the picker
+rehydrates from that file.  `POST /api/logout` clears both the
+in-memory state and the persisted file so a stale selection from
+one user doesn't leak to the next.
+
+Combined with the v6.7.6 userdata folder convention, this means a
+trainee picked once survives both server restarts AND version upgrades.
+
+### Files touched
+
+  - `career_bot/runner.py`:
+    - `_apply_authoritative_scorer_override` reads `override_margin_pct`
+      and `override_margin_floor` from `profile.training_scorer_overrides`
+      with defaults of 0.10 / 1.0 (preserves pre-v6.7.9 behavior when
+      unset).
+    - When the gate blocks the swap, writes a structured record to
+      `status["last_scorer_override_blocked"]`.
+    - `_decision_reasoning` reads that record + builds the
+      blocked-override explanation message.
+    - `_decision_reasoning` also surfaces the irregular-training
+      hijack as a prominent leading line.
+  - `main.py`:
+    - `api_character_profile_active` adds the `runner_status.active_character_profile`
+      fallback stage between active_selection and the default.
+    - New helpers `_user_selection_path`, `_save_active_selection`,
+      `_load_active_selection`.
+    - Module-level rehydration of `active_selection` from disk on
+      startup.
+    - `POST /api/selection` and `POST /api/logout` write through to
+      disk.
+  - `tests/test_v679_fixes.py` (new, 8 tests):
+    - Margin gate blocks the swap and records the blocked entry.
+    - Lowering `override_margin_floor` to 0 lets the override fire.
+    - `active_selection` save/load roundtrip preserves the data.
+    - Loading from a fresh userdata folder returns None safely.
+    - `_decision_reasoning` builds the prominent hijack line.
+    - `_decision_reasoning` explains blocked overrides distinctly
+      from hint-mode disagreement.
+    - `_decision_reasoning` falls back to the plain `"would have
+      picked"` text when no blocked record exists for this turn.
+  - `tests/test_scorer_override_placement.py`:
+    - `fake_profile` fixture gains `training_scorer_overrides={}` so
+      the v6.7.9 attribute access doesn't AttributeError in the
+      isolated unit test.
+
+Curated regression set: 231/231 tests pass (8 new + 223 baseline).
+
+`main.py` build_version bumped to `SweepyClaudev6.7.9`.
+
+### Recommended user action for race-count tuning (no code change)
+
+The bot's RUNTIME behavior is now fully tuned to your profile.  The
+remaining bottleneck for race count vs the Android bot's 41 races is
+the solver's `raceCostPct` weight (default 100.0).  To match Android:
+
+  - Open Smart Race Solver Settings
+  - Lower `raceCostPct` to ~75 (or even 60 to be aggressive)
+  - Save the preset, restart a career
+
+`raceCostPct` is the cost per race the solver charges against each
+race's fan/epithet value.  Lower values let the solver plan more
+races whose fan value would otherwise not justify the cost.  Other
+levers in the same panel: `targetOptionalRaceCount` (default 36),
+`lateSeniorRacePressure` (default 12.0).
+
+## SweepyClaudev6.7.8
+
+### Live Policy Assistance recommendation now gates on shadow-mode precision
+
+**The problem.** The "Recommended: ENABLE" green-light banner in the AI
+Learning panel checked five data-sufficiency criteria (turn records,
+race-result coverage, race rows, learned-adjustment count above
+confidence gate, health-safe flag) but never checked whether the
+model's predictions were actually correct.  A user observed exactly
+the failure mode this enabled: 3108 turn records, 100% race-result
+coverage, 80 learned adjustments above the 0.65 confidence gate, yet
+shadow-mode precision of just 19% (127 useful warnings against 547
+false alarms over 797 evaluated hints).  The dashboard recommended
+enabling.  Had the user enabled, ~547 winnable races would have been
+suppressed for every ~126 risky races correctly avoided -- a net
+loss to race count, the exact opposite of LPA's purpose.
+
+**Root cause.** "Confidence" (the gate at 0.65) measures how certain
+the model is, not how correct it is.  A model can be confidently
+wrong.  The recommendation logic needed a separate accuracy check.
+
+**Fix.** ``live_policy_recommendation`` in ``career_bot/ai_trainer.py``
+now accepts an optional ``shadow=`` keyword argument and applies a
+precision gate when shadow has evaluated enough race hints to be
+statistically meaningful.  When the gate fires, the recommendation
+flips to "KEEP DISABLED" with the precision percentage spelled out:
+
+  Recommended: KEEP DISABLED. Shadow-mode precision is 19% over 797
+  evaluated hints; minimum is 60%. Enabling would suppress more good
+  races than bad ones.
+
+When data is healthy and precision passes, the ENABLE message
+includes the precision number so it's visible at a glance:
+
+  Recommended: ENABLE. Model data looks healthy: 3108 turn records,
+  1057/1057 race results, and 80 learned adjustments above the 0.65
+  confidence gate. Shadow precision 72%.
+
+**Defaults and configurability.**
+
+  - ``min_shadow_precision`` -- default 0.60 (60%).  Below this the
+    model's "this race is risky" warnings are net-negative for race
+    count.  Configurable per-deployment via the auto-config JSON.
+  - ``min_shadow_evaluations`` -- default 100.  Below this the
+    precision number is too noisy to trust as a signal, so the gate
+    is silent.  Configurable.
+  - The third gate, "low confidence with < 1000 turn records",
+    remains unchanged from v6.7.7.
+
+**Backward compatibility.**  ``shadow=`` is an optional kwarg.  Older
+callers that don't pass it still work; the precision gate is
+silently skipped when no shadow data is available.
+
+**Files touched.**
+
+  - ``career_bot/ai_trainer.py``:
+    - ``live_policy_recommendation`` signature gains
+      ``shadow: Optional[Mapping[str, Any]] = None``.
+    - New precision gate at the bottom of the reasons-building block.
+    - ENABLE message now includes shadow precision when known.
+    - Return payload includes ``shadow_precision``,
+      ``shadow_evaluated_races``, ``min_shadow_precision``,
+      ``min_shadow_evaluations`` for dashboard rendering.
+    - All three call sites updated to pass ``shadow=``:
+      - Live-dashboard caller passes the in-scope ``shadow`` variable.
+      - Training-summary caller passes the same.
+      - AI-status caller reads ``shadow_mode`` from the latest
+        training record.
+  - ``tests/test_v678_fixes.py`` (new, 8 tests):
+    - User's actual 19%-precision scenario routes to KEEP DISABLED
+    - 75% precision routes to ENABLE
+    - Below-threshold evaluation counts skip the gate (no false-noise)
+    - Missing shadow data preserves old behavior (no gate applied)
+    - ``min_shadow_precision`` is configurable
+    - ``min_shadow_evaluations`` is configurable
+    - Returned payload exposes the precision fields for the UI
+    - Backward-compat: callers without ``shadow=`` still work
+
+Curated regression set: 223/223 tests pass (8 new + 215 baseline).
+
+`main.py` build_version bumped to `SweepyClaudev6.7.8`.
+
+### What this changes for you in practice
+
+Your dashboard will now show:
+
+  Recommended: KEEP DISABLED. Shadow-mode precision is 19% over 797
+  evaluated hints; minimum is 60%.
+
+Instead of the misleading ENABLE banner.  No other behavior changes;
+LPA itself is unaffected since you have it off.  When you eventually
+collect enough diverse career data to push precision above 60%, the
+dashboard will correctly flip to ENABLE on its own.
+
+## SweepyClaudev6.7.7
+
+Single targeted revert per user request, plus documentation.
+
+### Reverted: v6.7.3 race-chain HP safety layer
+
+The v6.7.3 release added two changes to ``_guide_race_chain_break``:
+
+  1. HP-critical and HP-low gates fired at ``chain_count >= legacy_target``
+     (2 races) independent of the user's "Consecutive Races Limit" slider
+  2. A hard cap that forced a break at ``chain_count >= target`` even
+     with full HP
+
+Per user direction, both are reverted in v6.7.7.  The user already has
+the "Ignore Low Energy Racing Block" toggle in Racing Settings and wants
+that toggle to be the sole HP authority -- not a separate code-level
+gate that overlays it.  The "Consecutive Races Limit" slider is back to
+being a soft preference rather than a hard cap.
+
+**New contract** (pre-v6.7.3 behavior restored):
+
+  * **Below chain_count == target**: function returns None regardless of
+    HP.  Whether the bot races at low HP is governed entirely by the
+    "Ignore Low Energy Racing Block" toggle and the upstream irregular-
+    training / scorer paths.
+  * **At chain_count >= target with low HP**: HP-low / HP-critical
+    gates fire only when "Ignore Low Energy Racing Block" is OFF, same
+    as the pre-v6.7.3 implementation.
+  * **At chain_count >= target with full HP**: function returns None.
+    The chain target is a SOFT preference; the race may proceed if
+    other checks allow it.
+  * **Escape hatches preserved**: ``ignore_consecutive_race_warning``
+    and ``enable_game8_race_chain_break=False`` still bypass the
+    function entirely.
+
+The v6.7.4 epithet protection layer (irregular-training hijack guard)
+is in a different code path (`_irregular_training_decision`) and is
+NOT affected by this revert.  Critical races still bypass the hijack.
+
+**To match Android-bot throughput**: set "Ignore Low Energy Racing
+Block" ON, "Ignore Consecutive Race Warning" ON, Energy Threshold 0.
+Accept HP=0 races as the cost of more races per career.
+
+**To enforce a hard cap on consecutive races**: set "Consecutive Races
+Limit" to your desired number AND ensure "Ignore Consecutive Race
+Warning" is OFF.  The chain-break function will still fire at the
+limit when HP is low; toggle the HP behavior separately.
+
+### Files touched
+
+  - **`career_bot/scenarios/mant.py`** -- ``_guide_race_chain_break``
+    restored to the pre-v6.7.3 structure.  Same legacy guard at the
+    top (`chain_count < legacy_target` returns None), same training
+    bypass when a clean training is available, same HP gates gated
+    behind ``chain_count >= target`` plus the ``ignore_low_energy_racing_block``
+    check.  No hard cap, no unconditional HP critical.
+  - **`tests/test_race_chain_safety.py`** -- 4 tests rewritten to
+    assert the v6.7.7 contract:
+      * `test_user_reported_6_race_streak_at_hp0` -> `test_chain_count_below_target_does_not_fire_with_hp_low`
+      * `test_hp_critical_fires_at_legacy_target` -> `test_hp_critical_fires_only_at_user_target`
+      * `test_hp_critical_below_legacy_target_does_not_fire` -> `test_no_hp_gate_below_user_target`
+      * `test_hard_cap_forces_break_at_target_even_with_full_hp` -> `test_chain_target_is_soft_when_hp_is_fine`
+    Tests for escape hatches and Finale carve-out unchanged and still pass.
+
+Curated regression set: 215/215 tests pass.
+
+`main.py` build_version bumped to `SweepyClaudev6.7.7`.
+
+
+
+Three user-reported issues fixed plus one documented behavior clarification.
+
+### 1. Career History "Sparks" panel was showing identical factors across runs
+
+Verified against five of the user's career logs: each run had a unique
+`trained_chara_id` and a different `factor_info_array` (different earned
+sparks per run, as expected -- sparks are RNG per career).  The display
+bug was upstream in `_extract_final_chara_payload`: the finish response's
+`single_mode_finish_common.trained_chara` is the user's entire saved
+collection (208 entries in the user's case), with the just-finished
+trainee identified by the response's top-level `trained_chara_id`.  The
+old code picked up the first array slot regardless, which is always a
+parent or older saved trainee with constant factors -- producing the
+identical-sparks-every-run symptom.
+
+**Fix**: `_extract_final_chara_payload` now resolves the matching entry
+by id before merging.  Verified against the user's 5 logs:
+
+  - Run 1: factor IDs [201, 3202, 1000802, ...]
+  - Run 2: factor IDs [202, 3403, 2003301, ...]
+  - Run 3: factor IDs [102, 2201, 1002702, ...]
+  - Run 4: factor IDs [101, 1202, 1002103, ...]
+  - Run 5: factor IDs [202, 3302, 1000801, ...]
+
+Different per run as expected.
+
+### 2. Auto-pick epithet goals -- default flipped to OFF, toggle added to UI
+
+Per user request: the v6.5-v6.7.5 default of automatically biasing the
+smart race solver toward each character's signature epithet (e.g.
+Oguri Cap -> "Ideal Idol" -> Mile Championship / Yasuda Kinen / Arima
+Kinen) is now OFF.  The solver picks its highest fan-value race plan
+without any signature bias, which often produces more total races.
+
+  - **`career_bot/character_profiles.py`** -- dataclass default and
+    resolver default both flipped from True to False.  The auto-derived
+    profile path also now constructs with `auto_pick_epithets=False`.
+  - **`career_bot/character_profiles.py`** -- catalog signature LOOKUP
+    is unchanged (the candidate list is still populated for opt-in
+    use); only the INJECTION into solver target_epithets requires the
+    flag to be on.
+  - **`main.py`** -- new endpoint `POST /api/character-profile/auto-pick`
+    persists `auto_pick_epithets: true | false` to the profile JSON.
+  - **`public/index.html` / `public/app.js`** -- new "Auto-pick
+    Signature Epithets" section in the Character Profile tab, with a
+    checkbox + Save button next to the Training Scorer Mode dropdown.
+    Per-profile state is loaded from the API.  Explanation copy makes
+    the trade-off clear:
+
+      OFF (default): solver picks the best fan/epithet route without
+      bias toward any specific signature.
+
+      ON: catalog signatures seed solver target_epithets and are
+      protected from the irregular-training hijack (v6.7.4 epithet
+      protection still gates on the same field).
+
+### 3. External user-data folder so presets / settings / steam auth persist across upgrades
+
+Per user request: presets and steam auth tokens used to live inside the
+SweepyClaudevX.Y.Z folder, which meant version upgrades wiped them.
+v6.7.6 adds a sibling-folder convention so a single `SweepyClaude_userdata`
+folder next to the build folder owns the persistent state.
+
+**Resolution order** (first match wins):
+
+  1. `$SWEEPYCLAUDE_USERDATA_DIR` env var -- explicit override
+  2. `<DIR>/../SweepyClaude_userdata/` -- sibling folder (recommended)
+  3. Fallback: in-build `<DIR>/` paths (the pre-v6.7.6 behavior)
+
+**Files routed through userdata when configured**:
+
+  - `data/settings_presets.json` (the "Settings Presets" listed in the
+    dashboard's left sidebar)
+  - `data/skill_config.json`
+  - `data/smart_solver_config.json`
+  - `data/presets/*.json` (legacy preset files)
+  - `accounts.json`
+  - `settings.json`
+  - `auth/<profile>/steam_token.txt`
+
+**Migration**: on the first start where userdata exists but is empty,
+in-build defaults are copied forward.  Subsequent upgrades do NOT
+overwrite existing userdata files (the user's customizations win).
+
+**Recommended directory layout for new users**:
+
+```
+C:\Umamusume API Bot Claude\
+    SweepyClaudev6.7.6\          (the build folder, replaceable)
+        main.py, career_bot/, public/, data/, ...
+    SweepyClaude_userdata\       (created by user, persists across upgrades)
+        accounts.json
+        settings.json
+        data/
+            settings_presets.json
+            presets/*.json
+        auth/
+            default/steam_token.txt
+```
+
+On the next upgrade to (e.g.) v6.7.7, replace just the build folder.
+All user-customized state in `SweepyClaude_userdata` is preserved.
+
+  - **`main.py`** -- new `_resolve_userdata_dir()`, `_user_settings_path()`,
+    `_user_accounts_path()`, `_user_presets_dir()`, `_user_steam_token_path()`
+    helpers.  `SETTINGS_PATH` rerouted.  `_accounts_path()` rerouted.
+    Steam token write site also persists a copy to userdata.
+  - **`career_bot/config_store.py`** -- `ConfigStore.__init__` accepts
+    `userdata_dir=` so settings/skill/solver paths follow the userdata
+    convention.  `_maybe_migrate_from_build()` copies in-build defaults
+    on first run.
+  - **`career_bot/presets.py`** -- `PresetStore.__init__` accepts
+    `preset_dir=` for the rare callers that hit it directly.
+
+### 4. Documentation: Live Policy Assistance vs Training Scorer Mode
+
+Different scopes, both safe to leave enabled simultaneously.
+
+| System | Where | Affects | Default |
+|---|---|---|---|
+| Live Policy Assistance | AI Learning tab | **Race** selection (planning) | OFF (recommended until shadow precision > 75%) |
+| Training Scorer Mode | Character Profile tab | **Training** selection (runtime) | hint |
+
+  - **Live Policy Assistance** uses learned data from past careers'
+    race outcomes.  It applies small score adjustments to race
+    candidates in the Smart Race Solver based on which races have
+    historically failed for similar trainees.  Only affects race
+    SCORING -- never overrides safety gates or race availability.
+
+  - **Training Scorer Mode** controls how the v6.1 training scorer
+    interacts with the strategy engine's per-turn training decisions.
+    `hint` = scorer publishes its opinion to the dashboard, strategy
+    decides what runs (safe default).  `authoritative` = scorer overrides
+    strategy on training picks when margin warrants (now works correctly
+    per v6.7.5).  `disabled` = scorer skipped entirely.
+
+The two never conflict.  LPA is about *which races to plan*; Training
+Scorer Mode is about *which training to pick this turn*.
+
+### 5. Race-count update (no code change)
+
+The v6.7.5 log shipped by the user shows 28 races, 1 hijack (T69 JBC
+Ladies' Classic), 0 chain breaks, 0 HP=0 races.  The chain-break and
+epithet-protection layers are working as designed.  v6.7.6's auto-pick-
+default-off MAY organically add 1-2 races by letting the solver pick
+freely (less bias toward Ideal Idol-specific G1s lets other high-fan
+G2/G3 races into the plan).  The structural ~30-race ceiling vs Android's
+41 is the safety-vs-throughput trade-off discussed in the v6.7.5
+"Android settings analysis" turn -- the user can match Android's count
+by toggling Ignore Consecutive Race Warning + Ignore Low Energy Racing
+Block on, accepting HP=0 races as a cost.
+
+### Tests
+
+`tests/test_v676_fixes.py` (new, 7 tests):
+
+  - Sparks fix: `factor_info_array` differs between runs when
+    `trained_chara_id` differs; parent slot factors are NOT picked up
+  - Userdata: ConfigStore routes settings to userdata when configured
+  - Userdata: in-build defaults migrate forward on first run
+  - Userdata: `userdata_dir=None` uses in-build path (no regression)
+  - Userdata: user changes survive a simulated v6.7.7 upgrade
+  - Auto-pick: dataclass default is False
+  - Auto-pick: profile JSON can opt in via explicit flag
+
+Existing `tests/test_character_profiles.py` updated for the v6.7.6
+default flip:
+
+  - `test_auto_pick_default_is_true` -> `test_auto_pick_default_is_false_v676`
+  - `test_auto_picks_signature_when_target_empty` -> `_when_target_empty_and_opted_in` (uses temp dir with explicit opt-in)
+  - `test_each_profile_gets_signature` updated to check candidate list when opted in
+  - `test_oguri_auto_picks_ideal_idol`, `test_special_week_auto_picks_signature`, `test_to_dict_includes_auto_pick_fields` updated to the opt-in pattern
+  - `test_auto_derived_path_also_gets_auto_picks` now verifies the candidate list IS populated but the effective target list is empty until opt-in
+
+Curated regression set: 215 tests pass (7 new + 208 baseline).
+
+`main.py` build_version bumped to `SweepyClaudev6.7.6`.
+
+## SweepyClaudev6.7.5
+
+### Authoritative scorer override was being thrown away (dashboard contradiction fix)
+
+User reported a Decision Reasoning row that said "T29 Wit ... Trained Wit ... scorer override fired: strategy picked 106, swapped to speed (margin 7.3435)".  Wit and Speed can't both be true.  Audit confirmed the override was structurally broken and had been since v6.3.
+
+### What was actually happening
+
+The strategy decision flow in `career_bot/runner.py` runs in two phases for command actions:
+
+  1. Pre-event phase (line 595-619): strategy picks a command, items are processed, events drained, then **the strategy is re-invoked** at line 615 and a NEW decision object is produced.
+  2. Execution phase (line 639-643): the new decision is recorded and executed.
+
+`_apply_authoritative_scorer_override` was called at line 602 on the **first** decision (pre-event).  It mutated that decision's `payload["command_id"]` and recorded `status["last_scorer_override"]`.  Then line 615 created a brand-new decision object that overwrote the mutated one -- the override's effect on the executed command was discarded.
+
+So the runtime outcome was: Wit ran (strategy's re-decision), but `last_scorer_override` was set to "Wit -> Speed".  The dashboard's Decision Reasoning then read both and produced the contradictory row.
+
+### Fix in v6.7.5
+
+  1. **`career_bot/runner.py`** -- removed the misplaced override call at line 602.  Added a new call at line 639 (the actual execution branch, immediately before `_record_action` and `client.exec_command`).  Now the override either mutates the executed command_id or stays silent.
+
+  2. **`_apply_authoritative_scorer_override`** -- on entry, clears `last_scorer_override` if it's tagged with a previous turn.  This prevents stale entries from leaking into later turns' dashboard text on turns where the override doesn't fire.
+
+  3. **`_decision_reasoning`** -- override message reworded.  Now uses stat names instead of raw command_ids ("strategy's pick (wit) -> speed" instead of "strategy picked 106, swapped to speed").  Includes a defensive fallback that explicitly says "override attempted X but final action was Y" if a mismatch is ever detected (shouldn't happen post-fix, but the message is now self-consistent if a future regression appears).
+
+### What the user will see after v6.7.5
+
+For Oguri's profile (default `training_scorer_mode: "hint"`) the override never fires -- only the "v6.1 scorer would have picked speed (score X.XX)" message will appear when scorer and strategy disagree.  No "override fired" sentence at all.
+
+If a profile is in `authoritative` mode AND the override actually swaps the command, the row header AND the override sentence will both name the same stat ("T29 Speed ... v6.3 authoritative override swapped strategy's pick (wit) -> speed (margin 7.34)").  The Wit/Speed contradiction is no longer possible.
+
+### Tests
+
+`tests/test_scorer_override_placement.py` (new, 4 tests):
+
+  - Stale override from T15 is cleared when T29 runs (no cross-turn leakage)
+  - Current-turn override entry is preserved during evaluation
+  - Authoritative-mode override mutates the final decision payload (Wit -> Speed)
+  - Hint-mode override is a no-op (no mutation, no status write)
+
+Curated regression set: 208 tests pass (4 new + 11 epithet + 8 race-chain + 185 baseline).
+
+`main.py` build_version bumped to `SweepyClaudev6.7.5`.
+
+## SweepyClaudev6.7.4
+
+### Audit findings from the user's uma_runtime + epithet protection fix
+
+User asked: (1) can the bot tell when epithets are achieved, (2) why does it still say "chasing Ideal Idol" at T71, (3) why isn't race count climbing even with `irregular_training_min_main_gain` raised to 50?
+
+I extracted the user's uma_runtime and audited the latest career log (`career_log_20260615_182219.json`).  Findings:
+
+#### What I found in the actual run
+
+  - Trainee: Oguri Cap, scenario 4 (Trackblazer Start of the Climax)
+  - Run completed successfully -- 78 turns, 29 races, 322,063 fans
+  - Action counts: train 37, race 29, recreation 6, rest 4, medic 2, finish 1
+  - Confirmed T19-T24 was a 6-race streak with HP=0 from T21-T24 (the bug v6.7.3 fixes for future runs)
+  - Long training stretches at T28-T31 (4 turns) and T43-T49 (7 turns) where the solver had planned races but training hijacked them.  T46 was a Wit rainbow-x3 training (main gain ~60-80), which would pass the 30 default AND the user's raised 50 threshold.
+  - Yasuda Kinen WAS won (T59) but Mile Championship and Arima Kinen were never raced -- they were almost certainly hijacked by rainbow training turns.
+  - Trackblazer solver's projected_epithets list did NOT include Ideal Idol -- the solver had given up on it during planning -- but the dashboard kept showing "chasing Ideal Idol" because that's the profile's auto-pick.  No mechanism connected the live state to the message.
+
+#### Root cause of race-drop on target epithets
+
+`_irregular_training_decision` in `career_bot/scenarios/mant.py:1229` had **zero awareness** of which races progress active target epithets.  Once a rainbow training scored high enough and gave 30+ main gain, it could hijack ANY planned race -- including the single Mile Championship that was Oguri's only path to Ideal Idol.  Raising `irregular_training_min_main_gain` to 50 helps with solo and rainbow-x1 trainings but doesn't stop rainbow-x2 / rainbow-x3 turns which routinely give 60-90 main gain on a strong support deck.
+
+#### Fixes in v6.7.4
+
+  1. **`career_bot/trackblazer.py`** -- two new public helpers:
+     - `epithet_critical_race_names(base_dir, target_epithets, completed_epithets)` returns the set of race names whose win would progress an unmet target epithet
+     - `epithet_progress(base_dir, target_epithets, race_history)` returns a per-target progress report: `[{name, status, races_won, races_needed}]` where status is one of `completed`, `in_progress`, `not_started`, `no_data`, or `dead` (overridden when the solver marks it as such)
+
+  2. **`career_bot/scenarios/mant.py`** -- the hijack code now gates on epithet-criticality FIRST.  A new `_planned_race_is_epithet_critical(program_id, preset, data)` method computes which unmet target epithets would be blocked by dropping the race.  If the set is non-empty, the hijack returns None with `reject_reason: "race_progresses_unmet_target_epithet"` and `blocking_epithets: [...]` in the trace -- so the dashboard can show exactly why the race was preserved.
+
+  3. **`main.py /api/character-profile/active`** -- response now carries an `epithet_progress` array with the live per-target report.  Solver-flagged dead epithets are tagged in-place so the dashboard can render them differently.
+
+#### Direct answers to the user's questions
+
+  Q: "Can the bot tell if any epithets have been achieved?"
+  A: Yes, and it has been since v6.1 -- `_completed_epithets_for_history` walks the race result history after every race and the solver re-plans with that knowledge.  What was missing was surfacing this on the dashboard and using it to defend critical races at runtime.  v6.7.4 adds both.
+
+  Q: "Could it make the smart race solver re-evaluate based on that?"
+  A: It already does -- `_maybe_replan_smart_races_after_result` runs the solver again after every race result, with race_history feeding into the epithet-completion check.  What v6.7.4 adds is preventing the irregular-training hijack from dropping races that the solver still needs to complete unmet targets.  The replan can only redistribute remaining races; it can't undo a race that was hijacked at runtime.
+
+  Q: "Even on turn 71 it says it's still chasing Ideal Idol."
+  A: That message reflected the configured TARGET, not the live PROGRESS.  At T71 Oguri had only won 1 of the 3 needed races (Yasuda Kinen; Mile Championship and Arima Kinen had been hijacked at T44 and likely T67 area).  The endpoint now returns per-target status with the actual won/needed counts; the dashboard can render this as "Ideal Idol -- 1/3 won (need Mile Championship, Arima Kinen)" instead of just "chasing Ideal Idol".
+
+  Q: "Is something overriding settings in Scenario Overrides?"
+  A: No, the UI's `irregular_training_min_main_gain` slider does correctly persist to `mant_config` and is read by `_irregular_training_decision` at runtime.  But on a strong support deck, rainbow-x2/x3 trainings routinely produce 60-90 main gain, so even a 50 threshold leaves many trainings that still pass the gate.  To fully stop the hijack on rainbow x3 you'd need to set it to ~80.  Better: v6.7.4 makes epithet-critical races immune to hijacks regardless of training value, so the threshold matters less.
+
+### Test coverage
+
+`tests/test_epithet_protection.py` (new, 11 tests): epithet_progress status transitions (empty / partial / full history, rank-1-only counting), epithet_critical_race_names returns expected race names for Ideal Idol against the live catalog (Mile Championship / Yasuda Kinen / Arima Kinen), `_planned_race_is_epithet_critical` returns the blocking set on unmet targets and empty set on completed targets or non-critical races.
+
+Curated regression set (204 tests, including 11 epithet + 8 race-chain + 185 baseline): all pass.
+
+`main.py` build_version bumped to `SweepyClaudev6.7.4`.
+
+## SweepyClaudev6.7.3
+
+### Race-chain HP safety fix (user-reported 6-race streak at HP=0)
+
+User reported: "Consecutive Races Limit = 5" set in Scenario Overrides, but the action log showed 6 races in a row (T19-T24), with the last 4 at HP=0/104.  Both safety toggles ("Ignore Consecutive Race Warning" and "Ignore Low Energy Racing Block") were OFF, so neither escape hatch should have applied.
+
+**Root cause** -- `career_bot/scenarios/mant.py::_guide_race_chain_break` had two structural bugs in its safety hierarchy:
+
+1. **HP-critical and HP-low gates were conditioned on `chain_count >= target`.**  This meant raising the dashboard's "Consecutive Races Limit" simultaneously disabled HP safety for races 1..target-1 of any streak.  With target=5, the bot could race at HP=0 for four turns in a row before any HP check could fire.  Even at the target boundary, the HP gate competed with the training-bypass and could lose.
+
+2. **`target` was a soft tie-breaker, not a hard cap.**  When `chain_count >= target` was reached with full HP and no viable training, the function fell through to `return None` and let the race execute.  The "Consecutive Races Limit" UI control therefore behaved as "preferred limit when other gates agree" rather than as a real maximum.
+
+**Fix** -- the function is restructured into four explicit steps:
+
+  Step 1 (chain_count >= legacy_target = 2):
+    HP-critical fires -- recreation or rest, independent of target.
+    This is the user-protective floor that the v6.7.2-and-earlier code
+    only enforced after the user had already raced ``target`` times.
+
+  Step 2 (any chain_count >= legacy_target):
+    training bypass if a clean training is available (preserves the
+    existing rainbow-windfall optimization).
+
+  Step 3 (chain_count >= target OR unsafe grade context):
+    HP-low / unsafe-grade gate -- recreation/rest for HP <= low_vital
+    (default 35) when racing G2/G3 mid-streak.
+
+  Step 4 (chain_count >= target):
+    hard cap.  Recreation or rest is selected unconditionally when no
+    earlier gate fired.  The user's setting is now a real maximum.
+
+Below ``legacy_target`` (2 prior races) the function still returns None on the first turn after a rest, preserving the original race-rhythm behavior.  The Year-end/Finale carve-out at turns 23-24, 47-48, 71-72, and >= 73 is preserved unchanged.
+
+### Settings answers to the user's question
+
+  Q: "Is something overriding my Consecutive Races Limit setting?"
+  A: Yes.  Before v6.7.3 the limit was a tie-breaker, not a cap.  The HP-critical gate was also gated behind the same threshold, so raising the limit disabled HP safety for the early part of every streak.  After v6.7.3, the limit is a hard cap and HP safety is independent.
+
+  Q: "Is the decision to override my settings the right choice?"
+  A: No.  Continuing to race at HP=0 risks the trainee's career and contradicts the user's intent.  The override was a bug in the safety hierarchy, not a deliberate design choice, and is fixed in v6.7.3.
+
+### Test coverage
+
+`tests/test_race_chain_safety.py` (new, 8 tests): locks in the contract with the exact T19-T24 scenario, the HP-critical floor at legacy_target, the hard cap at target with full HP, escape hatches (ignore_low_energy_racing_block, ignore_consecutive_race_warning, enable_game8_race_chain_break=False), and the Finale carve-out.
+
+Curated regression set (193 tests, including the 8 new ones): all pass.
+
+`main.py` build_version bumped to `SweepyClaudev6.7.3`.
+
+## SweepyClaudev6.7.2
+
+### Decision Reasoning cleanup + diagnosis of the actual race-drop mechanism
+
+Two user-facing problems fixed, plus a key diagnosis on why race counts aren't climbing.
+
+#### 1. Decision Reasoning panel cleanup
+
+The panel was showing raw command IDs everywhere (`training Wit 106`, `rest 701`, `recreation 301`, race labels with leading `program_id race_instance_id`) and the v6.6 "Active profile" line that appeared on every entry was noise.  Cleaned up:
+
+- **`career_bot/scenarios/mant.py::_command_reason`** -- the decision reason strings dropped the trailing command_id.  Now emits clean labels: `"Train Speed"`, `"Train Wit (rainbow x2)"`, `"Rest"`, `"Recreation"`, `"Medic"`.
+- **`career_bot/races.py::label`** -- the race label dropped the leading `program_id` and `race_instance_id`.  Now emits dot-separated bits: `"Junior Make Debut · G3 · 1600m · turf"` instead of `"1070 904186 Junior Make Debut G3 1600m turf"`.
+- **`career_bot/runner.py::_decision_reasoning`** rewritten.  The v6.6 "Active profile: Oguri Cap (matched via card_id, hand_curated, scorer mode: hint)" line is GONE.  Profile context is now folded into the per-action explanations as natural language:
+
+  Old (v6.6): `"Active profile: Oguri Cap (matched via card_id, hand_curated, scorer mode: hint). Profile stat priority: speed > power > wit > stamina > guts."`
+
+  New (v6.7.2): `"Trained Speed -- top-priority stat (speed > power > wit > stamina > guts), at 257/1200 target (21%), mood favorable, v6.1 scorer agrees (score 22.5)"`
+
+  Each action type (train / race / rest / recreation / medic / finish) has its own focused WHY phrasing.  Race rows surface the active epithet target source ("chasing auto-picked epithet 'Ideal Idol'").  Training rows show the stat's priority rank, current value vs the profile's per-distance target, mood/HP context, and scorer agreement.  Irregular-training hijacks surface as the engine's own raw reason ("irregular training beats planned race Sapporo Kinen score=12.345 main_gain=42 fail=8").
+
+#### 2. Why race count stalled at 24-27 -- the actual mechanism
+
+After auditing the runtime decision path, the structural cause of the race-count gap is `_irregular_training_decision` at `career_bot/scenarios/mant.py:1185`.  When a planned race is scheduled for the current turn, this code evaluates the best available training and **hijacks the planned race** when:
+
+  - training score >= `irregular_training_score_threshold` (default 0.62)
+  - main stat gain >= `irregular_training_min_main_gain` (default 30, the value you have in Scenario Overrides)
+  - failure rate <= `irregular_training_failure_limit` (default 24, or 65 with a Charm available)
+
+With Oguri's strong support deck most trainings exceed the 30 main-gain floor (rainbow trainings often give 60-80+).  This is correct behavior for stat-efficiency runs, but it's the structural ceiling on race count.  Solver picks 36 races, runtime hijacks 10-12 of them for high-value training, you see 24-26 races executed.
+
+**User action recommended.** The cleanest fix from your existing UI without touching the code:
+
+  Option A (gentler) -- raise the threshold so only truly exceptional training hijacks:
+
+    Scenario Overrides Settings -> "Minimum Main Stat Gain for Irregular Training": 30 -> 80
+
+  Option B (firmest) -- disable hijacking entirely for this preset:
+
+    Scenario Overrides Settings -> uncheck "Enable Irregular Training"
+
+  Option A keeps the rainbow-windfall benefit (>=80 main gain is rare, only the most valuable training will still hijack) while letting nearly all solver-planned races execute.  Option B will run every solver-planned race, potentially leaving small-stat-gain training windows on the table.  Either way you'll see race count climb toward the 36 the solver picks.
+
+#### 3. Backtest tool: command_id mapping bug fixed
+
+The backtest script's `COMMAND_TO_STAT` had wrong mappings -- assumed 102=Stamina/103=Power/104=Guts/105=Wit but the real mapping per `runner.py::TRAINING_LABELS` is 102=Power/103=Guts/105=Stamina/106=Wit.  Also missing was the 601-605 summer-camp variant range.  Both fixed.  Re-running the backtest against the existing logs now shows accurate per-stat distribution.
+
+#### 4. Tests + housekeeping
+
+- 185 tests pass.  test_backtest's command_id test updated to reflect the corrected mapping.
+- `main.py` build_version bumped to `SweepyClaudev6.7.2`.
+
+## SweepyClaudev6.7.1
+
+### Hotfix: `/api/character-profile/active` was raising `NameError` ("name 'runner' is not defined")
+
+The endpoint I introduced in v6.5 referenced a non-existent global `runner`.  The actual global in `main.py` is `career_runner` (a `CareerRunner` instance), and its state is read via `.snapshot()` (which acquires the lock and returns a thread-safe dict copy), not `.status` directly.  This is why the CHARACTER PROFILE tab showed "Could not load profile: name 'runner' is not defined" for every user from v6.5 through v6.7 -- the bug existed in every release that shipped the endpoint.
+
+- **`main.py /api/character-profile/active`** -- fixed the name (`runner` -> `career_runner`), the access pattern (`runner.status` -> `career_runner.snapshot()`), and added a fallback path for the idle case.  When the runner hasn't loaded `chara_info` yet (career not running, just sitting on the dashboard with a trainee selected in the Smart Race Solver Settings picker), the endpoint now reads from the global `active_selection["trainee"]` to pull the selected `card_id` / name, looks the name up in `data/chara_list.json`, and synthesizes a minimal `chara_info` dict for `resolve_profile` to use.  This means the panel renders correctly in three states: (1) live career mid-run, (2) idle with a dashboard selection, (3) cold start with nothing selected (default profile).
+- `resolved_from` payload gains a `source` field with values `"runner"` / `"selection"` / `"default"` so the dashboard can show why this particular profile was resolved.
+- No other changes.  All 185 tests still pass.
+
+`main.py` build_version bumped to `SweepyClaudev6.7.1`.
+
+#### Verified states after the fix
+
+Smoke test against the actual profile resolver returns:
+
+  - Live career with chara_info loaded -> resolves to `oguri_cap (hand_curated)`, epithetValue override 3.0
+  - Idle career with dashboard "Oguri Cap" selected -> same: `oguri_cap (hand_curated)`, epithetValue 3.0
+  - Nothing selected -> `default (default)`, no overrides
+
+So the CHARACTER PROFILE tab will now load and render correctly whether or not a career is actively running.
+
+## SweepyClaudev6.7
+
+### Character Profile relocated to a tab on the Decision Reasoning pane
+
+v6.5 added a CHARACTER PROFILE section as a sidebar-style collapsible between Smart Race Solver and Race Schedule.  That section was never visible on the main dashboard because the dashboard layout doesn't use the sidebar-section pattern -- those headers live under the SETUP tab, which is a separate workspace.  v6.7 puts the panel where you actually see it during a run.
+
+- **`public/index.html`** -- Decision Reasoning header now contains two tab buttons (`DECISION REASONING` / `CHARACTER PROFILE`) instead of the single label.  A second pane is added inside `.v547-reason-pane` and hidden by default; the existing decision-reasoning content is the active pane on first paint.  The orphan `#character-profile-section` block from v6.5 is removed.
+- **`public/app.js`** -- the `setupCharacterProfilePanel` IIFE retargets the new `#v66-character-profile-pane` element, wires the tab buttons to toggle pane visibility, hides the WAITING / turn-N pill while the profile tab is active so it doesn't look like the profile is waiting on a turn, and only fetches `/api/character-profile/active` when the profile tab is opened (no auto-load on dashboard paint).  Re-polls every 30s while the profile tab is the active view.
+- **`public/styles.css`** -- new `.v66-tab-btn`, `.v66-tab-active`, `.v66-tab-pane`, `.v66-reason-tabs` classes for the pill-style tab buttons in the existing reason-pane header.  The existing `.cp-*` classes (panel content) get tighter padding/font sizes inside `.v547-reason-pane` since this pane is narrower than the sidebar context the v6.5 design targeted.
+- No backend changes -- the v6.5 endpoints (`/api/character-profile/active`, `/list`, `/mode`, `/epithets`) all still serve the same data.
+- 185 tests still pass (the change is UI-only).
+
+`main.py` build_version bumped to `SweepyClaudev6.7`.
+
+#### What you'll see now
+
+Open the main dashboard.  The DECISION REASONING panel is the same one you've always had on the right side, but the header now has two clickable pill buttons.  Click **CHARACTER PROFILE** to swap the pane content: profile pills (display name, derivation, matched-via, scenario), training-scorer-mode dropdown with Save button, stat priority row, per-distance stat targets table, scenario-tuned solver overrides, the auto-picked / effective epithet targets, and the character-filtered catalog picker.  Click **DECISION REASONING** to swap back.  No collapse, no scrolling around to find it.
+
+## SweepyClaudev6.6
+
+### Critical: silent profile-override drop fixed (+ Oguri profile retuned, decision reasoning enriched)
+
+This is a **bug-fix release** addressing why race counts stalled around 27 despite v6.2-v6.5's profile system shipping with Oguri-specific tuning.  Two structural bugs and one no-op lever were silently neutralizing the entire profile-override layer.  All character profiles benefit, but Oguri's profile in particular has been retuned to use levers that actually move the solver's race-count math.
+
+#### Bug #1 (CRITICAL): profile solver overrides were silently dropped when the preset had defaults populated
+
+The v6.2 injection logic at the two Trackblazer solver call sites had this condition::
+
+    if k not in weights or weights.get(k) in (None, "", 0):
+        weights[k] = v
+
+The intent was "fill in blanks from the profile while letting user overrides win," but the implementation only treated `None`, `""`, and `0` as blank.  When a user clicked **Save** in the Smart Race Solver Settings dashboard panel, the preset's `mant_config.trackblazer_weights` was populated with all system defaults (e.g. `epithetValue: 1.0`, `raceCostPct: 100.0`).  At that point every profile override was blocked because the condition `1.0 in (None, "", 0)` evaluates False.
+
+The v6.6 fix recognizes "preset value equals system default" as "user didn't actually choose this" and lets the profile win in that case::
+
+    elif preset_default is not None and current == preset_default:
+        weights[k] = v
+
+User overrides that *differ* from the system default still win.  Patched at both call sites (`career_bot/runner.py` line 1867, `career_bot/races.py` line 493).
+
+Impact: a smoke-test verifies Oguri's profile overrides (epithetValue 3.0, raceCostPct 75.0, longDistanceStaminaFloor 450) now flow through to the live solver instead of being neutralized by default-valued presets.
+
+#### Bug #2: targetOptionalRaceCount is a no-op for race count
+
+The solver only references `targetOptionalRaceCount` to emit a diagnostic warning note *after* the schedule is already chosen.  It does NOT influence per-race scoring or the beam-search optimization.  Setting it to 40 in Oguri's profile was structurally ineffective.
+
+Removed from `data/character_profiles/oguri_cap.json` and replaced with levers that actually move the solver's race-count math:
+
+- `epithetValue: 3.0` (was 2.0) — each target_epithet_hit on Oguri's "Ideal Idol" required races (Mile Championship, Yasuda Kinen, Arima Kinen) now adds +3.0 to the per-race score
+- `raceCostPct: 75.0` (was default 100.0) — lowers the per-race cost threshold so more middling G2/G3 races become net-positive in the cost-benefit math
+- `lateSeniorRacePressure: 20.0` (was default 12.0) — pushes more racing in late senior turns 65-72
+- `distancePreferenceBonus: 12.0` (was 8.0) — further rewards her Mile/Medium aptitude races
+
+#### Bug #3: decision reasoning didn't surface v6.2-v6.5 context
+
+`_decision_reasoning` was generating reasonable text for the dashboard's Action Log but didn't mention the active character profile, the v6.1 scorer hint vs strategy pick, the v6.3 authoritative-override events, or the v6.4 epithet target source.  So users couldn't verify from the dashboard whether the profile system was actually in effect.
+
+Enriched with these new context lines per training/race decision:
+
+- "Active profile: Oguri Cap (matched via card_id, hand_curated, scorer mode: hint)."
+- "Profile stat priority: speed > power > wit > stamina > guts."
+- "v6.1 scorer agrees: top pick was speed (score 22.5)." (or disagrees with both names + scores)
+- "v6.3 authoritative override fired: 105 -> 101 (speed, margin 4.2)." (when authoritative mode is on and the override actually triggered)
+- "Epithet targets (auto-picked signature): Ideal Idol." (or preset/profile/none source)
+
+#### Tests + regression
+
+5 new tests in `tests/test_character_profiles.py::SolverWeightInjectionTests` reproducing the silent-drop bug, verifying the v6.6 fix, confirming user explicit non-default overrides still win, and asserting the v6.6 Oguri profile has the right levers and not the no-op one.  Updated `test_oguri_cap_trackblazer_overrides_apply` to match the new tuning.  **185 tests pass across the full suite.**
+
+#### Why this matters in practice
+
+If you ever opened the Smart Race Solver Settings dashboard panel and clicked Save (even without changing anything), the preset's `mant_config.trackblazer_weights` got populated with system defaults.  From that point onward, *every* solver-side profile override across v6.2-v6.5 was silently dropped.  The bot was running with `epithetValue: 1.0` (default) instead of 2.0, `raceCostPct: 100` instead of any profile tuning, and the auto-picked "Ideal Idol" epithet was being awarded the default reward weight when its target races were hit.  That's the structural reason race count plateaued around 27.
+
+With v6.6 the profile overrides actually take effect.  Combined with the more aggressive Oguri tuning, expected impact on a Trackblazer Oguri run:
+
+- Race count: should climb meaningfully from the 26-27 baseline (each "Ideal Idol" matcher race now adds +9 to its score vs +3 previously, and more middling races become net-positive at raceCostPct 75)
+- Late senior racing density: up due to lateSeniorRacePressure 20 vs 12
+- Fan count: likely up proportionally with race count
+
+Run a fresh Oguri career after installing and compare against the 358K/27-race / 339K/26-race baseline from your screenshot.  If race count climbs into the mid-30s or higher, the bug fix is doing the work.  If it doesn't, the next investigation target is the solver's beam-search algorithm parameters vs the Android implementation.
+
+`main.py` build_version bumped to `SweepyClaudev6.6`.
+
+## SweepyClaudev6.5
+
+### Dashboard Character Profile panel, promotion-mode toggle, three new hand-curated profiles, backtest tool
+
+Closes out all four next-session candidates from v6.4 in one release.  The dashboard now renders the v6.1+ profile data the bot has been publishing since v6.1, the training_scorer_mode flag can be flipped per-profile without editing JSON, the catalog of hand-curated profiles grows from 2 to 5, and a CLI backtest tool lets you sanity-check the strategy engine's training distribution against the active profile's stat priority before promoting any profile to authoritative.
+
+- **`public/index.html` + `public/app.js` + `public/styles.css`** -- new `CHARACTER PROFILE` collapsible section in the dashboard sidebar (between Smart Race Solver and Race Schedule).  Renders the active resolved profile with which file matched, how it matched (card_id/chara_id/preset/auto/default), and what overrides apply: stat priority, per-distance stat targets, scenario-tuned solver overrides, current epithet target source (preset/profile/auto/none), the catalog of character-filtered epithets as a checkbox picker, and a Save button that POSTs to `/api/character-profile/epithets` to write the user's selections back to the profile JSON.  Auto-refreshes every 30s plus on-demand via the Refresh button.
+- **Promotion-mode toggle**: dropdown in the panel for ``hint`` / ``authoritative`` / ``disabled``.  POSTs to `/api/character-profile/mode` which rewrites the profile JSON on disk.  Inline help text explains each mode.
+- **Three new hand-curated profiles**:
+  - `data/character_profiles/sakura_bakushin_o.json` -- pure Sprinter (Sprint=A, Mile=B). Speed-Power priority, long-distance stamina floor dropped to 300 (she shouldn't race long), `distancePreferenceMode: strict` to push the solver away from off-aptitude distances. card_id 104101 / chara_id 1041.
+  - `data/character_profiles/daiwa_scarlet.json` -- Mile/Medium specialist (Mile=A, Medium=A, Long=B). Speed/Power/Wit priority similar to Oguri, stamina floor 425. card_id 100901 / chara_id 1009.
+  - `data/character_profiles/tokai_teio.json` -- Medium specialist with Long backup (Medium=A, Long=B, Mile=E). Stamina-leaning Medium-Long priority, targetOptionalRaceCount 38. card_ids 100301/100302 / chara_id 1003.
+- **`main.py`** new endpoints:
+  - `GET /api/character-profile/active` -- resolves the active profile from the runner's chara_info, returns full profile dict plus character-filtered epithet catalog for the picker.
+  - `GET /api/character-profile/list` -- enumerates all on-disk profiles.
+  - `POST /api/character-profile/mode` -- writes a new `training_scorer_mode` to a profile JSON (body: `{profile_id, mode}`).
+  - `POST /api/character-profile/epithets` -- writes explicit `target_epithets` / `forced_epithets` to a profile JSON (body: `{profile_id, target_epithets, forced_epithets}`).
+- **`scripts/backtest_training_scorer.py`** -- new CLI tool.  Reads career_log_*.json files (single file or directory), extracts the training command executed at each turn (from api_calls `exec_command` REQs with `payload.command_type == 1`), tallies per-stat, resolves the active character profile, and compares the actual distribution against the v6.1 scorer's stat priority.  Outputs per-run alignment scores and an aggregate report grouped by profile.  `--csv` flag emits a spreadsheet-ready file.  `--trainee` / `--scenario` flags filter.  Practical use: run against your bot_logs directory before flipping any profile to authoritative.
+- **Tests**: 19 new tests covering the three new profiles (Sakura Bakushin O, Daiwa Scarlet, Tokai Teio), the cross-profile signature epithet auto-pick regression, and the backtest script's extraction/distribution/alignment logic.  181 tests pass across the full suite.
+- `main.py` build_version bumped to `SweepyClaudev6.5`.
+
+#### What the new panel looks like
+
+Open the dashboard and the CHARACTER PROFILE section appears between Smart Race Solver and Race Schedule.  When a run is active and the bot has loaded chara_info, the panel auto-populates with the resolved profile.  Between runs it shows whatever the last known card_id/chara_id resolved to, falling back to the default profile when neither is set.
+
+The epithet picker checkboxes are character-filtered -- pick Oguri Cap and the picker shows only her tagged epithets ("Ideal Idol" plus any generics she shares).  Clicking Save writes the selections to her profile JSON and the next solver pass picks them up via the existing precedence chain (preset > profile JSON > auto-pick > none).  Clicking Clear empties target_epithets and lets auto-pick resume.
+
+#### Running the backtest
+
+    python scripts/backtest_training_scorer.py uma_runtime/default/bot_logs/
+
+For the two career_logs available in my smoke test, both showed Speed and Wit consistently over-trained vs the default Speed/Stamina/Power/Guts/Wit priority -- which is the diagnostic signal that those runs were on the default profile but the trainee benefited from different priorities.  Once the runs use a hand-curated or auto-derived profile, the alignment should climb.
+
+## SweepyClaudev6.4
+
+### Auto-pick signature epithets with full user-override precedence
+
+Where v6.3 surfaced suggested epithets to the dashboard but never fed them to the solver, v6.4 closes that gap: every active character profile now auto-promotes the trainee's signature epithet into ``target_epithets`` when neither the preset nor the profile JSON sets them explicitly.  This means a fresh Oguri Cap run will automatically chase "Ideal Idol" (her character title) as a soft solver goal -- which raises the schedule's race count and gives the bot a concrete objective to weigh G2/G3 picks against -- without forcing the schedule into anything infeasible.
+
+User override still wins at every layer.  The precedence chain is::
+
+    preset.trackblazer_target_epithets   (dashboard / user explicit)
+    -> profile.target_epithets           (profile JSON explicit)
+    -> profile.auto_picked_epithets      (signature epithet from catalog)
+    -> []                                (no goals)
+
+- **`career_bot/character_profiles.CharacterProfile`** gains two fields: ``auto_pick_epithets: bool`` (default ``True``, can be set ``False`` in the profile JSON or under a ``scenarios.<id>`` block to opt out) and ``auto_picked_epithets: List[str]`` (the catalog-derived signature epithet name(s), populated by the resolver from the trainee's display name).
+- **`CharacterProfile.effective_target_epithets()`** -- new method that returns ``(epithet_names, source)`` for callers, with ``source`` being ``"profile"`` (explicit JSON), ``"auto"`` (signature epithet), or ``"none"`` (no goals).  Used by the runner / races call sites to feed the solver.
+- **`career_bot/runner.py` Trackblazer solver call site** now consults ``effective_target_epithets()`` and publishes ``status.epithet_target_source`` with the chosen source label so the dashboard can render which path provided the active goals.
+- **`career_bot/races.py` live-replan call site** uses the same effective-targets path.
+- Both the hand-curated and v6.3 auto-derived profile resolution paths now populate ``auto_picked_epithets`` from the bundled catalog at ``data/android_smart_race_epithets.json`` (or the v6.3 ported ``data/character_data/epithets.json``).  Each of the 59 character-tagged signature epithets in the catalog -- Oguri's "Ideal Idol", Mejiro McQueen's "Best Actress", Special Week's "Showbiz Idol", etc. -- becomes a sensible per-character default.
+- 10 new tests in `tests/test_character_profiles.py::AutoPickEpithetsTests` covering the explicit-wins precedence chain, per-scenario opt-out, default-True behavior, missing-catalog fallback, and shipped-catalog regressions for Oguri Cap, Special Week, and Mejiro McQueen (auto-derived).  162 tests pass across the full suite.
+- `main.py` build_version bumped to `SweepyClaudev6.4`.
+
+#### Background: where the data lives
+
+Worth noting since it came up in design discussion: SweepyClaude has been pulling its Trackblazer epithet, race, and debut-race data from the `daftuyda/umamusume_trackblazer_scheduler` GitHub repo since well before v6.0 -- the same source repo behind the [race.daftuyda.moe](https://race.daftuyda.moe/) web scheduler.  The Android bot does *not* pull from there; they ship their own copy.  v6.3 added a parallel copy at `data/character_data/epithets.json` for the auto-derivation name lookup, but the solver-side canonical catalog at `data/android_smart_race_epithets.json` (217 entries, 59 character-tagged) has been there all along and is what v6.4's auto-pick uses.
+
+#### Disabling auto-pick
+
+To turn auto-pick off for a specific character profile, add to the JSON::
+
+    "auto_pick_epithets": false
+
+To disable per-scenario only::
+
+    "scenarios": {
+      "4": {"auto_pick_epithets": false}
+    }
+
+The signature epithet will still show up in ``suggested_epithets`` for the dashboard picker, but it won't be promoted into the solver's target list.
+
+## SweepyClaudev6.3
+
+### Auto-derived profiles for every trainee, Android character + epithet catalogs, authoritative-mode wire-in, Special Week profile
+
+Where v6.2 introduced the profile system but only shipped a hand-curated profile for Oguri Cap, v6.3 makes the system useful for every trainee.  Two ported community datasets plus a live-aptitude auto-derivation layer mean any character now gets a sensible profile -- hand-curating remains the way to express stronger opinions, but it's no longer the only way to get character-aware tuning.
+
+- **`data/character_data/`** -- new directory holding two community-maintained JSON catalogs ported from the upstream `uma-android-automation` project: `character_presets.json` (59 trainees with distance and surface aptitudes) and `epithets.json` (217 epithets, 59 character-tagged signature titles plus 158 generic ones).  `README.md` carries the attribution.
+- **`career_bot/character_data.py`** -- new loader module with mtime-keyed memoization.  Exposes `load_character_presets`, `load_epithet_catalog`, `find_character_preset`, `epithets_for_character`, and `signature_epithet`.  Name matching is case-insensitive, whitespace-tolerant, and strips parenthetical suffixes like "(SSR)" or "(Alt)".
+- **Auto-derivation in `career_bot/character_profiles.py`** -- `resolve_profile` now accepts an optional `chara_info` argument.  When no hand-curated profile matches, it synthesizes a profile from the live aptitudes: stat priority chosen by best-distance bucket (Mile/Sprint -> Speed-Power-Wit, Medium -> Speed-Stamina-Power, Long -> Stamina-Speed-Power), per-distance stat targets scaled by aptitude grade (S/A get full strength, lower grades scale down), preferred_distances includes everything at B-grade or better, and long-distance stamina floor scales with the Long aptitude (550 at S/A, 400 at D-grade or weaker).  When the trainee's name matches a catalog entry, the signature epithet is surfaced into `suggested_epithets` for the dashboard picker.
+- **`data/character_profiles/special_week.json`** -- second hand-curated profile.  Long stayer (Long=A, Medium=A): Stamina-Speed-Power priority, per-distance targets push Stamina to 1200 on Long and trim Sprint stats, Trackblazer-tuned `targetOptionalRaceCount=40`, `epithetValue=2.0`, `longDistanceStaminaFloor` held at default 550 (build the stamina).  Matched via `card_id` 100101/100102 and `chara_id` 1001.
+- **Authoritative-mode wire-in.**  `_apply_authoritative_scorer_override` runs immediately before training-command execution.  When the active profile has `training_scorer_mode == "authoritative"` AND the strategy engine's chosen command is a training, the v6.1 scorer is consulted and its top pick replaces the strategy's pick if it beats the strategy's score by a configurable margin.  Override events are logged to `status.last_scorer_override` for dashboard rendering.  `hint` mode profiles are unaffected (still publish to the hint payload, strategy engine still decides).
+- **Resolved profile gains `derivation` and `suggested_epithets` fields.**  `derivation` is `"hand_curated"`, `"auto_derived"`, or `"default"` -- the dashboard can show users which path resolved their active profile.  `suggested_epithets` is a list of epithet rows tagged with the active character; it's read-only and never auto-promotes into `target_epithets`.
+- 28 new tests across `tests/test_character_data.py` (catalog loaders, name matching, missing-file fallback) and the expanded `tests/test_character_profiles.py` (auto-derivation for stayer / miler / sprinter, stamina-floor scaling, per-distance target scaling, letter-grade aptitude handling, hand-curated profiles still winning over auto, missing-aptitude default fallback, suggested-epithet lookup, Special Week regression).  152 tests pass across the full suite.
+- `main.py` build_version bumped to `SweepyClaudev6.3`.
+
+#### What changes the next time you run a non-Oguri character
+
+Every trainee now gets character-tuned defaults the first time they're run -- no JSON authoring required.  Mejiro McQueen (Long=S Medium=A) will automatically pick up Stamina-first priority, push per-distance stat targets toward Long, hold the stamina floor at 550, and surface "Best Actress" in `suggested_epithets`.  Special Week works identically but uses the hand-curated profile (which has Trackblazer-specific `targetOptionalRaceCount=40` and `epithetValue=2.0` overrides that the auto-derived path doesn't apply by default).
+
+To promote a profile to authoritative mode, flip its `training_scorer_mode` from `"hint"` to `"authoritative"` in the JSON file (or under a `scenarios.<id>` block to promote only for a specific scenario).  The override only triggers on training commands and only when the scorer's pick beats the strategy's by a clear margin -- noise-level disagreements still defer to the strategy engine.
+
+## SweepyClaudev6.2
+
+### Per-character preset profiles + Trackblazer-tuned Oguri Cap profile
+
+Where v6.1 built the Android-equivalent training scorer, v6.2 plugs it (and the existing Trackblazer race solver) into a per-character configuration layer.  Each character now gets a JSON profile that bundles tuned stat priorities, per-distance stat targets, race-solver weight overrides, epithet goals, and a training-scorer mode flag.  Active profile resolution happens at run start from the trainee's ``card_id`` / ``chara_id``, with the preset name as a third lookup key and a ``default`` profile as the always-on fallback.
+
+- **`career_bot/character_profiles.py`** -- new module.  ``resolve_profile(card_id, chara_id, scenario_id, base_dir, preset_name)`` returns a ``CharacterProfile`` dataclass with ``training_scorer_config()``, ``solver_weight_overrides()``, ``epithet_goals()``, and a per-profile ``training_scorer_mode`` flag (``"hint"`` / ``"authoritative"`` / ``"disabled"``).
+- **`data/character_profiles/`** -- new directory with shipped JSON profiles: `default.json` (empty overrides, matches v6.1 behavior), `oguri_cap.json` (Speed/Power/Wit priority, rainbow bonus on, Mile/Medium per-distance targets), and `index.json` mapping `card_id 100601` and `chara_id 1006` to the Oguri profile.
+- **Per-scenario overrides** nest under `scenarios.<id>` and stomp the base profile values for that scenario only -- the shipped Oguri profile uses this to ship Trackblazer-specific tuning (`longDistanceStaminaFloor: 450` down from 550, `targetOptionalRaceCount: 40` up from 36, `epithetValue: 2.0` up from 1.0) without affecting other scenarios.
+- **`career_bot/runner.py`** v6.1 training-scorer hint now resolves the active profile and passes its ``TrainingScorerConfig`` into ``score_trainings``.  Hint payload gains ``profile_id``, ``profile_display_name``, ``matched_via``, and ``mode`` fields so the dashboard can show which profile is active and how it matched.
+- **`career_bot/runner.py`** and **`career_bot/races.py`** Trackblazer solver call sites both layer `profile.solver_weight_overrides()` under the preset weights and fall back to the profile's `target_epithets` / `forced_epithets` / `preferred_distances` when the preset doesn't supply them.  Preset values still win when set -- the profile is the default, the preset is the user override.
+- 27 new tests in `tests/test_character_profiles.py` covering every lookup path (card_id, chara_id, preset, default fallback, missing-file graceful fallback), per-scenario override semantics (dict shallow-merge, list replacement), `TrainingScorerConfig` round-trip with unknown-key tolerance, mode normalization, and end-to-end resolution against the shipped Oguri Cap profile.
+- `main.py` build_version bumped to `SweepyClaudev6.2`.
+
+#### Promoting the training scorer to authoritative
+
+Each profile's `training_scorer_mode` defaults to `"hint"` (v6.1 behavior: scorer publishes to the dashboard but the strategy engine still decides).  Flipping a profile's mode to `"authoritative"` will let the v6.1 scorer drive that profile's training decisions while leaving other profiles unchanged -- the wire-in for that path lives in the strategy engine and lands as a follow-up patch when you're ready to evaluate the scorer's picks against the live decision over a few real runs.
+
+## SweepyClaudev6.1
+
+### Training scorer (Android-equivalent), measurement fix, style adaptation enabled
+
+This release closes most of the gameplay gap identified in the Android-bot audit.  Three things ship together: a real training scorer module, a measurement fix that lets the AI advisor see end-of-career fan/rating numbers it was previously blind to, and a config flip that takes style adaptation out of perpetual shadow mode.
+
+- **`career_bot/training_scorer.py`** -- new module implementing the Android-equivalent formula `(StatEfficiency * 0.60 + Relationship * 0.10 + Misc * 0.30) * RainbowMultiplier * FacilityLevelMultiplier`.  Rainbow detection cross-references each command's `training_partner_array` against `chara_info.evaluation_info_array` (bond >= 80 = real rainbow; below threshold but >= 10% fill = anticipatory rainbow, capped at 1.6x so anticipation never out-ranks a real rainbow).  Facility-level weighting boosts top-3 priority stats by 1.10x-1.75x based on the `level` field already exposed in `command_info_array`.  Stat-cap awareness sets score to 0 within the buffer of the absolute cap.  Failure-rate gate filters above the configured threshold (default 20%).
+- Per-distance stat targets (Sprint/Mile/Medium/Long) and per-context priorities (training / event / summer) are first-class config in `TrainingScorerConfig`.
+- `pre_summer_action(turn, energy, mood)` helper for the June-Late prep decision (rest / recover / train_wit) on turns 24 and 48.
+- Scorer wired into `runner._track_turn_scores` as a **hint**: published to `status.training_scorer_hint` and `status.training_scorer_history` so the dashboard can show what the new scorer thinks alongside the strategy engine's pick.  The strategy engine remains authoritative for the live decision in v6.1; promotion to authoritative is planned for v6.2 once the scorer has been validated against a few real runs.
+- 29 new tests in `tests/test_training_scorer.py` covering every component (stat efficiency, relationship, misc, rainbow detection both real and anticipatory, level multiplier, per-context priorities, per-distance targets), filter gates (failure_too_high, stat_capped), edge cases (no partners, malformed entries, the older flat-field payload layout), the pre-summer helper, and a regression test using the exact API shape we observed in real run data.
+- `main.py` build_version constants bumped to `SweepyClaudev6.1`.
+
+## SweepyClaudev6.0.1
+
+### Career-summary measurement fix + style adaptation out of shadow mode
+
+Two narrow fixes that don't change runtime behavior but fix the diagnostic plumbing the AI advisor depends on.
+
+- **Career summary measurement fix.**  `career_bot/ai_dataset.py::career_summary_record` was looking for `fans` inside `final_chara.stats` (the nested stats sub-dict containing speed/stamina/etc.), but `runner._compact_final_chara` writes `fans`, `rating`, `rank`, `card_id`, and `title` at the top level of `final_chara`.  Every completed run in `career_summaries.jsonl` therefore recorded `final_fans: 0` even though the dashboard had the right number all along (it reads from the per-turn `bot_logs/career_log_*.json` files directly).  Now the summary cascade pulls `fans` / `rating` / `rank` / `card_id` / `chara_title` from `report.final_chara` -> `status_snapshot.final_chara` -> `status_snapshot`, first non-empty value wins.  Adds `final_fans`, `final_rating`, `final_rank`, `card_id`, and `chara_title` to the JSONL schema.  Impact: the Bayesian advisor and any future Q-learning over career outcomes finally gets reward signal for whole-career fan/rating performance instead of always seeing zero.
+- **Style adaptation out of shadow mode.**  `career_bot/style_adaptation.py` DEFAULT_CONFIG `style_adaptation_mode` flipped from `"shadow"` to `"recommend"`.  Shadow mode logged style recommendations but never applied them; with 0.99 confidence on the vast majority of decisions across many runs of validation, it's safe to let the recommendation actually drive race style when the existing confidence and aptitude gates allow.
+
+## SweepyClaudev6.0
+
+### Merge release — modeling improvements + upstream v5.44 features in one build
+
+This release combines the v5.43AI/v5.43.1AI Bayesian advisor modeling track with the upstream developer's v5.43 Local LLM Advisor and v5.44 Event Outcome Knowledge Base.  Both lineages were independently within the same "log-based learning, no memory tooling" design constraint, so the merge is additive across the board.
+
+- Brought forward from v5.43AI: Beta-Binomial posteriors over race-program win rate, hierarchical context-aware pooling, `policy_guards.safe_apply` with KL-divergence drift detection, and the calibration module (`calibration.py`) with reliability diagrams, ECE/Brier, and an isotonic recalibrator.
+- Brought forward from v5.43.1AI: live calibrator wire-in.  `race_program_hint` and `hierarchical_race_program_hint` apply the persisted isotonic calibrator automatically; `fit_calibrator(base_dir)` returns a dashboard-friendly payload; `calibration_summary` surfaces ECE + reliability diagram + plain-English interpretation under `post_run_advice`.
+- Brought forward from upstream v5.43: Local LLM Advisor (`career_bot/local_llm.py`).  Optional integration with OpenAI-compatible local servers (LM Studio, Ollama, custom).  Strict-JSON prompting, redacted config storage, post-run analysis and shadow advice as append-only JSONL artifacts; LLM outputs are never executed as bot commands.
+- Brought forward from upstream v5.44: Event Outcome Knowledge Base (`career_bot/event_outcomes.py`, bundled `data/dumper_outcomes_import.json` merged into `data/event_outcomes.json`).  Event-name matching, normalized stat deltas / energy / vital / motivation / skill points / skill hints / conditions / confidence metadata, AI Dataset event outcome rows in `event_outcome_rows.jsonl`, `/api/events/outcome-kb` endpoints, AI Learning dashboard card.
+- `career_bot/ai_dataset.py` registers the upstream's `event_outcome_rows.jsonl` path in `DATASET_FILES` while keeping the v5.43AI hierarchical bucket logic in `rebuild_advisor_stats`.
+- `career_bot/ai_advisor.py` is the v5.43.1AI version (Bayesian math + calibration wire-in) preserved unchanged through the merge; upstream did not modify the functions involved.
+- `main.py` build_version constants set to `SweepyClaudev6.0`.
+- Test coverage carried forward: 68 modeling tests (Sprint 1 / Sprint 2 / Sprint 1.4.3.1) plus upstream's regression tests for event outcome import / scoring / LLM context.
+- This build does not include Frida/live traffic interception, packet capture, memory dumping, memory scanning, or memory writes — same boundary maintained by both lineages.
+
+## SweepyModv5.44
+
+### Event Outcome Knowledge Base + Dumper Outcome Importer
+
+- Added `career_bot/event_outcomes.py` for safe static event outcome imports and normalization.
+- Bundled `data/dumper_outcomes_import.json` and merged normalized imported outcomes into `data/event_outcomes.json`.
+- Added event-name matching so known static outcomes can score events even when a story ID is not available.
+- Added support for imported outcome details such as stat deltas, energy/vital changes, motivation, skill points, skill hints, max vital, gained/lost conditions, and confidence/source metadata.
+- Added AI Dataset event outcome rows in `uma_runtime/ai/event_outcome_rows.jsonl`.
+- Added `/api/events/outcome-kb` and `/api/events/outcome-kb/import`.
+- Added an AI Learning **Event Outcome Knowledge Base** card with coverage stats and bundled import/refresh controls.
+- Local LLM post-run analysis and shadow review prompts now receive compact known-event-outcome context.
+- Added documentation in `docs/event-outcome-kb-v544.md` and regression tests for import, scoring, and LLM context.
+- This build does not include Frida/live traffic interception, packet capture, memory dumping, memory scanning, or memory writes.
+
+## SweepyModv5.43.1AI
+
+- Wired the v5.43 calibration module into the live race advisor. When an isotonic calibrator is fitted, both `race_program_hint` and `hierarchical_race_program_hint` now apply it to the posterior mean and LCB before producing `adjustment`, so the live decision path uses the corrected estimate instead of just exposing the calibrator as a tool.
+- Added `ai_advisor.fit_calibrator(base_dir)` -- reads `turn_decisions.jsonl`, extracts race predictions, fits an isotonic calibrator, and persists it atomically to `uma_runtime/ai/isotonic_calibrator.json`. Returns a `{success, reason, message, ece_before, ece_after, brier_before, brier_after, predictions}` payload designed for direct rendering on a dashboard button.
+- Added `ai_advisor.calibration_summary(base_dir)` -- compact dashboard payload with current ECE, Brier score, plain-English interpretation, reliability diagram bins, and calibrator metadata (when fitted: `fitted_at`, `predictions_used`, `ece_before`).
+- `post_run_advice` now embeds the calibration summary under a `calibration` key so the existing AI dashboard surfaces it without an additional endpoint.
+- Calibrator JSON is loaded with mtime-cached, hot-reload-aware semantics: re-fitting from the dashboard takes effect on the next hint call without restarting the bot.
+- Hints now expose `calibration_active` (bool), `calibrated_mean`, `calibrated_lcb`, `calibrated_ucb`, and `raw_adjustment` / `raw_posterior_mean` / `raw_lcb` / `raw_ucb` for the previous values, so the dashboard can show both the corrected estimate and what the model thought before correction.
+- All v5.43 fields are unchanged. Existing callers that read only the legacy fields see no behavior change other than `adjustment` being the calibrated value when a calibrator is present.
+- `fit_calibrator` returns friendly status messages instead of raising for the common failure modes: no `turn_decisions.jsonl` yet, fewer than `MIN_PREDICTIONS_FOR_CALIBRATION` (30) predictions logged, isotonic fit failure on degenerate input.
+- Atomic file write (tempfile + rename) on persistence so an interrupted save can never leave a half-written calibrator that the loader would silently nullify on next startup.
+- Added 13 unit tests in `tests/test_ai_sprint143_1.py` covering: cold-start no-op behavior, hierarchical wire-in, the four `fit_calibrator` outcome paths, ECE-improvement verification on synthetic miscalibrated data, mtime-cache invalidation on re-fit, and the three lifecycle stages of `calibration_summary`.
+- Build version bumped in `main.py` to `SweepyModv5.43.1AI`.
+
+## SweepyModv5.43AI
+
+- Replaced the AI advisor's point-estimate `win_rate` and `-8.0` magic-number penalty with a Beta-Binomial posterior over race-program win rate, prior centred on the user's global program base rate. Adjustments are now `avg_reward * lower_credible_bound`, smooth across the full `win_rate` range with no discontinuity at 0.5.
+- Added `career_bot/ai_modeling.py` with `BetaPosterior` (prior construction, Bayesian update, mean/variance/mode, lower/upper credible bounds, credible interval, Thompson sampling, round-trip serialization), `posterior_from_stats_bucket`, `global_base_rate`, `hierarchical_posterior` with parent-discounted shrinkage, and `score_program`.
+- Added `career_bot/calibration.py` with `reliability_diagram`, `expected_calibration_error`, `brier_score`, and `IsotonicCalibrator`. Calibrator uses scikit-learn when available and falls back to a pure-Python Pool Adjacent Violators implementation when not, so calibration runs are reproducible across hosts.
+- Added `career_bot/policy_guards.py` with `PolicyGuardConfig`, `safe_apply` returning a `GuardDecision` with reasons `insufficient_samples` / `drift_detected` / `clamped` / `applied`, closed-form `beta_kl_divergence`, and `compute_posterior_drift` for detecting meta shifts via posterior KL on rolling windows.
+- Extended `ai_dataset.rebuild_advisor_stats` with a new `race_programs_context` section containing four levels of hierarchical aggregation (`by_program` / `by_program_scenario` / `by_program_scenario_preset` / `by_program_scenario_preset_phase`). The legacy `race_programs` flat section is preserved unchanged for backward compatibility.
+- Added `career_bot/ai_dataset._turn_phase` exposing the early/classic/senior/finale boundaries used by both the existing `turn_bands` aggregation and the new hierarchical buckets.
+- Added `ai_advisor.hierarchical_race_program_hint(base_dir, program_id, scenario_id, preset_name, turn)` which walks the hierarchical buckets least-to-most-specific via parent-discounted shrinkage. Sparse leaves inherit from their richer parent levels instead of producing wild estimates. Returns the same fields as `race_program_hint` plus `contributed_levels` and a per-level `levels` diagnostic for the dashboard.
+- Falls back automatically to v1 semantics when `race_programs_context` is missing from `advisor_stats.json`, so existing stats archives keep working until the next dataset rebuild.
+- `race_program_hint` legacy return fields (`program_id`, `confidence`, `starts`, `win_rate`, `avg_reward`, `adjustment`, `reason`) preserved exactly so existing call sites in `runner.py`, `ai_trainer.py`, and the v532/v533 test contracts continue to pass unchanged. Adds `posterior_mean`, `lcb`, `ucb`, `variance`, `alpha`, `beta` for new consumers.
+- `post_run_advice` risky-program detection now uses posterior LCB instead of raw win rate, replacing the `starts >= 3 and win_rate < 0.6` cutoff with continuous uncertainty-aware ranking.
+- `_confidence_label` derives the `confidence` string from posterior variance and is calibrated so the new buckets land in the same general regions as the v1 `starts >= 3 / >= 8` thresholds, keeping `tests/test_sweepymodv533_ai_auto_training` assertions intact.
+- Added 51 unit tests across `tests/test_ai_sprint1.py` and `tests/test_ai_sprint2.py` covering Beta posterior math, hierarchical pooling behavior, calibration metrics, isotonic recalibration (with and without scikit-learn), policy guard branches, drift detection, hierarchical bucket builder semantics, and full backward-compat contract tests for `race_program_hint` and `hierarchical_race_program_hint`.
+- Added documentation in `docs/ai-modeling-bayesian-v543AI.md`.
+
+## SweepyModv5.43
+
+### SweepyModv5.43 Local LLM Parser Cleanup
+
+- Improved Local LLM response parsing so JSON wrapped inside `analysis`, `advice`, `result`, `response`, or `raw_text` envelopes is unwrapped into clean structured fields.
+- Added support for fenced JSON, double-encoded JSON strings, trailing-comma cleanup, and common alias normalization such as `patterns` → `key_patterns` and `suggested_rules` → `repeatable_rules`.
+- Updated the AI Learning Local LLM output card to show key patterns, risks, and repeatable rules instead of only `Analysis saved.` when structured data is available.
+- Added regression tests for enveloped/raw-text model replies.
+
+### SweepyModv5.43 Local LLM Analysis Fix
+
+- Fixed Local LLM post-run analysis requests that could trigger LM Studio `HTTP 400 Bad Request` errors when completed career logs produced prompts larger than the loaded model context.
+- Added prompt budgeting for Analyze Last Run so recent turns are automatically trimmed/slimmed before sending to the local model.
+- Improved Local LLM HTTP error details so future failures include the server response body instead of only `HTTPError: 400`.
+- Added regression coverage for large-run prompt budgeting.
+
+
+- Added optional Local LLM Advisor support for OpenAI-compatible local servers such as LM Studio, Ollama, or custom endpoints.
+- Added `career_bot/local_llm.py` with redacted config storage, connection tests, strict-JSON prompt handling, post-run analysis, and shadow turn review.
+- Added AI endpoints for Local LLM config, testing, latest state, latest-run analysis, and shadow advice.
+- Added AI Learning Local LLM card with provider/mode/base URL/model/API key fields plus Save, Test, Analyze Last Run, and Shadow Review buttons.
+- Local LLM outputs are stored in `uma_runtime/ai/llm_run_summaries.jsonl` and `uma_runtime/ai/llm_advice.jsonl` and never execute direct runner commands.
+- AI dashboard now surfaces Local LLM status, last analysis headline, risk flags, and candidate rules.
+- Added documentation in `docs/local-llm-advisor-v543.md` and regression tests for config normalization, connection testing, and analysis artifacts.
+- Fixed the Local LLM Advisor form so dashboard refreshes no longer overwrite unsaved edits, checkbox changes, model text, or API key typing.
+- Fixed Local LLM config saving so leaving the API key field blank preserves the previously saved key instead of erasing it.
+
+## SweepyModv5.42AI
+
+- Added conservative Racing Style Adaptation telemetry and model scaffolding for SweepyModAI.
+- Added append-only `style_adaptation_experiences.jsonl` rows for every race style decision, observation, and outcome.
+- Logs now include selected Racing Settings style, shadow recommendation, applied style, current stats, style/distance/surface aptitudes, owned skill summaries, clock usage, clean vs clock-rescued wins, and opponent style counts when exposed after race entry.
+- Added `career_bot/style_adaptation.py` with Shadow Only, Recommend Only, and safety-gated Auto Apply modes.
+- Added generated artifacts: `style_adaptation_model.json`, `style_adaptation_report.json`, `style_adaptation_shadow_report.json`, and `style_adaptation_backtest.json`.
+- Added AI Learning dashboard controls for Racing Style Adaptation mode and a report card for samples, switch outcomes, bad switch rate, and Auto Apply lock status.
+- Added official master.mdb table catalog export in `data/master_table_catalog_core.json` so the AI can label official table data without pretending hidden formulas are exposed.
+- Added source labels for `official_table_data`, `api_observed_data`, `empirical_estimate`, and `unknown_hidden_formula` in style-adaptation artifacts.
+- Added documentation in `docs/style-adaptation-v542AI.md`.
+
+## SweepyModv5.41AI
+
+- Added live turn-by-turn Smart Race Solver re-planning so smart schedules are rebuilt from current stats, runner context, previous race results, clock policy, and current race history before each race decision.
+- Smart solver routes now pass current trainee/preset identity into race-risk lookup so learned penalties can use per-preset/per-trainee history before falling back to global race outcomes.
+- Solver-generated Train turns now suppress legacy fan-farming and fallback race heuristics, preventing old logic from racing when the live smart route says to train/rest.
+- Re-planning after race results now runs for all smart-route race outcomes before turn 72, not only failed solver-planned races, so missed/failed epithets and clock-rescued outcomes immediately affect the remaining schedule.
+- Runner context now exposes live race history, runtime support, clock policy, and latest re-plan metadata to decision systems and logs.
+- Added regression coverage for live smart re-planning, profile-specific learned race risk, and smart Train-turn fallback suppression.
+
+## SweepyModv5.40AI
+
+- Added clock-aware race retry telemetry to career logs, race outcome aggregates, and AI turn-decision exports.
+- Logs now distinguish clean wins from wins rescued by clocks, including initial rank, final rank, clocks used, retry attempts, and whether Burn Clocks was enabled by the user.
+- Smart Race Solver learned scoring now applies extra clock-dependency risk when Burn Clocks is disabled, while preserving user choice as the source of truth.
+- Expanded race logs with compact master.mdb-derived metadata: venue/date, fan and reward set IDs, Trackblazer first-place coin/win-point rewards, race groups, and official performance-rate hints.
+- Regenerated bundled master-data JSON exports from the provided master.mdb so the new logging fields use current official metadata.
+- Added AI health/dashboard fields for clock retry rows and clock-policy-enabled race rows.
+- Added documentation in `docs/clock-aware-ai-logs-v540AI.md` and regression tests for clock-aware AI logging/model behavior.
+
+## SweepyModv5.39AI
+
+- Added a Live Policy Assistance toggle inside the AI Learning dashboard.
+- Added visible recommendation text showing whether the current AI model recommends enabling Live Policy Assistance or keeping it disabled.
+- Recommendation logic now checks AI health, race-result coverage, turn records, race sample counts, learned adjustment counts, and confidence thresholds.
+- Dashboard now distinguishes Live Policy states as OFF, REQUESTED, or ACTIVE.
+- Live Policy remains safety-gated and only adjusts legal Smart Race Solver candidate scores.
+- Added documentation in `docs/ai-live-policy-toggle-v539AI.md`.
+
+## SweepyModv5.38AI
+
+- Extended AI Learning import to also import settings presets from previous builds.
+- Importer now accepts `data/settings_presets.json` and legacy `data/presets/*.json` files.
+- Preset import deduplicates safely and never overwrites existing presets with different content.
+- Updated AI Learning modal copy from Import Previous Logs to Import Previous Logs & Presets.
+- Added documentation in `docs/ai-log-preset-import-v538AI.md`.
+- Packaged release with root files directly in the zip to avoid nested duplicate folders when extracting.
+
+## SweepyModv5.37AI
+- Added AI Learning import controls so previous build folders, `uma_runtime` folders, `bot_logs` folders, or zip files can be imported into the current AI dataset.
+- Added `/api/ai/import-logs` with duplicate-safe career log importing, race outcome merging, event history merging, automatic dataset rebuild, and optional training.
+- Added `import_manifest.json` so repeated imports do not duplicate old career logs.
+- Added UI guidance for the easier long-term approach: keep/copy `uma_runtime/default` between builds or import it from the AI Learning modal.
+
+## SweepyModv5.36AI
+- Fixed the dedicated AI Learning modal so its dashboard content is visible instead of being hidden by the old Diagnostics CSS rule.
+- Added an AI Training Dashboard artifact and UI cards for model confidence, learned records, race-result coverage, Shadow Mode, backtesting, learned risk/value summaries, config suggestions, epithet confidence, and per-preset/per-trainee confidence.
+- Added Shadow Mode reports that compare learned race-risk hints against historical outcomes without changing live gameplay decisions.
+- Added offline backtesting reports that estimate how often learned race-risk penalties would have warned on historically failed races.
+- Added stronger local analytics artifacts for epithet completion confidence and preset/trainee model confidence.
+- Added AI dashboard, shadow report, backtest report, and config-suggestion API endpoints.
+- Updated safe AI debug bundles to include the new dashboard, shadow, backtest, epithet, and confidence artifacts.
+
+## SweepyModv5.35AI
+- Added Smart Race Solver help text explaining Strict, Balanced, and Loose distance preference modes.
+- Centralized running-style conversion so Pace Chaser maps to game style 2 and Late Surger maps to game style 3 consistently.
+- Updated weighted skill purchasing to block style-exclusive skills that contradict the selected Racing Settings strategy.
+- Moved AI Learning controls from Diagnostics into a dedicated top-level AI Learning modal.
+- Reworked the top navigation layout to prevent Runs, Theme, Logout, Delay, and account/status pills from overlapping.
+
+## SweepyModv5.34AI
+
+- Repaired AI race-result extraction from `single_mode_free/race_end` API response logs.
+- Fixed AI race outcome training so missing results are not counted as losses.
+- Added AI data health checks and auto-disables live policy assistance when race-result coverage is unsafe.
+- Added nested item telemetry parsing and `events_seen.json` support for item/event analytics.
+- Expanded career summaries with final stats, final fans, race counts, win rate, rest/recreation counts, and reconstructed race results.
+- Fixed LLM prompt-pack manifest counts by atomically overwriting the latest prompt pack per training run.
+- Added a safe AI debug bundle endpoint and Diagnostics health display.
+
+
+## SweepyModv5.33AI
+
+- Added automatic local AI training that runs after completed career exports and on a timer while the runner is idle.
+- Added Phase 2 local analytics tables: race outcomes, item effectiveness, event outcomes, and automatic post-run reports.
+- Added Phase 3 learned scoring artifacts: race-risk model, item-value model, event-value model, and confidence-gated policy adjustments.
+- Added Phase 4 LLM advisor preparation: prompt packs, synthetic review prompts, and suggested config tuning. No external LLM calls are made by default.
+- Added Phase 5 optional live policy assistance for the Smart Race Solver. Learned adjustments only modify legal race candidate scores and are fully reversible/confidence-gated.
+- Added AI auto-training Diagnostics controls: auto-training toggle, Train Now, post-run report, advisor report, and dataset download.
+- Added API endpoints for AI auto-training status/config, manual training, latest post-run report, and model artifact downloads.
+- Added unit tests for auto-training, analytics table generation, learned policy hints, and post-career training scheduling.
+
+## SweepyModv5.30
+
+- Replaced the Smart Race Solver route core with a local Android-inspired architecture: exact MILP first, history-aware beam fallback, local structured epithet matchers, and RaceHistory/EpithetTracker-style projected completions.
+- Added distance preference modes for Smart Race Solver: Strict, Balanced, and Loose. Strict mode blocks off-preference races unless needed for forced epithets.
+- Bundled Android structured race/epithet assets for local planning and removed normal solver reliance on the external race-planner webpage.
+- Improved Smart Solver preview details with preferred distances, distance mode, and projected epithets.
+- Fixed skill list selection stability so multi-select actions no longer jump back to the top after each choice.
+- Cleaned up the top-right navbar so Runs, Theme, and Logout no longer overlap.
+- Renamed nav currency labels and TP recovery labels from Jewels to Carrots.
+
+
+## SweepyModv5.29
+
+- Fixed Action Log historical-click behavior so Decision Reasoning stays focused on the clicked turn instead of snapping back to the latest turn during polling refreshes.
+- Hid the live footer turn ticker while the runner is active to prevent `Turn / action / step` text from appearing behind Run/Stop/Pause controls; pause/error messages still display.
+- Added Android-bot-inspired training target pressure so underbuilt stats receive stronger score weight before Wit HP/SP side value dominates.
+- Added Wit balance damping when Wit is already ahead of weaker target stats and tightened Wit-as-rest replacement to avoid repeated unnecessary Wit turns.
+- Expanded training candidate traces with main gain, target completion, energy delta, and reason flags for clearer Decision Reasoning.
+- Added regression tests for reasoning selection lock, footer overlap cleanup, and Wit/target-pressure scoring helpers.
+
+## SweepyModv5.28
+
+- Fixed Career History Major Wins by freezing per-run history snapshots instead of allowing entries to depend on live runner data.
+- Settings presets now save and restore the selected deck, friend support, trainee, own parents, and guest parent.
+- Replaced the visible Sync button with the existing Pause/Resume control in the Run controls row.
+- Compacted Run Career, Stop, and Pause controls so the Action Log and Decision Reasoning area can use more vertical space.
+- Renamed top-bar labels to `TP POTIONS` and `JEWELS` while keeping backend field names stable.
+- Kept Configure Skills, skill configuration, and weighted skill purchase behavior unchanged.
+
+## SweepyModv5.27
+
+- Replaced the bundled legacy settings presets with one neutral `Default` preset.
+- Added runtime sanitization so existing installs stop loading `Fan Farming`, `Maru Fan Farming`, `Oguri`, `Parent Farming`, `xguri`, and `xguri parent`.
+- Removed the hard-coded `xguri parent` preset fallback from race saving and career-run startup.
+- Made the frontend prefer the backend active preset when local storage does not point to a valid preset.
+- Fixed the Crash Trace route by importing `runtime_output_root` into `main.py`.
+- Renamed Smart Race Solver `Optimization Mode` to `Optimization Weight Preset` and clarified that it is a UI weight macro.
+
+## SweepyModv5.26
+
+- Added true Pause/Resume runner controls that pause only at safe automation checkpoints.
+- Added explicit run counts: 1 for single career, N for bounded loops, and 0 for until-stopped loops.
+- Guarded infinite loops when a guest/rental parent is selected; finite loops continue to refresh and validate guest/rental parent availability before every new career.
+- Added Event Choices UI and runtime event override storage under `uma_runtime/`.
+- Added simple Discord webhook save/test setup using the existing Discord telemetry logger configuration.
+- Added regression coverage for pause/resume, loop info snapshots, runtime event overrides, and seen-event logging.
+
+## SweepyModv5.25
+
+- Ported Umabot's iterative 205/208 API retry loop with independent counters, exponential 208 backoff, and HTTP 500 retry support.
+- Added runner safeguards for API responses missing `data.chara_info` and reconciled race-entry 205/208 responses before rejecting races.
+- Added stale-race-state detection, `/api/career/rescue`, traversal-safe public asset paths, modular shell CSS, hardened monitor module, and UI contract tests.
+- Expanded regression coverage with Umabot-style crash, stale race, TP recovery, race-entry reconciliation, and UI contract tests.
+
+## SweepyModv5.24 TP Recovery Replacement
+
+- Replaced the active Toughness/Carats TP Restore flow with Umabot-style TP recovery modes: `potion_first`, `potion_only`, and `jewels_only`.
+- Added `/api/settings/tp-recovery` GET/POST endpoints backed by `settings.json`.
+- Updated career start to use TP item 32 through `item/use_recovery_item` before optional Jewel recovery, matching Umabot behavior.
+- Updated the account strip to show live TP item count and the persisted TP recovery mode selector.
+- Preserved unrelated v5.24 selective improvements, including the theme selector, decision reasoning feed, and career-history aptitude fix.
+
+
+## SweepyModv5.24
+
+- Reverted the dashboard UI to the SweepyModv5.22 layout.
+- Kept the persisted Neon Cockpit / Clean Dark theme selector.
+- Kept the turn-by-turn Decision Reasoning feed backed by `/api/career/decision-trace/latest?limit=160`.
+- Fixed Career History aptitude labels to use the actual 1=G through 8=S aptitude scale.
+
+## SweepyModv5.22
+
+- Ported useful Umabot improvements without replacing SweepyMod's Trackblazer solver stack.
+- Fixed Toughness 30 TP restore to use `item/use_recovery_item`, while Carats continue using `user/recovery_trainer_point`.
+- Added modular parent spark filtering and safe preview-first recent-parent cleanup.
+- Added a bottom Career Monitor drawer with live log filters, crash trace display, and current-run stat charting.
+- Added `/api/career/live_history`, `/api/career/crash_trace`, `/api/parents/remove`, and `/api/parents/remove-recent`.
+
+## SweepyModv5.21
+
+- Fixed finished-career setup locks where the cockpit showed no active career but Friend Supports still said `ACTIVE CAREER, ENDPOINT BLOCKED`.
+- Clears stale dashboard/backend career state and setup selection after a finished runner stop, while preserving loop-mode reuse between automatic careers.
+- Auto-applies staged Manual Selection races before a fresh run starts.
+- Sends `race_planner_mode` and `manual_race_ids` to the backend so manual race lists are tagged separately from Smart Race Solver plans.
+- Makes manual due races take priority over Force Racing and prevents Irregular Training from hijacking a manual race list.
+- Added regression coverage for setup unlock and manual race priority.
+- Added documentation in `docs/setup-unlock-manual-races-v521.md`.
+
+## SweepyModv5.20
+
+- Retries temporary HTTP 502/503/504 gateway/server responses inside the API client instead of crashing immediately.
+- Marks HTTP 502/503/504 and Gateway Timeout errors as recoverable in the career runner, so `single_mode_free/check_event` timeouts can reload state and continue.
+- Added regression coverage for HTTP 504 retry success, retry-budget exhaustion, and runner recoverability.
+- Added documentation in `docs/http-gateway-recovery-v520.md`.
+
+## SweepyModv5.19
+
+- Fixed guest-parent loop starts after a completed career by refreshing the selected rental parent against a fresh pre-start guest list before every new start.
+- Stops the loop cleanly when a selected guest parent is no longer available instead of retrying `single_mode_free/start` and producing repeated API 501 errors.
+- Converts guest-parent API 500/501 start rejections into a clear dashboard/loop message telling the user to refresh Guest Parents and reselect.
+- Caches Toughness 30 API 213 rejections for 30 minutes in the current process, so looped runs no longer repeatedly hit the rejected item-backed TP restore call before falling back to Carats.
+- Added regression coverage for looped guest-parent starts, fatal start handling, and cached Toughness 30 restore rejection handling.
+
+## SweepyModv5.18
+
+- Fixed guest parent cards not appearing in the top Parent 2 setup slot.
+- Fixed own + guest parent career start payloads to use `rental_succession_trained_chara` instead of sending the guest as `succession_trained_chara_id_2`.
+- Added frontend validation that blocks career start when a guest parent is missing the viewer/trained character IDs required by the start endpoint.
+- Added backend validation for the supported parent combinations: 2 owned parents, or 1 owned parent + 1 guest parent.
+- Added regression coverage for guest-parent slot display, start payload fields, and backend rental fields.
+
+## SweepyModv5.17
+
+- Fixed Toughness 30 detection being overridden by stale configured item IDs from older builds.
+- Validates configured Toughness IDs against authoritative master-data IDs before use.
+- Added robust inventory count parsing for TP restore items across `number`, `item_num`, `num`, `count`, and related account payload fields.
+- Writes `data/toughness_item_ids.invalid.json` when an invalid local override is ignored.
+
+
+All notable changes to this project are documented in this file.
+
+This project now uses the exact build naming format `SweepyModvx.x`, where `x.x` is a major/minor version number. Entries are sorted newest first. Older source notes that did not record a release date are marked as `Date not recorded` instead of inventing one.
+
+
+## [SweepyModv5.16] - 2026-06-11
+
+### Fixed
+- TP restore safety: selecting Toughness 30 no longer silently falls back to Carats after an API 213/item-backed restore rejection.
+- Toughness 30 restore now reports API 213 as a server-side item restore rejection and stops unless explicit Carats fallback is enabled.
+- Closed the master-data sqlite connection explicitly so test runs no longer emit the unclosed-connection ResourceWarning.
+
+### Added
+- Dashboard checkbox: **Use Carats if Toughness 30 fails**. It is disabled by default and sent as `tp_restore_allow_carats_fallback`.
+- Documentation: `docs/tp-restore-safety-v516.md`.
+
+## [SweepyModv5.15] - 2026-06-11
+
+### Added
+
+- Added `succession_scoring_core.json`, generated from `succession_initial_factor`, `succession_relation_rank`, and `succession_relation`.
+- Added `career_progression_core.json`, generated from `single_mode_chara_grade`.
+- Added `event_reward_display_core.json`, generated from official event reward/display tables and event text categories.
+- Added official inheritance-point hints to Career History spark chips when available.
+- Added Career Grade derivation in Career History using official win/run/fan requirements.
+- Added event reward display labels to event-choice scoring traces when native event payloads expose display IDs.
+- Added regression coverage for P3 master-data exports and the API 214 race-entry noisy-log fix.
+- Added `docs/master-data-succession-career-events-v515.md`.
+
+### Changed
+
+- API 214 race-entry test recovery now logs through structured runner logs instead of printing a noisy simulated error line during tests.
+- Career History detail metadata now includes official Career Grade when progression data is available.
+- Master-data generation now extracts the P3 parent/spark, career progression, and event display tables.
+
+
+## [SweepyModv5.14] - 2026-06-11
+
+### Added
+
+- Added `skill_condition_core.json`, generated from `skill_data`, `single_mode_skill_need_point`, and `skill_level_value`.
+- Added `skill_upgrade_groups_core.json`, generated from official skill `group_id` chains.
+- Added `skill_sources_core.json`, generated from `available_skill_set`, `skill_set`, `card_data`, and `support_card_data`.
+- Added `support_hint_sources_core.json`, generated from `single_mode_hint_gain` and support-card metadata.
+- Added `support_effects_resolved_core.json`, generated from support-card effect, unique-effect, level, and hint tables.
+- Added regression coverage for the v5.14 master-data P2 skill/support exports.
+- Added `docs/master-data-skill-support-v514.md`.
+
+### Changed
+
+- Weighted skill scoring now enriches official skill scores with master-data skill conditions, support-source counts, and trainee-source counts when those exports are available.
+- Skill preview/scoring traces can now explain official support and trainee skill sources through reasons such as `support_sources:N` and `trainee_sources:N`.
+- Master-data generation now extracts the official skill/source/support tables used by the P2 skill and support intelligence pass.
+
+## [SweepyModv5.13] - 2026-06-11
+
+### Added
+
+- Added `training_effects_core.json`, generated from `single_mode_training`, `single_mode_training_effect`, and `single_mode_free_training_plate`.
+- Added `scenario_turns_core.json`, generated from `single_mode_scenario` and `single_mode_turn`.
+- Added official training-effect fallback traces to Trackblazer training scoring.
+- Added scenario-calendar-backed summer-turn detection for Smart Race Solver backends.
+- Added regression coverage for v5.13 master-data P1 exports and training fallback behavior.
+- Added `docs/master-data-training-calendar-v513.md`.
+
+### Changed
+
+- Trackblazer training scoring can now use official master-data base training effects when the live command payload does not include stat/energy/SP deltas.
+- Training decision traces now include an `official_training` summary with level, stat total, skill points, and energy delta when master-data baselines are available.
+- Smart Race Solver summer filtering now reads official scenario calendar metadata when available, falling back to the previous hardcoded summer turns only if the export is missing.
+
+
+## [SweepyModv5.12] - 2026-06-11
+
+### Added
+
+- Added `chara_route_core.json`, `rival_races_core.json`, `trackblazer_race_rewards_core.json`, and `race_performance_rates_core.json` master-data exports.
+- Added static rival-race enrichment from `single_mode_rival` so RacePlanner can prioritize rival races even when runtime rival payloads are incomplete.
+- Added Trackblazer race reward enrichment from `single_mode_free_coin_race`, `single_mode_free_win_point`, `single_mode_reward_set`, and `single_mode_race_group`.
+- Added official race performance rate export from distance, ground, running-style, motivation, course-status, and popularity rate tables.
+- Added regression tests for the v5.12 master-data planning exports and solver integration.
+- Added `docs/master-data-trackblazer-planning-v512.md`.
+
+### Changed
+
+- Smart Race Solver candidate rows now include official fan reward fallback, Trackblazer coin reward, win points, race group IDs, reward set ID, and an official performance-rate hint.
+- RacePlanner Trackblazer race sorting now considers official Trackblazer reward value after grade and fan reward.
+- Master-data generation now extracts the official route, rival, reward, and performance-rate tables used by the P0 Trackblazer planning pass.
+
+## [SweepyModv5.11] - 2026-06-11
+
+### Added
+
+- Added `tp_restore_items_core.json`, `win_saddle_core.json`, and `career_rank_thresholds_core.json` master-data exports.
+- Added first-place fan reward metadata from `single_mode_program` and `single_mode_fan_count` into race planner metadata.
+- Added regression tests that validate TP restore, fan rewards, major-win metadata, and rank thresholds against a master.mdb-shaped fixture.
+- Added `docs/master-data-alignment-v511.md`.
+
+### Changed
+
+- Toughness 30 detection now uses a direct `item_data` + `text_data` query that returns `item_data.id` instead of scanning broad text tables.
+- Career History rank display now uses `single_mode_rank` thresholds when generated master-data thresholds are available.
+- Major-win display now resolves `win_saddle_id_array` through generated `win_saddle_core.json` labels before falling back to race-result counts.
+- RacePlanner now preserves generated race fan reward, fan set, required fan, and reward-set metadata.
+
+### Fixed
+
+- Fixed Toughness 30 auto-detection potentially returning text category IDs such as `23` instead of the true item ID `32`.
+- Fixed race result ledger fan rewards often showing `0` because generated race metadata did not include `single_mode_fan_count` values.
+- Fixed direct major-win summary lookup treating win-saddle IDs as flat race-map IDs.
+- Fixed rating-to-rank display using stale hardcoded thresholds when master.mdb rank thresholds are available.
+
+## [SweepyModv5.10] - 2026-06-11
+
+### Added
+
+- Added a runner-level race result ledger for Career History, recording program id, race name, grade, distance, fan reward, final rank, and win status after race retries resolve.
+- Added `/api/tp-restore/status` so the dashboard can report whether Toughness 30 is configured, owned, and usable before career start.
+- Added regression coverage for rich Career History race counts/rating extraction and Toughness 30 TP restore payload support.
+
+### Changed
+
+- Career History now falls back to the race result ledger for race count, wins, major wins, and race details when the final server payload does not expose those fields directly.
+- Career completion now searches nested finish payloads for rating, rank, race count, win count, skills, factors, and final trainee arrays instead of only reading top-level `chara_info`.
+- The TP Restore UI now labels the item option as Toughness 30 to distinguish it from Carats.
+- Toughness 30 TP restore now checks both configured/detected item IDs and currently owned item count before falling back to Carats.
+
+### Fixed
+
+- Fixed Career History showing `0 races / 0 wins` when the runner action history stored race actions as `race` rather than `race_entry`.
+- Fixed major wins showing `Unknown` for runs that have race result data but no `win_saddle_id_array` in the final payload.
+- Fixed TP restore fallback messaging so it clearly explains when Toughness 30 cannot be used because item IDs are missing or no copies are owned.
+
+## [SweepyModv5.9] - 2026-06-11
+
+### Added
+
+- Added the split configuration store in `career_bot/config_store.py`, separating Settings Presets, Configure Skills, and Smart Race Solver configuration.
+- Added `data/settings_presets.json`, `data/skill_config.json`, and `data/smart_solver_config.json` as the new canonical storage files.
+- Added `/api/settings-presets`, `/api/skill-config`, and `/api/smart-solver/config` endpoints.
+- Added a redesigned Configure Skills launcher and weighted skill configuration screen.
+- Added Skill Point Threshold to Configure Skills with purchase-gate behavior: the bot waits to buy skills until enough skill points are accumulated.
+- Added Skill Config tests for split storage, threshold behavior, disabled auto-purchase, and UI replacement.
+- Added documentation for Settings Preset splitting and weighted skill configuration.
+
+### Changed
+
+- Replaced the old Preset Configuration section with Settings Presets, which only save Training Settings, Racing Settings, and Scenario Overrides.
+- Moved Configure Skills below Training/Racing/Scenario settings buttons and above Settings Presets.
+- Split runtime configuration composition so the runner still receives one combined config built from settings, skill, and solver stores.
+- Smart Race Solver settings and manual race plans are now stored separately from Settings Presets.
+- Configure Skills now stores the weighted skill purchase system independently of Settings Presets.
+- Running Style and Track Distance in Configure Skills are read-only summaries sourced from Racing/Training behavior rather than duplicate controls.
+
+### Fixed
+
+- Fixed manual race selections being tied to the old preset blob by persisting them through Smart Solver config.
+- Fixed skill threshold wording and behavior so it no longer implies stopping the bot.
+- Fixed stale old preset files being carried forward by migrating and deleting `data/presets`.
+
+### Removed
+
+- Removed the old `data/presets` folder from the packaged build.
+- Removed old skill tier/blacklist editor DOM from the Skill Configuration modal.
+- Removed Min Skill Pt from the old preset area; it now belongs to Configure Skills.
+
+## [SweepyModv5.8] - 2026-06-11
+
+### Added
+
+- Redesigned Career History as a desktop-first, two-level modal with rich summary cards and clickable detail views.
+- Added searchable/sortable Career History controls for newest, rating, fans, wins, and trainee name.
+- Added career detail panels for trainee portrait, rank, rating, fans, scenario, races/wins, final stats, aptitudes, sparks, and skills.
+- Added CSS-rendered stat/aptitude grade badges and spark star chips.
+- Added `docs/career-history-redesign.md`.
+
+### Changed
+
+- `/api/career/history` now enriches completed career entries with normalized aptitude labels, spark data, grouped skills, race/win totals, major-win summaries, and portrait URLs when available.
+- Career completion snapshots now preserve final skill, factor, and win arrays when the game payload provides them.
+- Replaced the old Career History table with desktop cards; no mobile variant is included.
+
+## [SweepyModv5.7] - 2026-06-11
+
+### Added
+
+- Added per-trainee manual Smart Race Solver aptitude overrides so one trainee's solver edits no longer leak into another trainee.
+- Added estimated parent-spark aptitude bonuses to the Smart Race Solver aptitude preview and route payload calculation.
+- Added canonical solver defaults in `data/trackblazer_solver_defaults.json` plus `/api/trackblazer/solver/defaults` so frontend/backend default values share one source.
+- Added hard forced-epithet constraints for MILP and Beam schedules: every selected forced epithet must have at least one native-matched scheduled race, or the solver reports infeasible.
+- Added route-diff preview text comparing a newly solved route against the previous route.
+- Added additional regression tests for summer blocking, forced epithets, partial cache repair, per-trainee aptitudes, solver defaults, and list-alias safety.
+- Added `docs/code-analysis-v5.7.md`.
+
+### Changed
+
+- Smart Race Solver settings now use the compact Smart Race Solver / Manual Selection buttons as the single source of truth for planner mode.
+- "Allow racing during Summer" now actually blocks summer-camp races when disabled instead of merely applying a score penalty.
+- Solver numeric settings are clamped in the UI and backend to prevent negative or extreme values from warping schedules.
+- Epithet pickers no longer silently slice the available list to 180 entries.
+- Trackblazer cache loading repairs any missing dataset, not just missing `races.json`.
+- `/api/trackblazer/plan` now preserves intentional 400 validation errors instead of converting them to 500 errors.
+- Pydantic request models now use `Field(default_factory=...)` for mutable collections.
+
+### Fixed
+
+- Fixed explicit low manual aptitudes being overwritten by broad fallback `B` planning aptitudes.
+- Fixed repeated stale-plan warning banners stacking in the Trackblazer card.
+- Fixed preset hydration list aliasing in `extra_weight` and `spirit_explosion`.
+- Fixed stale `solver_status()` documentation.
+
+### Removed
+
+- Removed the redundant Smart Race Solver enable/disable toggle from the Smart Race Solver Settings modal.
+
+## [SweepyModv5.6] - 2026-06-11
+
+### Added
+
+- Added a **SMART RACE SOLVER SETTINGS** button to the Trackblazer card.
+- Added a dedicated Smart Race Solver Settings modal for solver mode, trainee preset selection, manual solver aptitudes, aptitude threshold, OP/Pre-OP inclusion, summer racing, target/forced epithets, optimization mode, scoring weights, and schedule preview.
+- Added `/api/trackblazer/epithets` for loading epithet data into the solver settings modal.
+- Added backend support for `target_epithets` and `forced_epithets` in Trackblazer plan requests.
+- Added tests for preserving solver settings and applying target epithet bias to matching races.
+- Added `docs/smart-race-solver-settings.md`.
+
+### Changed
+
+- Moved Include OP / Pre-OP, Fan Bonus %, and Max Streak out of the compact Trackblazer card and into the Smart Race Solver Settings modal.
+- Smart Race Solver plan payloads now use persisted preset-level solver settings instead of transient dashboard inputs.
+- Target and forced epithets now apply an advisory scoring bonus to candidate races matching their condition text.
+
+
+
+## [SweepyModv5.5] - 2026-06-11
+
+### Fixed
+
+- Moved Training Settings, Racing Settings, and Scenario Overrides inside the setup workspace so they appear immediately above Preset Configuration instead of auto-placing below Race Schedule.
+- Added responsive setup-workspace grid rules so the buttons preserve their existing appearance and behavior on desktop and stack cleanly on smaller screens.
+
+
+## [SweepyModv5.4] - 2026-06-11
+
+### Added
+
+- Added MILP fallback diagnostic logging to `uma_runtime/diagnostics/smart_solver_fallbacks.jsonl` and `latest_smart_solver_fallback.json`.
+- Added `fallback_exception_type`, `fallback_traceback_tail`, and `fallback_log` fields to Beam fallback schedules after MILP failures.
+- Added `docs/code-analysis-v5.4.md` documenting the remaining v5.3 audit follow-up work.
+- Added regression tests for repeated event-drain recovery, MILP fallback diagnostics, and solver status cleanup.
+
+### Changed
+
+- `solver_status()` now reports only the authoritative MILP/Beam smart solver backend fields instead of also returning legacy Node bridge fields.
+
+### Fixed
+
+- Fixed `_drain_events()` so repeated or stuck event queues refresh career state instead of returning with unresolved `unchecked_event_array` entries.
+- Fixed event-drain recovery to avoid recursively draining the same stuck event queue after a forced state refresh.
+- Removed a duplicate unreachable mandatory-race failure raise in `_race()`.
+
+## [SweepyModv5.3] - 2026-06-11
+
+### Added
+
+- Added a Diagnostics solver backend indicator showing whether the default Smart Race Solver backend is MILP or Beam.
+- Added backend solver status fields for `active_backend`, `active_backend_label`, `milp_available`, and `beam_available`.
+- Added tests for the solver backend status UI and additional race 214 recovery paths.
+
+### Changed
+
+- Moved Training Settings, Racing Settings, and Scenario Overrides to the first Setup content row above team slots and Preset Configuration.
+- Updated the Trackblazer solver status display to report the actual MILP/Beam smart backend instead of the legacy Node bridge status.
+
+### Fixed
+
+- Recovered from API 214 errors during `race_entry`, initial `race_start`, race-progress `race_start`, race-progress `race_end`, and race-progress `race_out` instead of allowing those paths to crash.
+- Removed a duplicate unreachable `return out` in the race runner.
+
+
+## [SweepyModv5.2] - 2026-06-11
+
+### Fixed
+
+- Treated API result code 214 as a recoverable session/state desync instead of an immediate runner crash.
+- Wrapped race and race-progress execution paths in the same recovery flow used by event and command actions.
+- Recovered from result code 214 during post-race event draining by refreshing career state instead of stopping the run.
+- Added result-code parsing for 214 in runner debug summaries.
+
+### Added
+
+- Added regression tests for API 214 recovery during race-out event handling.
+- Added documentation for recoverable API error handling.
+
+## [SweepyModv5.1] - 2026-06-10
+
+### Added
+
+- Added this consolidated `CHANGELOG.md` as the single release-history file for future updates.
+- Added a `docs/` folder with feature documentation for the implemented systems that were previously scattered across release-note fragments.
+- Added documentation for master-data export integration, TP restore selection, career history, smart training, guest-parent UI behavior, Smart Race Solver backends, skill-profile compatibility, Trackblazer item economy, Trackblazer decision safety, Trackblazer native scoring/race selection, Trackblazer event scoring, and setup/settings UI windows.
+
+### Changed
+
+- Consolidated the previous root-level release fragments into one consistent changelog structure.
+- Moved feature explanations into dedicated Markdown documents under `docs/`.
+
+### Removed
+
+- Removed legacy root-level changelog/release-note fragments after their contents were consolidated.
+
+## [SweepyModv5.0] - Date not recorded
+
+### Added
+
+- Added the setup settings window system with three buttons: Training Settings, Racing Settings, and Scenario Overrides.
+- Added modal windows for training, racing, and Trackblazer scenario configuration.
+- Added draggable priority editor modals for General Prioritization, Event Choice Prioritization, and Summer Training Prioritization.
+- Added a manual SAVE button beside NEW and DEL in Preset Configuration.
+- Added backend preservation for `mant_config` so settings persist across preset save/load.
+- Added Trackblazer item-economy rules ported natively from the Android automation policy: shop priority retune, Charm-aware energy behavior, greedy energy recovery, Royal Kale Juice/cupcake pairing, and race-item conservation.
+- Added Trackblazer P1 decision safety: irregular training gates, action-history race-chain awareness, low-energy race safety, and Reset Whistle rescue restrictions.
+- Added Trackblazer P2 native decision scoring: near-rainbow anticipation, training-level weighting, summer priorities, race sorting by rival/distance/surface/grade/fans, and smart-solver train-turn protection.
+- Added Trackblazer P3 event-choice scoring: stat/skill-point/energy/mood/bond/status reward parsing, event stat priority, energy-priority mode, and richer event traces.
+
+### Changed
+
+- Moved Training Settings, Racing Settings, and Scenario Overrides above Preset Configuration.
+- Removed the redundant Bot Settings heading.
+- Made Racing Settings the sole UI location for race running-style configuration.
+- Replaced inline priority chips with modal drag-and-drop priority editors.
+- Updated preset serialization to preserve Trackblazer plans, locks, priority settings, event settings, racing preferences, and scenario override fields.
+- Updated full test discovery so the Smart Race Solver test accepts either the MILP backend or beam fallback label depending on installed dependencies.
+
+### Removed
+
+- Removed the old Running Style dropdown from Preset Configuration.
+- Removed the duplicate Running Style control from Skill Configuration.
+- Omitted Android-only Training Analysis Validation and YOLO Stat Detection controls because SweepyMod uses native game payloads, not OCR/screen detection.
+
+### Fixed
+
+- Fixed settings persistence for `mant_config` values.
+- Fixed environment-sensitive Smart Race Solver test behavior when SciPy selects the MILP backend.
+
+## [SweepyModv4.9] - Date not recorded
+
+### Fixed
+
+- Fixed crashes when generated trainee skill profiles supplied scalar `card_id` values instead of iterable `card_ids` values.
+- Updated skill profile matching to safely accept list, tuple, set, string, scalar, or missing card ID values.
+- Added unit coverage for scalar card ID profile matching.
+
+## [SweepyModv4.8] - Date not recorded
+
+### Added
+
+- Added an optional SciPy MILP backend for the Smart Race Solver.
+- Added MILP constraints for binary race decisions, one race per turn, manual race locks, manual train locks, max consecutive racing streaks, summer penalties, aptitude filtering, and race reward/cost objectives.
+
+### Changed
+
+- Smart Race Solver now tries the MILP backend first when SciPy is available, then falls back to beam search if SciPy is missing or the model is infeasible.
+- `requirements.txt` includes `scipy>=1.11`.
+
+### Notes
+
+- Epithet variables and full matcher constraints were noted as future work in the original source note.
+
+## [SweepyModv4.7] - Date not recorded
+
+### Added
+
+- Added a dependency-free Smart Race Solver beam backend for Trackblazer/MANT race planning.
+- Added Smart Race Solver and Manual Selection UI modes.
+- Added Apply Smart and Apply Manual actions.
+- Added staged manual selections so manual race choices are not applied until confirmation.
+
+### Changed
+
+- Ported the useful Android solver behavior into `career_bot/trackblazer.py` without Android APIs or screen automation dependencies.
+
+## [SweepyModv4.6] - Date not recorded
+
+### Fixed
+
+- Fixed guest-parent hover popups by binding guest cards to the same `.sparks-tooltip` system as owned parents.
+- Added delegated hover/focus handling on `#guest-parent-grid` so popups survive refresh and re-render.
+- Added fallback popup content when guest entries have basic character data but no factor data.
+- Removed pure friend support card rows from guest-parent results.
+
+## [SweepyModv4.5] - Date not recorded
+
+### Added
+
+- Added guest-parent hover popups using the existing owned-parent spark tooltip system.
+- Added keyboard-focus support for guest-parent popups.
+
+### Changed
+
+- Reused existing viewport-safe tooltip positioning and popup styling instead of creating a separate popup system.
+
+## [SweepyModv4.4] - Date not recorded
+
+### Added
+
+- Added smarter training behavior that values rainbow/friendship training when high-bond deck partners are present.
+- Added visible `rainbow xN` text in command reasons.
+- Added preset tuning knobs for rainbow training behavior: `rainbow_training_bonus`, `rainbow_training_stack_bonus`, `rainbow_partner_value`, and `allow_full_hp_wit_rainbow`.
+
+### Changed
+
+- Wit training is no longer selected at full HP by default because it can waste its HP recovery value.
+- Tightened Resume Career / Stop / Sync footer spacing.
+
+### Fixed
+
+- Fixed Career History button binding with a more robust DOM lookup.
+- Improved guest-parent normalization by collapsing duplicate API paths, filtering likely owned/veteran trained characters, and ignoring unrelated directory/scenario arrays.
+
+## [SweepyModv4.3] - Date not recorded
+
+### Added
+
+- Added the Career History UI beside Setup, Accounts, and Diagnostics.
+- Added a current-session Career History modal.
+- Added backend endpoint `GET /api/career/history`.
+- Added completed-career recording from runner snapshots after successful runs.
+
+### Changed
+
+- Removed the lower duplicate SETUP button above Run/Stop/Sync.
+
+### Notes
+
+- Career History is stored in process memory only and clears when `python main.py` is closed or restarted.
+
+## [SweepyModv4.2] - Date not recorded
+
+### Added
+
+- Added a top-bar TP restore selector beside the TP resource UI.
+- Added Toughness and Carats restore buttons.
+- Added `tp_restore_currency` and `tp_restore_mode` to the career-start payload.
+- Added backend support for `tp_restore_mode` as an alias.
+
+### Changed
+
+- The selected TP restore option is saved in localStorage.
+- Backend TP restore messages now say Carats instead of Carrots.
+
+### Notes
+
+- If Toughness is selected but unavailable, the backend can safely fall back to Carats.
+
+## [Unversioned project notes] - Date not recorded
+
+### Added
+
+- Added extended master-data integration for `master.mdb` exports.
+- Added official-data exports for race planner data, skill weighting, trainee profiles, generated trainee skill profiles, support cards, succession data, MANT shop data, and source table references.
+- Added runtime integration points for the race planner, weighted skill system, MANT shop optimizer, trainee profiles, and inheritance/guest-parent data.
+
+### Changed
+
+- Master-data exports are additive and remain backward compatible with legacy generated files.
+- Missing master-data tables are skipped instead of failing generation.
+
+### SweepyModv5.43 Local LLM enable-state hotfix
+- Fixed Local LLM Enable checkbox appearing to undo itself after saving.
+- The Local LLM card now hydrates only from `/api/ai/local-llm/latest` instead of stale AI dashboard snapshots generated during previous training runs.

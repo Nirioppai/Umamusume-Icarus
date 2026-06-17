@@ -1,11 +1,3362 @@
 {
-  "501004708": { "event_name": "Victory!", "outcomes": { "1": "good", "2": "good", "3": "bad", "4": "bad" } },
-  "501019708": { "event_name": "Victory!", "outcomes": { "1": "good", "2": "good", "3": "bad", "4": "bad" } },
-  "501004709": { "event_name": "Solid Showing", "outcomes": { "1": "good", "2": "good", "3": "bad", "4": "bad" } },
-  "400000036": { "event_name": "Defeat", "outcomes": { "1": "bad", "2": "bad", "3": "good", "4": "good" } },
-  "400004405": { "event_name": "Defeat", "outcomes": { "1": "bad", "2": "bad", "3": "good", "4": "good" } },
-  "501004516": { "event_name": "Slow Metabolism Event", "outcomes": { "1": "good", "2": "bad" } },
-  "830028002": { "event_name": "Paying It Forward", "outcomes": { "1": "good", "2": "bad" } },
-  "501004713": { "event_name": "Get Well Soon!", "outcomes": { "1": "bad", "2": "good" } },
-  "400000043": { "event_name": "Get Well Soon!", "outcomes": { "1": "bad", "2": "good" } }
+  "501004708": {
+    "event_name": "Victory!",
+    "outcomes": {
+      "1": "good",
+      "2": "good",
+      "3": "bad",
+      "4": "bad"
+    }
+  },
+  "501019708": {
+    "event_name": "Victory!",
+    "outcomes": {
+      "1": "good",
+      "2": "good",
+      "3": "bad",
+      "4": "bad"
+    }
+  },
+  "501004709": {
+    "event_name": "Solid Showing",
+    "outcomes": {
+      "1": "good",
+      "2": "good",
+      "3": "bad",
+      "4": "bad"
+    }
+  },
+  "400000036": {
+    "event_name": "Defeat",
+    "outcomes": {
+      "1": "bad",
+      "2": "bad",
+      "3": "good",
+      "4": "good"
+    }
+  },
+  "400004405": {
+    "event_name": "Defeat",
+    "outcomes": {
+      "1": "bad",
+      "2": "bad",
+      "3": "good",
+      "4": "good"
+    }
+  },
+  "501004516": {
+    "event_name": "Slow Metabolism Event",
+    "outcomes": {
+      "1": "good",
+      "2": "bad"
+    }
+  },
+  "830028002": {
+    "event_name": "Paying It Forward",
+    "outcomes": {
+      "1": "good",
+      "2": "bad"
+    }
+  },
+  "501004713": {
+    "event_name": "Get Well Soon!",
+    "outcomes": {
+      "1": "bad",
+      "2": "good"
+    }
+  },
+  "400000043": {
+    "event_name": "Get Well Soon!",
+    "outcomes": {
+      "1": "bad",
+      "2": "good"
+    }
+  },
+  "event:leave_it_to_the_great_detective": {
+    "event_name": "Leave It to the Great Detective!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 6,
+        "stamina": 6,
+        "playing_state": -4
+      },
+      "2": {
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20049": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "speed +6, stamina +6",
+      "2": "skill hints 1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 6,
+          "stamina": 6,
+          "playing_state": -4
+        }
+      },
+      "1": {
+        "2": {
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20049": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 2
+  },
+  "event:mystery_fortune_ritual": {
+    "event_name": "Mystery Fortune Ritual!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "wiz": 4
+      },
+      "1": {
+        "speed": 7,
+        "stamina": 7,
+        "power": 7,
+        "guts": 7,
+        "wiz": 7,
+        "vital": 5
+      }
+    },
+    "outcomes": {
+      "1": "speed +7, stamina +7, power +7, guts +7, wiz +7, energy +5",
+      "2": "wiz +4"
+    },
+    "choice_slots": {
+      "0": {
+        "2": {
+          "wiz": 4
+        },
+        "1": {
+          "speed": 7,
+          "stamina": 7,
+          "power": 7,
+          "guts": 7,
+          "wiz": 7
+        }
+      },
+      "1": {
+        "1": {
+          "vital": 5
+        }
+      }
+    },
+    "observations": 3,
+    "choice_count": 2
+  },
+  "event:dance_lesson": {
+    "event_name": "Dance Lesson",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 10,
+        "stamina": 10,
+        "power": 10,
+        "guts": 10,
+        "wiz": 10
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, stamina +10, power +10, guts +10, wiz +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 10,
+          "stamina": 10,
+          "power": 10,
+          "guts": 10,
+          "wiz": 10
+        }
+      },
+      "0": {
+        "1": {
+          "stamina": 10,
+          "power": 10,
+          "guts": 10
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:victory": {
+    "event_name": "Victory!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "3": {
+        "speed": 21,
+        "stamina": 16,
+        "power": 21,
+        "guts": 22,
+        "wiz": 18,
+        "vital": -25,
+        "skill_point": 79,
+        "playing_state": -4
+      },
+      "1": {
+        "speed": 22,
+        "stamina": 19,
+        "power": 19,
+        "guts": 21,
+        "wiz": 22,
+        "vital": -20,
+        "skill_point": 79,
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20058": 1,
+          "20018": 1,
+          "20070": 1
+        },
+        "skill_hint": true
+      },
+      "2": {
+        "speed": 22,
+        "stamina": 21,
+        "power": 21,
+        "guts": 22,
+        "wiz": 21,
+        "vital": -20,
+        "skill_point": 79,
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20060": 1,
+          "20026": 1,
+          "20001": 1,
+          "20003": 1,
+          "20073": 1,
+          "20029": 1,
+          "20021": 1
+        },
+        "skill_hint": true
+      },
+      "4": {
+        "speed": 4,
+        "stamina": 16,
+        "power": 7,
+        "guts": 12,
+        "wiz": 18,
+        "vital": -25,
+        "skill_point": 64,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "speed +22, stamina +19, power +19, guts +21, wiz +22, SP +79, energy -20, skill hints 3",
+      "2": "speed +22, stamina +21, power +21, guts +22, wiz +21, SP +79, energy -20, skill hints 7",
+      "3": "speed +21, stamina +16, power +21, guts +22, wiz +18, SP +79, energy -25",
+      "4": "speed +4, stamina +16, power +7, guts +12, wiz +18, SP +64, energy -25"
+    },
+    "choice_slots": {
+      "1": {
+        "3": {
+          "speed": 21,
+          "stamina": 16,
+          "power": 21,
+          "guts": 22,
+          "wiz": 18,
+          "vital": -25,
+          "skill_point": 79,
+          "playing_state": -4
+        },
+        "1": {
+          "speed": 22,
+          "stamina": 19,
+          "power": 19,
+          "guts": 21,
+          "wiz": 22,
+          "vital": -10,
+          "skill_point": 79,
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20058": 1,
+            "20018": 1,
+            "20070": 1
+          },
+          "skill_hint": true
+        },
+        "2": {
+          "speed": 19,
+          "stamina": 16,
+          "power": 21,
+          "guts": 20,
+          "wiz": 4,
+          "vital": -10,
+          "skill_point": 75,
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20060": 1
+          },
+          "skill_hint": true
+        },
+        "4": {
+          "speed": 4,
+          "stamina": 16,
+          "power": 7,
+          "guts": 12,
+          "wiz": 18,
+          "vital": -25,
+          "skill_point": 64,
+          "playing_state": -4
+        }
+      },
+      "0": {
+        "2": {
+          "speed": 22,
+          "stamina": 21,
+          "power": 21,
+          "guts": 22,
+          "wiz": 21,
+          "vital": -20,
+          "skill_point": 79,
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20026": 1,
+            "20001": 1,
+            "20003": 1,
+            "20073": 1,
+            "20029": 1,
+            "20021": 1
+          },
+          "skill_hint": true
+        },
+        "1": {
+          "speed": 16,
+          "stamina": 16,
+          "power": 12,
+          "guts": 4,
+          "wiz": 12,
+          "vital": -20,
+          "skill_point": 56,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 6,
+    "choice_count": 4
+  },
+  "event:get_well_soon": {
+    "event_name": "Get Well Soon!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": -10,
+        "stamina": -10,
+        "guts": -10,
+        "motivation": -1,
+        "playing_state": -4,
+        "gained_conditions": [
+          6
+        ],
+        "lost_conditions": [
+          10
+        ],
+        "power": -5
+      },
+      "2": {
+        "playing_state": -4,
+        "gained_conditions": [
+          10
+        ]
+      }
+    },
+    "outcomes": {
+      "1": "speed -10, stamina -10, power -5, guts -10, motivation -1, conditions +1, conditions -1",
+      "2": "conditions +1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": -10,
+          "stamina": -10,
+          "guts": -10,
+          "motivation": -1,
+          "playing_state": -4,
+          "gained_conditions": [
+            6
+          ],
+          "lost_conditions": [
+            10
+          ]
+        },
+        "2": {
+          "playing_state": -4,
+          "gained_conditions": [
+            10
+          ]
+        }
+      },
+      "0": {
+        "1": {
+          "speed": -5,
+          "stamina": -5,
+          "power": -5,
+          "guts": -5,
+          "motivation": -1,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 3,
+    "choice_count": 2
+  },
+  "event:don_t_overdo_it": {
+    "event_name": "Don't Overdo It!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": -20,
+        "stamina": -10,
+        "power": -10,
+        "guts": -20,
+        "wiz": -10,
+        "motivation": -3,
+        "playing_state": -4,
+        "gained_conditions": [
+          6
+        ],
+        "lost_conditions": [
+          10
+        ],
+        "vital": 10
+      }
+    },
+    "outcomes": {
+      "1": "speed -20, stamina -10, power -10, guts -20, wiz -10, energy +10, motivation -3, conditions +1, conditions -1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": -10,
+          "stamina": -10,
+          "power": -10,
+          "guts": -20,
+          "wiz": -10,
+          "motivation": -2,
+          "playing_state": -4,
+          "gained_conditions": [
+            6
+          ],
+          "lost_conditions": [
+            10
+          ]
+        }
+      },
+      "0": {
+        "1": {
+          "speed": -20,
+          "stamina": -10,
+          "vital": 10,
+          "motivation": -3,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:dig_here_windy": {
+    "event_name": "Dig Here, Windy!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": -5,
+        "skill_point": 30,
+        "speed": 10
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, SP +30, energy -5"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "vital": -5,
+          "skill_point": 30
+        }
+      },
+      "0": {
+        "1": {
+          "speed": 10
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:chomp_extermination": {
+    "event_name": "Chomp Extermination!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 3,
+        "motivation": 1,
+        "vital": 10,
+        "skill_point": 5
+      }
+    },
+    "outcomes": {
+      "1": "speed +3, SP +5, energy +10, motivation +1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 3,
+          "motivation": 1
+        }
+      },
+      "1": {
+        "1": {
+          "vital": 10,
+          "skill_point": 5
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:extra_training": {
+    "event_name": "Extra Training",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 5,
+        "power": 5,
+        "guts": 5,
+        "wiz": 5,
+        "vital": -5,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, power +5, guts +5, wiz +5, energy -5"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 5,
+          "power": 5,
+          "guts": 5,
+          "wiz": 5,
+          "vital": -5,
+          "playing_state": -4
+        }
+      },
+      "1": {
+        "1": {
+          "vital": 5,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:paying_it_forward": {
+    "event_name": "Paying It Forward",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "speed": 5,
+        "gained_skill_hints": {
+          "20036": 1
+        },
+        "skill_hint": true
+      },
+      "1": {
+        "speed": 10,
+        "gained_skill_hints": {
+          "20036": 3
+        },
+        "skill_hint": true,
+        "vital": 10,
+        "motivation": 1
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, energy +10, motivation +1, skill hints 1",
+      "2": "speed +5, skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "2": {
+          "speed": 5,
+          "gained_skill_hints": {
+            "20036": 1
+          },
+          "skill_hint": true
+        },
+        "1": {
+          "speed": 10,
+          "gained_skill_hints": {
+            "20036": 3
+          },
+          "skill_hint": true
+        }
+      },
+      "0": {
+        "1": {
+          "vital": 10,
+          "motivation": 1
+        }
+      }
+    },
+    "observations": 3,
+    "choice_count": 2
+  },
+  "event:ah_home_sweet_home": {
+    "event_name": "Ah, Home Sweet Home",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "gained_conditions": [
+          10
+        ],
+        "speed": 5,
+        "power": 10
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, power +10, conditions +1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "gained_conditions": [
+            10
+          ]
+        }
+      },
+      "0": {
+        "1": {
+          "speed": 5,
+          "power": 10
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:the_emperor_s_satiation": {
+    "event_name": "The Emperor's Satiation",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 30,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "SP +10, energy +30"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 10,
+          "skill_point": 5
+        }
+      },
+      "1": {
+        "1": {
+          "vital": 30,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:happenstance_introduced_throughnintervention": {
+    "event_name": "Happenstance Introduced Through\\nIntervention",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 10,
+        "gained_skill_hints": {
+          "20154": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "wiz +10, skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 10
+        }
+      },
+      "0": {
+        "1": {
+          "gained_skill_hints": {
+            "20154": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:a_trip_to_the_victory_club": {
+    "event_name": "A Trip to the Victory Club!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 6,
+        "wiz": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "stamina +6, wiz +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 6,
+          "wiz": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:thinking_freely": {
+    "event_name": "Thinking Freely",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "vital": 15
+      }
+    },
+    "outcomes": {
+      "2": "energy +15"
+    },
+    "choice_slots": {
+      "0": {
+        "2": {
+          "vital": 15
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:even_if_i_ruffle_feathers": {
+    "event_name": "Even if I Ruffle Feathers",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 15
+      }
+    },
+    "outcomes": {
+      "1": "wiz +15"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "wiz": 15
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:late_night_fanservice_training": {
+    "event_name": "Late-Night Fanservice Training",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "guts": 20
+      }
+    },
+    "outcomes": {
+      "1": "guts +20"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "guts": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:queen_of_the_island": {
+    "event_name": "Queen of the Island",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 10
+      }
+    },
+    "outcomes": {
+      "1": "stamina +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "stamina": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:not_like_meow": {
+    "event_name": "Not like Meow",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 20
+      }
+    },
+    "outcomes": {
+      "1": "energy +20"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:uma_kids_footrace_meet": {
+    "event_name": "Uma Kids Footrace Meet",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 5,
+        "max_vital": 4
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, max energy +4"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 5,
+          "max_vital": 4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:ordinary_or_full_throttle": {
+    "event_name": "Ordinary? Or Full Throttle?!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 6,
+        "guts": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "stamina +6, guts +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 6,
+          "guts": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:irrepressible_feelings": {
+    "event_name": "Irrepressible Feelings",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 10
+      }
+    },
+    "outcomes": {
+      "1": "energy +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:attack_of_the_chestnut_feast": {
+    "event_name": "Attack of the Chestnut Feast!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 30,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "SP +10, energy +30"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 10,
+          "skill_point": 5
+        }
+      },
+      "1": {
+        "1": {
+          "vital": 30,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:cooking_up_memories": {
+    "event_name": "Cooking Up Memories",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 15
+      }
+    },
+    "outcomes": {
+      "1": "energy +15"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 15
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:enemies_on_main_street": {
+    "event_name": "Enemies on Main Street",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "gained_skill_hints": {
+          "20049": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "skill hints 1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "gained_skill_hints": {
+            "20049": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:it_s_called_a_sea_pineapple": {
+    "event_name": "It's Called a Sea Pineapple!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "skill_point": 30
+      }
+    },
+    "outcomes": {
+      "1": "SP +30"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "skill_point": 30
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:agnes_digital_explodes": {
+    "event_name": "Agnes Digital Explodes",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20159": 1
+        },
+        "skill_hint": true
+      },
+      "1": {
+        "motivation": 1,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "motivation +1",
+      "2": "skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "2": {
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20159": 1
+          },
+          "skill_hint": true
+        }
+      },
+      "0": {
+        "1": {
+          "motivation": 1,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 2
+  },
+  "event:taiki_and_pearl_s_language_exchange": {
+    "event_name": "Taiki and Pearl's Language Exchange",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 6,
+        "wiz": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "speed +6, wiz +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 6,
+          "wiz": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:maximum_spirituality": {
+    "event_name": "Maximum Spirituality",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 5,
+        "stamina": 5,
+        "power": 5,
+        "wiz": 5,
+        "skill_point": 15
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, stamina +5, power +5, wiz +5, SP +15"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 5,
+          "stamina": 5,
+          "power": 5
+        }
+      },
+      "0": {
+        "1": {
+          "wiz": 5,
+          "skill_point": 15
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:the_correlation_between_sleep_andnefficiency": {
+    "event_name": "The Correlation between Sleep and\\nEfficiency",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 10
+      }
+    },
+    "outcomes": {
+      "1": "wiz +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:resolve_and_duty": {
+    "event_name": "Resolve and Duty",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 20
+      }
+    },
+    "outcomes": {
+      "1": "power +20"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "power": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:solid_showing": {
+    "event_name": "Solid Showing",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "4": {
+        "power": 10,
+        "vital": -35,
+        "skill_point": 64,
+        "playing_state": -4
+      },
+      "3": {
+        "wiz": 6,
+        "vital": -35,
+        "skill_point": 32
+      },
+      "2": {
+        "speed": 9,
+        "stamina": 7,
+        "vital": -25,
+        "skill_point": 79,
+        "playing_state": -4,
+        "guts": 13
+      }
+    },
+    "outcomes": {
+      "2": "speed +9, stamina +7, guts +13, SP +79, energy -25",
+      "3": "wiz +6, SP +32, energy -35",
+      "4": "power +10, SP +64, energy -35"
+    },
+    "choice_slots": {
+      "1": {
+        "4": {
+          "power": 10,
+          "vital": -35,
+          "skill_point": 64,
+          "playing_state": -4
+        },
+        "3": {
+          "wiz": 6,
+          "vital": -35,
+          "skill_point": 32
+        },
+        "2": {
+          "speed": 9,
+          "stamina": 7,
+          "vital": -15,
+          "skill_point": 40,
+          "playing_state": -4
+        }
+      },
+      "0": {
+        "2": {
+          "guts": 13,
+          "vital": -25,
+          "skill_point": 79
+        }
+      }
+    },
+    "observations": 4,
+    "choice_count": 3
+  },
+  "event:ah_friendship": {
+    "event_name": "Ah, Friendship",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 5,
+        "motivation": 1
+      }
+    },
+    "outcomes": {
+      "1": "power +5, motivation +1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 5,
+          "motivation": 1
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:keeping_it_cute": {
+    "event_name": "Keeping It Cute!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 6,
+        "power": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "stamina +6, power +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 6,
+          "power": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:fortune_favors_the_friends": {
+    "event_name": "Fortune Favors the Friends!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 5,
+        "speed": 7,
+        "stamina": 7,
+        "power": 7,
+        "guts": 7,
+        "wiz": 7
+      },
+      "2": {
+        "wiz": 4
+      }
+    },
+    "outcomes": {
+      "1": "speed +7, stamina +7, power +7, guts +7, wiz +7, energy +5",
+      "2": "wiz +4"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "vital": 5
+        }
+      },
+      "0": {
+        "1": {
+          "speed": 7,
+          "stamina": 7,
+          "power": 7,
+          "guts": 7,
+          "wiz": 7
+        },
+        "2": {
+          "wiz": 4
+        }
+      }
+    },
+    "observations": 3,
+    "choice_count": 2
+  },
+  "event:tug_of_war_tournament": {
+    "event_name": "Tug of War Tournament!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 20
+      }
+    },
+    "outcomes": {
+      "1": "speed +20"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:looking_for_something_important": {
+    "event_name": "Looking for Something Important",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 10
+      }
+    },
+    "outcomes": {
+      "1": "stamina +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "stamina": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:sand_training": {
+    "event_name": "Sand Training!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 15
+      }
+    },
+    "outcomes": {
+      "1": "energy +15"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "vital": 15
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:the_paths_that_beckon": {
+    "event_name": "The Paths that Beckon",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 10,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "SP +10, energy +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 10,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:what_s_wrong_with_golshi": {
+    "event_name": "What's Wrong with Golshi?!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 6,
+        "power": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "speed +6, power +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 6,
+          "power": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:pair_interview": {
+    "event_name": "Pair Interview!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 20
+      }
+    },
+    "outcomes": {
+      "1": "stamina +20"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "stamina": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:just_an_acupuncturist_no_worries": {
+    "event_name": "Just an Acupuncturist, No Worries! ☆",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "5": {
+        "vital": 40,
+        "max_vital": 12
+      },
+      "1": {
+        "vital": 10
+      }
+    },
+    "outcomes": {
+      "1": "energy +10",
+      "5": "energy +40, max energy +12"
+    },
+    "choice_slots": {
+      "2": {
+        "5": {
+          "vital": 40,
+          "max_vital": 12
+        }
+      },
+      "4": {
+        "1": {
+          "vital": 10
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 2
+  },
+  "event:arm_wrestling_contest": {
+    "event_name": "Arm-Wrestling Contest",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 10
+      }
+    },
+    "outcomes": {
+      "1": "wiz +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "wiz": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:tracen_karuta_queen": {
+    "event_name": "Tracen Karuta Queen",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 10,
+        "wiz": 5,
+        "gained_skill_hints": {
+          "20028": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, wiz +5, skill hints 1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 10,
+          "wiz": 5
+        }
+      },
+      "1": {
+        "1": {
+          "gained_skill_hints": {
+            "20028": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:some_very_green_friends": {
+    "event_name": "Some Very Green Friends",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "motivation": -1,
+        "gained_skill_hints": {
+          "20027": 5,
+          "20156": 1
+        },
+        "skill_hint": true,
+        "speed": 5,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, SP +10, motivation -1, skill hints 2"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "motivation": -1,
+          "gained_skill_hints": {
+            "20027": 5
+          },
+          "skill_hint": true
+        }
+      },
+      "0": {
+        "1": {
+          "speed": 5,
+          "skill_point": 10,
+          "gained_skill_hints": {
+            "20156": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:everlasting_game": {
+    "event_name": "Everlasting Game",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 10,
+        "skill_point": 15,
+        "gained_skill_hints": {
+          "20144": 2
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, SP +15, skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 10,
+          "skill_point": 15
+        }
+      },
+      "0": {
+        "1": {
+          "gained_skill_hints": {
+            "20144": 2
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:beauteaful": {
+    "event_name": "Beauteaful",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 5,
+        "skill_point": 15,
+        "speed": 10
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, wiz +5, SP +15"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "wiz": 5,
+          "skill_point": 15
+        }
+      },
+      "1": {
+        "1": {
+          "speed": 10
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:the_perfect_combo": {
+    "event_name": "The Perfect Combo",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 6,
+        "guts": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "power +6, guts +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 6,
+          "guts": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:a_warrior_s_spirit": {
+    "event_name": "A Warrior's Spirit",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 10,
+        "motivation": 1,
+        "vital": 15
+      }
+    },
+    "outcomes": {
+      "1": "power +10, energy +15, motivation +1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 10,
+          "motivation": 1
+        }
+      },
+      "1": {
+        "1": {
+          "vital": 15
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:a_grandkid_get_together": {
+    "event_name": "A Grandkid Get-Together",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 6,
+        "wiz": 6,
+        "playing_state": -4
+      },
+      "2": {
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20058": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "stamina +6, wiz +6",
+      "2": "skill hints 1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 6,
+          "wiz": 6,
+          "playing_state": -4
+        }
+      },
+      "1": {
+        "2": {
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20058": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 2
+  },
+  "event:expressing_my_feelings_to_maruzen": {
+    "event_name": "Expressing My Feelings to Maruzen",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "skill_point": 24,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "SP +24"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "skill_point": 24,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:defeat": {
+    "event_name": "Defeat",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "wiz": 6,
+        "vital": -28,
+        "skill_point": 24,
+        "playing_state": -4
+      },
+      "1": {
+        "power": 5,
+        "vital": -20,
+        "skill_point": 21
+      }
+    },
+    "outcomes": {
+      "1": "power +5, SP +21, energy -20",
+      "2": "wiz +6, SP +24, energy -28"
+    },
+    "choice_slots": {
+      "1": {
+        "2": {
+          "wiz": 6,
+          "vital": -28,
+          "skill_point": 24,
+          "playing_state": -4
+        },
+        "1": {
+          "power": 5,
+          "vital": -20,
+          "skill_point": 21
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 2
+  },
+  "event:conquering_the_crowds": {
+    "event_name": "Conquering the Crowds",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 5,
+        "skill_point": 15
+      }
+    },
+    "outcomes": {
+      "1": "power +5, SP +15"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 5,
+          "skill_point": 15
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:night_of_ill_portent": {
+    "event_name": "Night of Ill Portent",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 10,
+        "guts": 5,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "stamina +10, guts +5, SP +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 10,
+          "guts": 5,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:errands_have_perks": {
+    "event_name": "Errands Have Perks",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 5,
+        "vital": 5,
+        "speed": 5,
+        "stamina": 5
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, stamina +5, wiz +5, energy +5"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 5,
+          "vital": 5
+        }
+      },
+      "0": {
+        "1": {
+          "speed": 5,
+          "stamina": 5
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:mission_big_surprise": {
+    "event_name": "Mission: Big Surprise!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "motivation": 1,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "motivation +1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "motivation": 1,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:an_unusual_addition": {
+    "event_name": "An Unusual Addition",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 6,
+        "wiz": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "power +6, wiz +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 6,
+          "wiz": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:to_maintain_my_weight": {
+    "event_name": "To Maintain My Weight",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 5,
+        "max_vital": 4
+      }
+    },
+    "outcomes": {
+      "1": "stamina +5, max energy +4"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "stamina": 5,
+          "max_vital": 4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:fear_the_fearless": {
+    "event_name": "Fear the Fearless",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 6,
+        "guts": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "stamina +6, guts +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 6,
+          "guts": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:miracle_escape": {
+    "event_name": "Miracle ☆ Escape!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 5,
+        "vital": 10
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, energy +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 5,
+          "vital": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:whimsical_encounter": {
+    "event_name": "Whimsical Encounter",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "guts": 10,
+        "wiz": 10
+      }
+    },
+    "outcomes": {
+      "1": "guts +10, wiz +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "guts": 10,
+          "wiz": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:a_family_shopping_trip": {
+    "event_name": "A Family (?) Shopping Trip!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20074": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "2": "skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "2": {
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20074": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:together_for_tea": {
+    "event_name": "Together for Tea",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 30,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "SP +10, energy +30"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "vital": 30,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:premeditated_mischief": {
+    "event_name": "Premeditated Mischief",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "motivation": -1,
+        "gained_skill_hints": {
+          "20164": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "motivation -1, skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "motivation": -1,
+          "gained_skill_hints": {
+            "20164": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:the_little_marvelous_match_girl": {
+    "event_name": "The Little Marvelous Match Girl",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20135": 1
+        },
+        "skill_hint": true
+      },
+      "1": {
+        "vital": 10,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "energy +10",
+      "2": "skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "2": {
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20135": 1
+          },
+          "skill_hint": true
+        }
+      },
+      "0": {
+        "1": {
+          "vital": 10,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 2
+  },
+  "event:a_new_allure": {
+    "event_name": "A New Allure",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 10
+      }
+    },
+    "outcomes": {
+      "1": "power +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "power": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:worldwide_windy": {
+    "event_name": "Worldwide Windy",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 6,
+        "guts": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "speed +6, guts +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 6,
+          "guts": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:the_princess_in_pajamas": {
+    "event_name": "The Princess in Pajamas",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 10,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "stamina +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "stamina": 10,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:fantastic_voyeur": {
+    "event_name": "Fantastic Voyeur",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 10
+      }
+    },
+    "outcomes": {
+      "1": "wiz +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:bring_me_your_finest": {
+    "event_name": "Bring Me Your Finest",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 10,
+        "skill_point": 15
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, SP +15"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 10,
+          "skill_point": 15
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:battle_of_kings_the_great_ramen_war": {
+    "event_name": "Battle of Kings: The Great Ramen War",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "speed": -5,
+        "power": 5,
+        "vital": 30,
+        "skill_point": 10,
+        "gained_conditions": [
+          4
+        ]
+      }
+    },
+    "outcomes": {
+      "2": "speed -5, power +5, SP +10, energy +30, conditions +1"
+    },
+    "choice_slots": {
+      "1": {
+        "2": {
+          "speed": -5,
+          "power": 5,
+          "vital": 30,
+          "skill_point": 10,
+          "gained_conditions": [
+            4
+          ]
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:flustered_afternoon_tea": {
+    "event_name": "Flustered Afternoon Tea!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 10,
+        "motivation": 1
+      }
+    },
+    "outcomes": {
+      "1": "energy +10, motivation +1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 10,
+          "motivation": 1
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:unexpected_side": {
+    "event_name": "Unexpected Side",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 13,
+        "vital": 19,
+        "gained_skill_hints": {
+          "20046": 3
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "stamina +13, energy +19, skill hints 1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 13,
+          "vital": 19,
+          "gained_skill_hints": {
+            "20046": 3
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:the_kashimoto_art_of_tidying_up": {
+    "event_name": "The Kashimoto Art of Tidying Up",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "guts": 20
+      }
+    },
+    "outcomes": {
+      "1": "guts +20"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "guts": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:running_on_full": {
+    "event_name": "Running on Full",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 10,
+        "skill_point": 15
+      }
+    },
+    "outcomes": {
+      "1": "SP +15, energy +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 10,
+          "skill_point": 15
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:field_workout": {
+    "event_name": "Field Workout",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 10
+      }
+    },
+    "outcomes": {
+      "1": "power +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "power": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:bottomless_pit": {
+    "event_name": "Bottomless Pit",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 30,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "SP +10, energy +30"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "vital": 30,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:the_strongest_mightiest_cinderella": {
+    "event_name": "The Strongest, Mightiest Cinderella!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20045": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "2": "skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "2": {
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20045": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:picture_their_joy": {
+    "event_name": "Picture Their Joy",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 13,
+        "guts": 6,
+        "vital": 26,
+        "motivation": 1
+      }
+    },
+    "outcomes": {
+      "1": "stamina +13, guts +6, energy +26, motivation +1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 13,
+          "guts": 6,
+          "vital": 26,
+          "motivation": 1
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:vega_and_spica": {
+    "event_name": "Vega and Spica",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 6,
+        "wiz": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "speed +6, wiz +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 6,
+          "wiz": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:lost_umamusume": {
+    "event_name": "Lost Umamusume",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "guts": 10
+      }
+    },
+    "outcomes": {
+      "1": "guts +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "guts": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:under_the_same_umbrella": {
+    "event_name": "Under the Same Umbrella",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 6,
+        "guts": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "speed +6, guts +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 6,
+          "guts": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:a_grown_up_present": {
+    "event_name": "A Grown-Up Present",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 10,
+        "wiz": 20,
+        "gained_skill_hints": {
+          "20020": 2
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, wiz +20, skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 10,
+          "wiz": 20,
+          "gained_skill_hints": {
+            "20020": 2
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:tamamo_s_struggle_at_the_arcade": {
+    "event_name": "Tamamo's Struggle at the Arcade",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "2": {
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20107": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "2": "skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "2": {
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20107": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:modestly_boldly": {
+    "event_name": "Modestly! Boldly!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 5,
+        "motivation": 1
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, motivation +1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 5,
+          "motivation": 1
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:i_simply_wanna_help": {
+    "event_name": "I \"Simp\"ly Wanna Help...",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 10,
+        "guts": 10
+      }
+    },
+    "outcomes": {
+      "1": "stamina +10, guts +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "stamina": 10,
+          "guts": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:when_fantasy_becomes_real": {
+    "event_name": "When Fantasy Becomes Real",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 5,
+        "vital": 5
+      }
+    },
+    "outcomes": {
+      "1": "wiz +5, energy +5"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 5,
+          "vital": 5
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:teach_us_your_ways_digital": {
+    "event_name": "Teach Us Your Ways, Digital!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 20
+      }
+    },
+    "outcomes": {
+      "1": "power +20"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "power": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:chomp_attack": {
+    "event_name": "Chomp Attack!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 3,
+        "gained_skill_hints": {
+          "20107": 1
+        },
+        "skill_hint": true,
+        "skill_point": 15
+      }
+    },
+    "outcomes": {
+      "1": "speed +3, SP +15, skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 3,
+          "gained_skill_hints": {
+            "20107": 1
+          },
+          "skill_hint": true
+        }
+      },
+      "0": {
+        "1": {
+          "skill_point": 15
+        }
+      }
+    },
+    "observations": 2,
+    "choice_count": 1
+  },
+  "event:the_cafeteria_is_basically_a_collab_cafenngl": {
+    "event_name": "The Cafeteria is Basically a Collab Cafe\\nNGL",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "gained_skill_hints": {
+          "20167": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "skill hints 1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "gained_skill_hints": {
+            "20167": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:the_glass_girl_wants_to_study": {
+    "event_name": "The Glass Girl Wants to Study",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 5,
+        "vital": 10
+      }
+    },
+    "outcomes": {
+      "1": "wiz +5, energy +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 5,
+          "vital": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:always_on_stage": {
+    "event_name": "Always on Stage ☆",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 25,
+        "gained_skill_hints": {
+          "20043": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "energy +25, skill hints 1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "vital": 25,
+          "gained_skill_hints": {
+            "20043": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:solo_nighttime_run": {
+    "event_name": "Solo Nighttime Run",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 5,
+        "vital": 10
+      }
+    },
+    "outcomes": {
+      "1": "stamina +5, energy +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "stamina": 5,
+          "vital": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:gullible_socialites": {
+    "event_name": "Gullible Socialites",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "guts": 6,
+        "wiz": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "guts +6, wiz +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "guts": 6,
+          "wiz": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:full_power_muscles": {
+    "event_name": "Full-Power Muscles!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "skill_point": 15,
+        "motivation": 1
+      }
+    },
+    "outcomes": {
+      "1": "SP +15, motivation +1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "skill_point": 15,
+          "motivation": 1
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:sweet_feelings_for_you": {
+    "event_name": "Sweet Feelings for You ♪",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 20
+      }
+    },
+    "outcomes": {
+      "1": "wiz +20"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:hearty_chanko": {
+    "event_name": "Hearty Chanko! ☆",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 30,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "SP +10, energy +30"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "vital": 30,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:maya_will_teach_you": {
+    "event_name": "Maya Will Teach You ☆",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 10
+      }
+    },
+    "outcomes": {
+      "1": "wiz +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:refreshingly_real": {
+    "event_name": "Refreshingly Real",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 20
+      }
+    },
+    "outcomes": {
+      "1": "power +20"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "power": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:heart_pounding_aquarium": {
+    "event_name": "Heart-Pounding Aquarium",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 10,
+        "wiz": 10
+      }
+    },
+    "outcomes": {
+      "1": "power +10, wiz +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 10,
+          "wiz": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:the_joy_of_being_together": {
+    "event_name": "The Joy of Being Together",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 10,
+        "gained_conditions": [
+          10
+        ]
+      }
+    },
+    "outcomes": {
+      "1": "wiz +10, conditions +1"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 10,
+          "gained_conditions": [
+            10
+          ]
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:my_signature_racewear": {
+    "event_name": "My Signature Racewear",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 20
+      }
+    },
+    "outcomes": {
+      "1": "speed +20"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 20
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:lovely_training_weather": {
+    "event_name": "Lovely Training Weather ♪",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 10,
+        "stamina": 5
+      }
+    },
+    "outcomes": {
+      "1": "speed +10, stamina +5"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 10,
+          "stamina": 5
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:muscle_jealousy": {
+    "event_name": "Muscle Jealousy",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "wiz": 10
+      }
+    },
+    "outcomes": {
+      "1": "wiz +10"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "wiz": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:the_pony_girl_and_the_wolf_prince": {
+    "event_name": "The Pony Girl and the Wolf Prince",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "speed": 5,
+        "vital": 5
+      }
+    },
+    "outcomes": {
+      "1": "speed +5, energy +5"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "speed": 5,
+          "vital": 5
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:plain_ol_charm": {
+    "event_name": "Plain Ol' Charm",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 5,
+        "guts": 10,
+        "vital": -10,
+        "gained_skill_hints": {
+          "20024": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "outcomes": {
+      "1": "stamina +5, guts +10, energy -10, skill hints 1"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 5,
+          "guts": 10,
+          "vital": -10,
+          "gained_skill_hints": {
+            "20024": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:real_gains": {
+    "event_name": "Real Gains",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 10,
+        "skill_point": 15
+      }
+    },
+    "outcomes": {
+      "1": "power +10, SP +15"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 10,
+          "skill_point": 15
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:for_a_spiffy_concert": {
+    "event_name": "For a Spiffy Concert",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "guts": 10
+      }
+    },
+    "outcomes": {
+      "1": "guts +10"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "guts": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:rest_day": {
+    "event_name": "Rest Day",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "vital": 30,
+        "skill_point": 10
+      }
+    },
+    "outcomes": {
+      "1": "SP +10, energy +30"
+    },
+    "choice_slots": {
+      "1": {
+        "1": {
+          "vital": 30,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:golshi_games_who_is_the_werewolf": {
+    "event_name": "Golshi Games: Who Is the Werewolf?!",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "power": 6,
+        "wiz": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "power +6, wiz +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 6,
+          "wiz": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  },
+  "event:all_on_the_line": {
+    "event_name": "All on the Line",
+    "source": "dumper:dumper_outcomes_import.json",
+    "confidence": "imported_static",
+    "details": {
+      "1": {
+        "stamina": 6,
+        "wiz": 6,
+        "playing_state": -4
+      }
+    },
+    "outcomes": {
+      "1": "stamina +6, wiz +6"
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 6,
+          "wiz": 6,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "choice_count": 1
+  }
 }

@@ -273,18 +273,66 @@ def get_hwid(seed_string="default"):
         'device_id': device_id
     }
 
+def _resolve_exe(name):
+    """Find an executable across platforms.
+
+    On Windows, ``node`` ships as ``node.exe`` and ``npm`` as ``npm.cmd``.
+    ``subprocess`` without ``shell=True`` will not auto-resolve the ``.cmd``
+    extension and raises a cryptic ``[WinError 2] The system cannot find the
+    file specified``. Resolving the full path with ``shutil.which`` (which knows
+    about PATHEXT) avoids that. Returns the resolved path or ``None``.
+    """
+    found = shutil.which(name)
+    if found:
+        return found
+    if platform.system() == "Windows":
+        for ext in (".cmd", ".exe", ".bat"):
+            found = shutil.which(name + ext)
+            if found:
+                return found
+    return None
+
+
 def check_deps():
-    if not shutil.which('node'): raise Exception('node missing')
+    node = _resolve_exe("node")
+    if not node:
+        raise Exception(
+            "Node.js is required for Steam login but was not found. "
+            "Install it from https://nodejs.org/ (LTS), reopen your terminal so "
+            "PATH refreshes, then restart the bot."
+        )
     if not os.path.exists(os.path.join(DIR, 'node_modules')):
-        subprocess.run(['npm', 'install', '--silent'], check=True, cwd=DIR)
+        npm = _resolve_exe("npm")
+        if not npm:
+            raise Exception(
+                "npm was not found, so the Steam login dependency (steam-user) "
+                "cannot be installed automatically. Open a terminal in the bot "
+                "folder and run: npm install"
+            )
+        try:
+            subprocess.run([npm, 'install', '--silent'], check=True, cwd=DIR)
+        except FileNotFoundError as exc:
+            raise Exception(
+                "Failed to launch npm to install the Steam login dependency. "
+                "Open a terminal in the bot folder and run: npm install"
+            ) from exc
+    return node
+
 
 def get_ticket(u, p, c=''):
     global LAST_TICKET_GEN_RESULT
-    check_deps()
-    cmd = ['node', '-e', TICKET_GEN_JS, '--', '--dummy', '--username', u, '--password', p]
+    node = check_deps()
+    cmd = [node, '-e', TICKET_GEN_JS, '--', '--dummy', '--username', u, '--password', p]
     if c: cmd += ['--code', c]
-    
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=DIR)
+
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=DIR)
+    except FileNotFoundError as exc:
+        raise Exception(
+            "Could not launch Node.js to perform Steam login. Confirm Node.js is "
+            "installed and on PATH (run 'node --version' in a terminal), then "
+            "restart the bot."
+        ) from exc
     LAST_TICKET_GEN_RESULT = {
         'stdout': proc.stdout,
         'stderr': proc.stderr,
@@ -292,12 +340,12 @@ def get_ticket(u, p, c=''):
     }
     if proc.returncode == 2:
         raise Exception('STEAM_GUARD_REQUIRED')
-        
+
     out = proc.stdout.strip()
     if not out or proc.returncode != 0:
         error_msg = proc.stderr.strip() or 'fail'
         raise Exception(error_msg)
-        
+
     line = out.split('\n')[-1]
     try:
         d = json.loads(line)
@@ -466,6 +514,42 @@ class UmaClient:
             and self.steam_ticket
         )
 
+    @staticmethod
+    def _payload_int(mapping, keys, default=0):
+        if not isinstance(mapping, dict):
+            return default
+        for key in keys:
+            if key in mapping and mapping.get(key) is not None:
+                try:
+                    return int(mapping.get(key))
+                except Exception:
+                    return default
+        return default
+
+    @classmethod
+    def _payload_item_id(cls, item):
+        return cls._payload_int(item or {}, ('item_id', 'itemId', 'id'), 0)
+
+    @classmethod
+    def _payload_item_count(cls, item):
+        # Account payloads from different endpoints have used several count
+        # field names.  Accept all known count-shaped variants so Toughness 30
+        # is not marked missing just because `number` was renamed.
+        return cls._payload_int(
+            item or {},
+            ('number', 'item_num', 'itemNum', 'num', 'count', 'quantity', 'owned_num', 'own_num', 'item_count'),
+            0,
+        )
+
+    def _refresh_item_map(self, item_list):
+        if not isinstance(item_list, list):
+            return
+        for item in item_list:
+            iid = self._payload_item_id(item)
+            if not iid:
+                continue
+            self.item_map[int(iid)] = int(self._payload_item_count(item) or 0)
+
     def refresh_cached_account_state(self, data):
         if not data:
             return
@@ -476,12 +560,7 @@ class UmaClient:
             self.coin_info = data['coin_info']
 
         item_list = data.get('user_item') or data.get('user_item_array') or data.get('item_list')
-        if isinstance(item_list, list):
-            for item in item_list:
-                iid = item.get('item_id')
-                num = item.get('number')
-                if iid is not None and num is not None:
-                    self.item_map[int(iid)] = int(num)
+        self._refresh_item_map(item_list)
 
     def regen_sid(self):
         self.sid = make_sid(self.viewer_id, self.udid_str)
@@ -561,77 +640,116 @@ class UmaClient:
             "payload": payload,
         }, req_id)
         
-        max_retries = 8
-        for attempt in range(max_retries):
+        net_retries_left = 7
+        http_retries_left = 5
+        retries_205_left = retry_205
+        retries_208_left = retry_208
+        retries_394_left = 3
+        net_attempt = 0
+        http_attempt = 0
+        attempt_208 = 0
+
+        while True:
             try:
                 resp = self.session.post(BASE_URL + ep, data=body, headers=headers, timeout=30)
-                break
             except Exception as e:
-                if attempt < max_retries - 1:
-                    wait_time = min(1.0 + (attempt * 2.5), 15.0)
+                if net_retries_left > 0:
+                    net_retries_left -= 1
+                    wait_time = min(1.0 + (net_attempt * 2.5), 15.0)
+                    net_attempt += 1
+                    print(f"Network error on {ep}, retrying in {wait_time:.1f}s... ({net_retries_left} left)")
                     dna_sleep(wait_time, wait_time)
                     continue
                 self.api_log("ERR", ep, {"error": str(e)}, req_id)
                 raise Exception(f'Network error on {ep}: {e}')
 
-        if resp.status_code != 200:
-            body_preview = resp.text[:500] if resp.text else ""
-            self.api_log("ERR", ep, {"http_status": resp.status_code, "body": body_preview}, req_id)
-            print(f"HTTP error on {ep}: status={resp.status_code} body={body_preview}")
-            raise Exception(f'HTTP {resp.status_code} on {ep}: {body_preview}')
-            
-        res = unpack(resp.text.strip(), self.udid_str)
-        dh = res.get('data_headers', {})
-        rc = dh.get('result_code', 0)
-        
-        self.api_log("RES", ep, res, req_id)
-        
-        data = res.get('data', {})
-        if isinstance(data, dict):
-            if data.get('tp_info'):
-                self.tp_info = data['tp_info']
-            if data.get('coin_info'):
-                self.coin_info = data['coin_info']
-            if data.get('chara_info') and data['chara_info'].get('scenario_id'):
-                self.current_scenario_id = data['chara_info']['scenario_id']
-            item_list = data.get('user_item') or data.get('user_item_array')
-            if isinstance(item_list, list):
-                for item in item_list:
-                    iid = item.get('item_id')
-                    num = item.get('number')
-                    if iid is not None and num is not None:
-                        self.item_map[int(iid)] = int(num)
-        
-        if rc == 709:
-            new_vid = dh.get('viewer_id') or res.get('data', {}).get('viewer_id')
-            if new_vid and new_vid != self.viewer_id:
-                print(f"VIEWER ID MISMATCH on 709: {self.viewer_id} -> {new_vid}")
-                self.viewer_id = new_vid
-                self.regen_sid()
-            raise Exception(f'709 on {ep}')
-        if rc != 1:
-            if rc == 205 and retry_205 > 0:
-                print(f"205 on {ep}, retrying... ({retry_205} left)")
-                dna_sleep(0.14, 0.19, 0.166, 0.0083)
-                return self.call(ep, args, retry_208=retry_208, retry_205=retry_205 - 1)
+            if resp.status_code != 200:
+                body_preview = resp.text[:500] if resp.text else ""
+                retryable_http_statuses = {500, 502, 503, 504}
+                self.api_log(
+                    "ERR",
+                    ep,
+                    {
+                        "http_status": resp.status_code,
+                        "body": body_preview,
+                        "retryable": resp.status_code in retryable_http_statuses,
+                        "http_retries_left": http_retries_left,
+                    },
+                    req_id,
+                )
+                if resp.status_code in retryable_http_statuses and http_retries_left > 0:
+                    http_retries_left -= 1
+                    wait_time = min(1.0 * (2 ** http_attempt), 15.0)
+                    http_attempt += 1
+                    print(
+                        f"HTTP {resp.status_code} on {ep}; temporary gateway/server error. "
+                        f"Retrying in {wait_time:.1f}s... ({http_retries_left} left)"
+                    )
+                    dna_sleep(wait_time, wait_time + 0.5)
+                    continue
 
-            if rc == 208 and retry_208 > 0:
-                if ep in {"single_mode_free/gain_skills", "single_mode_free/multi_item_exchange", "single_mode_free/multi_item_use"}:
-                    return res
+                print(f"HTTP error on {ep}: status={resp.status_code} body={body_preview}")
+                raise Exception(f'HTTP {resp.status_code} on {ep}: {body_preview}')
 
-                if retry_208 < 6:
-                    print(f"API error 208 (SERVER BUSY) on {ep}, sleeping and retrying... (attempts left: {retry_208-1})")
-                    dna_sleep(0.6, 1.4, 1.0, 0.1)
-                return self.call(ep, args, retry_208=retry_208 - 1)
-            err_detail = format_api_error(ep, rc, res)
-            err_msg = f'API error {rc} on {ep}: {err_detail}'
-            if not (rc == 102 and ep in {"single_mode_free/race_end", "single_mode_free/race_out"}):
-                print(err_msg)
-            raise Exception(err_msg)
-        if dh.get('sid') and isinstance(dh['sid'], str) and dh['sid'].strip():
-            self.sid = next_sid(dh['sid'])
-        
-        return res
+            res = unpack(resp.text.strip(), self.udid_str)
+            dh = res.get('data_headers', {})
+            rc = dh.get('result_code', 0)
+
+            self.api_log("RES", ep, res, req_id)
+
+            data = res.get('data', {})
+            if isinstance(data, dict):
+                if data.get('tp_info'):
+                    self.tp_info = data['tp_info']
+                if data.get('coin_info'):
+                    self.coin_info = data['coin_info']
+                if data.get('chara_info') and data['chara_info'].get('scenario_id'):
+                    self.current_scenario_id = data['chara_info']['scenario_id']
+                item_list = data.get('user_item') or data.get('user_item_array') or data.get('item_list')
+                self._refresh_item_map(item_list)
+
+            if rc == 709:
+                new_vid = dh.get('viewer_id') or res.get('data', {}).get('viewer_id')
+                if new_vid and new_vid != self.viewer_id:
+                    print(f"VIEWER ID MISMATCH on 709: {self.viewer_id} -> {new_vid}")
+                    self.viewer_id = new_vid
+                    self.regen_sid()
+                raise Exception(f'709 on {ep}')
+
+            if rc != 1:
+                if rc == 205 and retries_205_left > 0:
+                    retries_205_left -= 1
+                    print(f"205 on {ep}, retrying... ({retries_205_left} left)")
+                    dna_sleep(0.14, 0.19, 0.166, 0.0083)
+                    continue
+
+                if rc == 394 and retries_394_left > 0:
+                    retries_394_left -= 1
+                    print(f"API error 394 on {ep}, sleeping and retrying... ({retries_394_left} left)")
+                    dna_sleep(2.5, 4.0)
+                    continue
+
+                if rc == 208 and retries_208_left > 0:
+                    if ep in {"single_mode_free/gain_skills", "single_mode_free/multi_item_exchange", "single_mode_free/multi_item_use"}:
+                        return res
+                    retries_208_left -= 1
+                    wait_min = min(0.8 * (2 ** attempt_208), 12.0)
+                    wait_max = min(wait_min * 1.6, 18.0)
+                    attempt_208 += 1
+                    print(f"API error 208 (SERVER BUSY) on {ep}, sleeping ~{wait_min:.1f}s and retrying... (attempts left: {retries_208_left})")
+                    dna_sleep(wait_min, wait_max)
+                    continue
+
+                err_detail = format_api_error(ep, rc, res)
+                err_msg = f'API error {rc} on {ep}: {err_detail}'
+                if not (rc == 102 and ep in {"single_mode_free/race_end", "single_mode_free/race_out"}):
+                    print(err_msg)
+                raise Exception(err_msg)
+
+            if dh.get('sid') and isinstance(dh['sid'], str) and dh['sid'].strip():
+                self.sid = next_sid(dh['sid'])
+
+            return res
 
     def hard_reset(self):
         self.sid = bytes(16)
@@ -717,6 +835,7 @@ class UmaClient:
                 raise
 
     def recovery_tp(self, count=1):
+        """Restore TP with Jewels, matching Umabot's currency-only recovery path."""
         total_jewels = self.coin_info.get("fcoin", 0) + self.coin_info.get("coin", 0)
         result = self.call("user/recovery_trainer_point", {
             "count": count,
@@ -729,6 +848,44 @@ class UmaClient:
         coin = data.get("coin_info", {})
         if coin:
             self.coin_info = coin
+        return tp
+
+
+    # TP recovery item.  Umabot uses item 32 through item/use_recovery_item
+    # before falling back to Jewels when the selected recovery mode allows it.
+    TP_POTION_ITEM_ID = 32
+
+    def tp_potion_count(self, item_id=None):
+        item_id = int(item_id or self.TP_POTION_ITEM_ID)
+        return int(self.item_map.get(item_id, 0) or 0)
+
+    def use_recovery_item(self, item_num=1, item_id=None):
+        """Recover TP by using a TP recovery item via item/use_recovery_item.
+
+        This mirrors Umabot's known-good payload shape:
+        {item_id, client_own_num, item_num}.  It deliberately avoids
+        user/recovery_trainer_point for item-backed TP recovery.
+        """
+        item_id = int(item_id or self.TP_POTION_ITEM_ID)
+        item_num = max(1, int(item_num or 1))
+        own = self.tp_potion_count(item_id)
+        result = self.call("item/use_recovery_item", {
+            "item_id": item_id,
+            "client_own_num": own,
+            "item_num": item_num,
+        })
+        data = result.get("data", {}) if isinstance(result, dict) else {}
+        tp = data.get("tp_info", {})
+        if tp:
+            self.tp_info = tp
+        coin = data.get("coin_info", {})
+        if coin:
+            self.coin_info = coin
+        item_list = data.get("user_item") or data.get("user_item_array") or data.get("item_list")
+        if isinstance(item_list, list):
+            self._refresh_item_map(item_list)
+        else:
+            self.item_map[item_id] = max(0, own - item_num)
         return tp
 
     def read_info(self):
@@ -744,6 +901,13 @@ class UmaClient:
         return self.call('single_mode_free/finish', {
             'is_force_delete': is_force_delete,
             'current_turn': current_turn
+        })
+
+
+    def remove_trained_chara(self, trained_chara_id_array: list):
+        """Delete one or more trained characters by instance id."""
+        return self.call('trained_chara/remove', {
+            'trained_chara_id_array': [int(i) for i in trained_chara_id_array],
         })
 
     def load_career(self):

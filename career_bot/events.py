@@ -1,48 +1,605 @@
 import json
+import re
+import threading
 from pathlib import Path
+
+from career_bot import trackblazer_rules as tb_rules
+from career_bot import event_outcomes as event_kb
+
+
+STAT_KEYS = ["speed", "stamina", "power", "guts", "wiz"]
+STAT_ALIASES = {
+    "speed": 0,
+    "spd": 0,
+    "stamina": 1,
+    "sta": 1,
+    "power": 2,
+    "pow": 2,
+    "guts": 3,
+    "gut": 3,
+    "wit": 4,
+    "wisdom": 4,
+    "intelligence": 4,
+    "wiz": 4,
+}
+STAT_TARGETS = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 30: 5}
+VITAL_TARGET_TYPES = {10, 11}
+MOTIVATION_TARGET_TYPES = {6, 101}
+BOND_TARGET_TYPES = {7, 103}
 
 
 class EventManager:
     def __init__(self, base_dir):
         self.base_dir = Path(base_dir)
         self.outcomes = {}
+        self.event_display = {}
+        self.last_choice_trace = {}
+        runtime = self.base_dir / "uma_runtime"
+        self._runtime_overrides_path = runtime / "event_overrides.json"
+        self._runtime_seen_path = runtime / "events_seen.json"
+        self._seen_lock = threading.Lock()
         self._load()
 
     def _load(self):
         path = self.base_dir / "data" / "event_outcomes.json"
-        if not path.exists():
+        if path.exists():
+            try:
+                self.outcomes = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        display_path = self.base_dir / "data" / "event_reward_display_core.json"
+        if display_path.exists():
+            try:
+                payload = json.loads(display_path.read_text(encoding="utf-8")) or {}
+                self.event_display = {
+                    "choice_rewards": {str(row.get("id")): row for row in payload.get("choice_rewards") or []},
+                    "cr_priority": {str(row.get("display_id")): row for row in payload.get("cr_priority") or []},
+                    "item_details": {str(row.get("item_id")): row for row in payload.get("item_details") or []},
+                }
+            except Exception:
+                self.event_display = {}
+
+    def _read_runtime_overrides(self):
+        try:
+            if self._runtime_overrides_path.exists():
+                data = json.loads(self._runtime_overrides_path.read_text(encoding="utf-8")) or {}
+                return data if isinstance(data, dict) else {}
+        except Exception:
+            pass
+        return {}
+
+    def _write_runtime_seen(self, story_id, event, num_choices, picked, source):
+        """Log seen multi-choice events for the editable Event Choices UI.
+
+        Runtime files live under uma_runtime/ so regenerated master data and bundled
+        defaults stay untouched. This is best-effort and never blocks a career turn.
+        """
+        if not story_id or int(num_choices or 0) <= 1:
             return
         try:
-            self.outcomes = json.loads(path.read_text(encoding="utf-8"))
+            with self._seen_lock:
+                seen = {}
+                if self._runtime_seen_path.exists():
+                    try:
+                        seen = json.loads(self._runtime_seen_path.read_text(encoding="utf-8")) or {}
+                    except Exception:
+                        seen = {}
+                known = self._find_outcome_data(str(story_id)) or {}
+                choices = ((event.get("event_contents_info") or {}).get("choice_array") or [])
+                entry = seen.get(str(story_id)) or {}
+                support_card_id = (
+                    event.get("support_card_id")
+                    or event.get("support_id")
+                    or event.get("owner_support_card_id")
+                    or entry.get("support_card_id")
+                    or 0
+                )
+                entry.update({
+                    "story_id": str(story_id),
+                    "event_id": str(event.get("event_id") or entry.get("event_id") or ""),
+                    "event_name": (
+                        event.get("title")
+                        or event.get("event_title")
+                        or event.get("name")
+                        or known.get("event_name")
+                        or entry.get("event_name")
+                        or ""
+                    ),
+                    "support_card_id": int(support_card_id or 0),
+                    "num_choices": int(num_choices or len(choices) or 0),
+                    "picked": int(picked or 0),
+                    "source": str(source or "auto"),
+                    "count": int(entry.get("count") or 0) + 1,
+                    "choice_select_indices": [int(c.get("select_index", i + 1) or i + 1) for i, c in enumerate(choices)],
+                })
+                seen[str(story_id)] = entry
+                self._runtime_seen_path.parent.mkdir(parents=True, exist_ok=True)
+                self._runtime_seen_path.write_text(json.dumps(seen, ensure_ascii=False, indent=1), encoding="utf-8")
         except Exception:
             pass
 
-    def choose(self, event):
+    def _runtime_override_choice(self, story_id):
+        overrides = self._read_runtime_overrides()
+        if str(story_id) in overrides:
+            return overrides.get(str(story_id))
+        return None
+
+    def choose(self, event, preset=None, current_turn=0, chara=None):
+        """Choose an event option with override support and weighted fallback.
+
+        Compatible with the older simple `good` outcome data, but also accepts
+        richer user overrides in preset.event_overrides:
+
+        {
+          "400004002": 2,
+          "support:Kitasan Black:Some Event": 1,
+          "character:Oguri Cap:Some Event": 2
+        }
+        """
+        self.last_choice_trace = {}
         story_id = str(event.get("story_id", ""))
-        
-        if story_id == "400004002":
-            return 2
-            
+
         choices = ((event.get("event_contents_info") or {}).get("choice_array") or [])
         if not choices:
+            self.last_choice_trace = {"story_id": story_id, "choice": 0, "reason": "no_choices"}
             return 0
 
-        outcome_data = self.outcomes.get(story_id)
+        runtime_override = self._runtime_override_choice(story_id)
+        if runtime_override is not None:
+            idx = self._choice_index_from_select(choices, runtime_override)
+            self.last_choice_trace = {"story_id": story_id, "choice": idx, "reason": "runtime_override", "override": runtime_override}
+            self._write_runtime_seen(story_id, event, len(choices), idx, "override")
+            return idx
 
-        if not outcome_data and len(story_id) >= 3:
+        override = self._override_choice(event, preset)
+        if override is not None:
+            idx = self._choice_index_from_select(choices, override)
+            self.last_choice_trace = {"story_id": story_id, "choice": idx, "reason": "preset_override", "override": override}
+            self._write_runtime_seen(story_id, event, len(choices), idx, "preset_override")
+            return idx
+
+        # Known game-critical default from the original bot.
+        if story_id == "400004002":
+            self.last_choice_trace = {"story_id": story_id, "choice": 2, "reason": "hardcoded_special"}
+            self._write_runtime_seen(story_id, event, len(choices), 2, "hardcoded")
+            return 2
+
+        scored = self._score_choices(event, choices, preset, chara, current_turn)
+        if scored:
+            best = max(scored, key=lambda row: (row["score"], -row["index"]))
+            self.last_choice_trace = {
+                "story_id": story_id,
+                "choice": best["index"],
+                "reason": "weighted_outcome",
+                "scores": scored,
+                "event_priority": self._priority_names(preset),
+                "energy_priority": bool((preset or {}).get("prioritize_event_energy") or (preset or {}).get("prioritize_energy")),
+            }
+            self._write_runtime_seen(story_id, event, len(choices), best["index"], "weighted")
+            return best["index"]
+
+        # Conservative fallback: avoid the first option bias when there are multiple
+        # choices, matching the old behavior but leaving a trace breadcrumb.
+        choice = 1 if len(choices) > 1 else 0
+        self.last_choice_trace = {"story_id": story_id, "choice": choice, "reason": "fallback_second_if_possible"}
+        self._write_runtime_seen(story_id, event, len(choices), choice, "fallback")
+        return choice
+
+    def _score_choices(self, event, choices, preset, chara, current_turn):
+        outcome_data = self._find_outcome_data_for_event(event) or {}
+        outcomes = outcome_data.get("outcomes", {}) if isinstance(outcome_data, dict) else {}
+        details = outcome_data.get("details") or outcome_data.get("rewards") or {}
+        inline_rewards = self._inline_choice_rewards(event)
+        scored = []
+        any_signal = False
+        for i, choice in enumerate(choices):
+            select_index = str(choice.get("select_index", i + 1))
+            label = outcomes.get(select_index)
+            reward_detail = None
+            if isinstance(details, dict):
+                reward_detail = details.get(select_index)
+            if reward_detail is None and i < len(inline_rewards):
+                reward_detail = inline_rewards[i]
+            score, reason = self._score_outcome(label, reward_detail, preset, chara, current_turn)
+            scored.append({
+                "index": i,
+                "select_index": select_index,
+                "score": round(score, 4),
+                "reason": reason,
+                "label": label,
+            })
+            if score != 0 or reason != "neutral":
+                any_signal = True
+        return scored if any_signal else []
+
+    def _inline_choice_rewards(self, event):
+        contents = event.get("event_contents_info") or {}
+        choices = contents.get("choice_array") or []
+        rewards = []
+        for choice in choices:
+            reward = None
+            for key in (
+                "reward",
+                "rewards",
+                "event_reward_info",
+                "event_reward_info_array",
+                "params_inc_dec_info_array",
+                "effected_parameter_array",
+            ):
+                if key in choice:
+                    reward = choice.get(key)
+                    break
+            if isinstance(reward, list):
+                reward = {"params_inc_dec_info_array": reward}
+            rewards.append(reward)
+        return rewards
+
+    def _find_outcome_data_for_event(self, event):
+        story_id = str(event.get("story_id", ""))
+        outcome_data = self._find_outcome_data(story_id)
+        if outcome_data:
+            return outcome_data
+        names = [
+            event.get("title"),
+            event.get("event_title"),
+            event.get("name"),
+            ((event.get("event_contents_info") or {}).get("title") if isinstance(event.get("event_contents_info"), dict) else ""),
+        ]
+        for name in names:
+            key = self._event_name_lookup_key(name)
+            if key:
+                return key
+        return None
+
+    def _event_name_lookup_key(self, name):
+        needle = " ".join(str(name or "").strip().split()).lower()
+        if not needle:
+            return None
+        event_key = "event:" + event_kb._slug_event_name(needle)
+        if event_key in self.outcomes:
+            return self.outcomes.get(event_key)
+        for key, row in self.outcomes.items():
+            if not isinstance(row, dict):
+                continue
+            row_name = " ".join(str(row.get("event_name") or "").strip().split()).lower()
+            if row_name and row_name == needle:
+                return row
+        return None
+
+    def _find_outcome_data(self, story_id):
+        outcome_data = self.outcomes.get(story_id)
+        if outcome_data:
+            return outcome_data
+        if len(story_id) >= 3:
             suffix = story_id[-3:]
             for k, v in self.outcomes.items():
-                if k.endswith(suffix):
-                    outcome_data = v
-                    break
+                if str(k).endswith(suffix):
+                    return v
+        return None
 
-        if outcome_data:
-            outcomes = outcome_data.get("outcomes", {})
-            for i, choice in enumerate(choices):
-                select_index = str(choice.get("select_index", ""))
-                if outcomes.get(select_index) == "good":
-                    return i
+    def _override_choice(self, event, preset):
+        overrides = (preset or {}).get("event_overrides") or {}
+        if not isinstance(overrides, dict):
+            return None
+        story_id = str(event.get("story_id", ""))
+        candidates = [story_id, str(event.get("event_id", ""))]
+        title = str(event.get("title") or event.get("event_title") or "").strip()
+        chara = str(event.get("chara_name") or event.get("support_name") or event.get("name") or "").strip()
+        if chara and title:
+            candidates.extend([
+                f"{chara}:{title}",
+                f"character:{chara}:{title}",
+                f"support:{chara}:{title}",
+            ])
+        for key in candidates:
+            if key and key in overrides:
+                return overrides[key]
+        return None
 
-        if len(choices) > 1:
-            return 1
+    def _choice_index_from_select(self, choices, override):
+        try:
+            wanted = int(override)
+        except Exception:
+            return 0
+        for i, choice in enumerate(choices):
+            if int(choice.get("select_index", i + 1) or 0) == wanted:
+                return i
+        # User may provide a zero-based UI index.
+        if 0 <= wanted < len(choices):
+            return wanted
+        # Or a one-based option number.
+        if 1 <= wanted <= len(choices):
+            return wanted - 1
         return 0
+
+    def _score_outcome(self, label, reward_detail, preset, chara, turn=0):
+        score = 0.0
+        reason = []
+        text = str(label or "").lower()
+        if label == "good":
+            score += 100.0; reason.append("known_good")
+        elif label == "bad":
+            score -= 100.0; reason.append("known_bad")
+        elif label:
+            if "date" in text or "outing" in text or "can start" in text:
+                score += tb_rules.EVENT_CHAIN_UNLOCK_BONUS; reason.append("unlocks_chain_or_dating")
+            if "chain ended" in text or "event chain ended" in text:
+                score += tb_rules.EVENT_CHAIN_END_PENALTY; reason.append("ends_chain")
+            if "randomly" in text:
+                score += tb_rules.EVENT_RANDOM_PARTIAL_BONUS; reason.append("random_bonus")
+            elif "random" in text:
+                score += tb_rules.EVENT_RANDOM_PENALTY; reason.append("random_penalty")
+            if any(token in text for token in ("mood up", "motivation up", "motivation +", "mood +")):
+                score += self._mood_bonus(chara); reason.append("mood")
+            if any(token in text for token in ("mood down", "motivation down", "motivation -", "mood -")):
+                score += tb_rules.EVENT_MOOD_LOSS_PENALTY; reason.append("mood_loss")
+            if "energy" in text or "vital" in text or "hp" in text:
+                score += self._energy_bonus(chara, 10, preset); reason.append("energy")
+            if "skill" in text and "hint" in text:
+                score += tb_rules.EVENT_SKILL_HINT_BONUS; reason.append("skill_hint")
+            if "bond" in text and ("up" in text or "+" in text):
+                score += tb_rules.EVENT_BOND_GAIN_BONUS; reason.append("bond")
+            if "bond" in text and ("down" in text or "-" in text):
+                score += tb_rules.EVENT_BOND_LOSS_PENALTY; reason.append("bond_loss")
+            if "bad status" in text or "negative" in text:
+                score += tb_rules.EVENT_NEGATIVE_STATUS_PENALTY; reason.append("negative_status")
+            if "good status" in text or "positive" in text:
+                score += tb_rules.EVENT_POSITIVE_STATUS_BONUS; reason.append("positive_status")
+
+        if reward_detail is not None:
+            score += self._score_reward_detail(reward_detail, preset, chara, reason)
+        return score, ",".join(reason) or "neutral"
+
+    def _event_display_labels(self, reward):
+        if not isinstance(reward, dict) or not self.event_display:
+            return []
+        labels = []
+        for key in ("display_id", "event_reward_display_id", "reward_display_id", "id"):
+            value = reward.get(key)
+            if value is None:
+                continue
+            row = (self.event_display.get("choice_rewards") or {}).get(str(value))
+            if row:
+                labels.extend([label for label in row.get("effect_value_labels") or [] if label and label != "none"])
+            row = (self.event_display.get("cr_priority") or {}).get(str(value))
+            if row:
+                labels.extend([label for label in row.get("condition_labels") or [] if label and label != "none"])
+        for key in ("item_id", "reward_item_id"):
+            value = reward.get(key)
+            if value is None:
+                continue
+            row = (self.event_display.get("item_details") or {}).get(str(value))
+            if row and row.get("name"):
+                labels.append(f"item:{row.get('name')}")
+        return list(dict.fromkeys(labels))
+
+    def _score_reward_detail(self, reward, preset, chara, reason):
+        if isinstance(reward, list):
+            reward = {"params_inc_dec_info_array": reward}
+        if not isinstance(reward, dict):
+            return 0.0
+        for label in self._event_display_labels(reward):
+            reason.append(f"official_{label}")
+        score = 0.0
+        stat_bonus = self._event_stat_bonus(preset)
+        arrays = []
+        for key in (
+            "params_inc_dec_info_array",
+            "effected_parameter_array",
+            "parameter_array",
+            "param_array",
+        ):
+            val = reward.get(key)
+            if isinstance(val, list):
+                arrays.extend(val)
+        for item in arrays:
+            if not isinstance(item, dict):
+                continue
+            target_type = item.get("target_type")
+            try:
+                target_type_int = int(target_type)
+            except Exception:
+                target_type_int = target_type
+            val = self._numeric_value(item, "value", "num", "amount", "change", default=0)
+            target = STAT_TARGETS.get(target_type_int)
+            if target is not None:
+                if target == 5:
+                    score += val
+                    reason.append("skill_points")
+                elif val > 0:
+                    score += val + stat_bonus.get(target, 0)
+                    reason.append(f"stat_{STAT_KEYS[target]}")
+                else:
+                    score += val
+                    reason.append(f"stat_loss_{STAT_KEYS[target]}")
+                continue
+            if target_type_int in VITAL_TARGET_TYPES:
+                score += self._energy_bonus(chara, val, preset)
+                reason.append("vital")
+                continue
+            if target_type_int in MOTIVATION_TARGET_TYPES:
+                if val > 0:
+                    score += self._mood_bonus(chara) * max(1, val)
+                    reason.append("mood")
+                elif val < 0:
+                    score += tb_rules.EVENT_MOOD_LOSS_PENALTY * abs(val)
+                    reason.append("mood_loss")
+                continue
+            if target_type_int in BOND_TARGET_TYPES:
+                if val > 0:
+                    score += tb_rules.EVENT_BOND_GAIN_BONUS
+                    reason.append("bond")
+                elif val < 0:
+                    score += tb_rules.EVENT_BOND_LOSS_PENALTY
+                    reason.append("bond_loss")
+                continue
+
+        # Common scalar reward fields seen in native payloads or manually curated
+        # event data.  Keep these additive so richer event_outcomes rows can mix
+        # parameter arrays with convenient scalar labels.
+        for key in ("skill_point", "skill_points", "skill_pt"):
+            val = self._numeric_value(reward, key, default=None)
+            if val is not None:
+                score += val
+                reason.append("skill_points")
+        for key in ("vital", "energy", "hp"):
+            val = self._numeric_value(reward, key, default=None)
+            if val is not None:
+                score += self._energy_bonus(chara, val, preset)
+                reason.append("vital")
+        for key in ("motivation", "mood"):
+            val = self._numeric_value(reward, key, default=None)
+            if val is None:
+                continue
+            if val > 0:
+                score += self._mood_bonus(chara) * max(1, val)
+                reason.append("mood")
+            elif val < 0:
+                score += tb_rules.EVENT_MOOD_LOSS_PENALTY * abs(val)
+                reason.append("mood_loss")
+        for key in ("bond", "bond_gain", "friendship"):
+            val = self._numeric_value(reward, key, default=None)
+            if val is None:
+                continue
+            if val > 0:
+                score += tb_rules.EVENT_BOND_GAIN_BONUS
+                reason.append("bond")
+            elif val < 0:
+                score += tb_rules.EVENT_BOND_LOSS_PENALTY
+                reason.append("bond_loss")
+
+        for idx, key in enumerate(STAT_KEYS):
+            for candidate in (key, f"{key}_gain", f"{key}_value"):
+                val = self._numeric_value(reward, candidate, default=None)
+                if val is None:
+                    continue
+                if val > 0:
+                    score += val + stat_bonus.get(idx, 0)
+                    reason.append(f"stat_{key}")
+                else:
+                    score += val
+                    reason.append(f"stat_loss_{key}")
+        gained_hints = reward.get("gained_skill_hints")
+        if isinstance(gained_hints, dict) and gained_hints:
+            score += tb_rules.EVENT_SKILL_HINT_BONUS * max(1, len(gained_hints))
+            reason.append("skill_hint")
+        if reward.get("skill_hint") or reward.get("hint") or reward.get("skill_hint_flag"):
+            score += tb_rules.EVENT_SKILL_HINT_BONUS
+            reason.append("skill_hint")
+        if reward.get("max_vital") or reward.get("max_energy"):
+            val = self._numeric_value(reward, "max_vital", "max_energy", default=0)
+            score += max(0, val) * 2.0
+            reason.append("max_vital")
+        if isinstance(reward.get("gained_conditions"), list) and reward.get("gained_conditions"):
+            reason.append("gained_conditions")
+        if isinstance(reward.get("lost_conditions"), list) and reward.get("lost_conditions"):
+            reason.append("lost_conditions")
+        if reward.get("positive_status") or reward.get("good_status") or reward.get("condition_good"):
+            score += tb_rules.EVENT_POSITIVE_STATUS_BONUS
+            reason.append("positive_status")
+        if reward.get("negative_status") or reward.get("bad_status") or reward.get("condition_bad"):
+            score += tb_rules.EVENT_NEGATIVE_STATUS_PENALTY
+            reason.append("negative_status")
+        if reward.get("event_chain_ended") or reward.get("chain_ended"):
+            score += tb_rules.EVENT_CHAIN_END_PENALTY
+            reason.append("ends_chain")
+        if reward.get("can_start_dating") or reward.get("unlocks_outing") or reward.get("unlocks_chain"):
+            score += tb_rules.EVENT_CHAIN_UNLOCK_BONUS
+            reason.append("unlocks_chain_or_dating")
+        return score
+
+    def _numeric_value(self, source, *keys, default=0):
+        for key in keys:
+            if key not in source:
+                continue
+            value = source.get(key)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return default
+        return default
+
+    def _priority_indices(self, preset):
+        for key in ("event_choice_stat_priority", "training_stat_priority", "stat_priority"):
+            raw = (preset or {}).get(key)
+            parsed = self._parse_priority(raw)
+            if parsed:
+                return parsed
+        priority = (preset or {}).get("expect_attribute") or [1200, 900, 900, 600, 900]
+        try:
+            return sorted(range(5), key=lambda idx: float(priority[idx] if idx < len(priority) else -9999), reverse=True)
+        except Exception:
+            return [0, 1, 2, 3, 4]
+
+    def _parse_priority(self, raw):
+        if raw is None:
+            return []
+        if isinstance(raw, str):
+            items = [part.strip() for part in re.split(r"[,>\s]+", raw) if part.strip()]
+        elif isinstance(raw, (list, tuple)):
+            items = list(raw)
+        else:
+            return []
+        result = []
+        for item in items:
+            idx = None
+            if isinstance(item, int):
+                idx = item if 0 <= item <= 4 else item - 1 if 1 <= item <= 5 else None
+            elif isinstance(item, str):
+                token = item.strip().lower()
+                if token.isdigit():
+                    n = int(token)
+                    idx = n if 0 <= n <= 4 else n - 1 if 1 <= n <= 5 else None
+                else:
+                    idx = STAT_ALIASES.get(token)
+            if idx is not None and idx not in result:
+                result.append(idx)
+        return result
+
+    def _priority_names(self, preset):
+        return [STAT_KEYS[idx] for idx in self._priority_indices(preset)]
+
+    def _event_stat_bonus(self, preset):
+        priorities = self._priority_indices(preset)
+        bonuses = tuple((preset or {}).get("event_stat_priority_bonus_by_rank") or tb_rules.EVENT_STAT_PRIORITY_BONUS_BY_RANK)
+        result = {}
+        for rank, idx in enumerate(priorities):
+            try:
+                result[idx] = float(bonuses[rank]) if rank < len(bonuses) else 0.0
+            except Exception:
+                result[idx] = 0.0
+        return result
+
+    def _energy_bonus(self, chara, value, preset=None):
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            value = 0.0
+        if value == 0:
+            return 0.0
+        if value < 0:
+            # Energy loss hurts most when already low, but do not multiply it by
+            # the extreme prioritize-energy setting or it can swamp everything.
+            return value * max(1, self._energy_multiplier(chara))
+        if (preset or {}).get("prioritize_event_energy") or (preset or {}).get("prioritize_energy"):
+            mult = float((preset or {}).get("event_energy_priority_multiplier") or tb_rules.EVENT_ENERGY_PRIORITIZE_MULTIPLIER)
+            return value * max(1.0, mult)
+        hp = int((chara or {}).get("vital") or 50)
+        max_vital = int((chara or {}).get("max_vital") or 100)
+        if max_vital > 0 and hp >= max_vital:
+            return 0.0
+        return value * self._energy_multiplier(chara)
+
+    def _energy_multiplier(self, chara):
+        hp = int((chara or {}).get("vital") or 50)
+        for threshold, multiplier in tb_rules.EVENT_LOW_ENERGY_MULTIPLIERS:
+            if hp < threshold:
+                return multiplier
+        if hp >= 90:
+            return 0
+        return 1
+
+    def _mood_bonus(self, chara):
+        mood = int((chara or {}).get("motivation") or 3)
+        return float(tb_rules.EVENT_MOOD_BONUS_BY_MOTIVATION.get(mood, 80))

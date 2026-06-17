@@ -1,0 +1,227 @@
+"""Launch, health-check, and supervise multiple Eden Bot instances.
+
+Example accounts.json:
+[
+  {"name": "main", "port": 1616, "auto_restart": true, "stale_restart_seconds": 900},
+  {"name": "alt", "port": 1617, "auto_restart": true}
+]
+"""
+from __future__ import annotations
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+ACCOUNTS = ROOT / "accounts.json"
+RUNTIME = ROOT / "uma_runtime"
+LOG_DIR = RUNTIME / "manager_logs"
+STATUS_PATH = RUNTIME / "manager_status.json"
+
+
+def load_accounts():
+    if not ACCOUNTS.exists():
+        sample = [
+            {"name": "main", "port": 1616, "auto_restart": True, "stale_restart_seconds": 900},
+            {"name": "alt", "port": 1617, "auto_restart": True, "stale_restart_seconds": 900},
+        ]
+        ACCOUNTS.write_text(json.dumps(sample, indent=2), encoding="utf-8")
+        print(f"Created {ACCOUNTS}. Edit it, then run manager.py again.")
+        return []
+    data = json.loads(ACCOUNTS.read_text(encoding="utf-8"))
+    if not isinstance(data, list):
+        raise SystemExit("accounts.json must be a list of account objects")
+    return data
+
+
+def safe_name(value):
+    return "".join(ch if ch.isalnum() or ch in "_-" else "_" for ch in str(value or "default")).strip("_") or "default"
+
+
+def atomic_write_json(path: Path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(path)
+
+
+def write_instance_config(account):
+    name = safe_name(account.get("name") or "default")
+    port = int(account.get("port") or 1616)
+    path = ROOT / f"{name}.json"
+    current = {}
+    if path.exists():
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            backup = path.with_suffix(path.suffix + f".bad-{int(time.time())}")
+            path.replace(backup)
+            print(f"Invalid JSON in {path.name}; moved it to {backup.name}")
+            current = {}
+    current.update(account)
+    current["name"] = name
+    current["port"] = port
+    atomic_write_json(path, current)
+    return path, port
+
+
+def start_child(account):
+    cfg, port = write_instance_config(account)
+    env = os.environ.copy()
+    if account.get("stuck_turn_threshold"):
+        env["UMA_STUCK_TURN_THRESHOLD"] = str(account.get("stuck_turn_threshold"))
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{cfg.stem}.log"
+    log = log_path.open("a", encoding="utf-8", buffering=1)
+    log.write(f"\n--- start {time.strftime('%Y-%m-%d %H:%M:%S')} port={port} ---\n")
+    cmd = [sys.executable, "main.py", str(cfg)]
+    print(f"Starting {cfg.stem} on http://127.0.0.1:{port}  log={log_path}")
+    proc = subprocess.Popen(cmd, cwd=str(ROOT), env=env, stdout=log, stderr=subprocess.STDOUT)
+    return {
+        "account": account,
+        "config": cfg,
+        "port": port,
+        "proc": proc,
+        "log": log,
+        "log_path": str(log_path),
+        "restarts": 0,
+        "last_start": time.time(),
+        "last_health": {},
+        "last_health_at": 0,
+        "last_health_error": "",
+    }
+
+
+def fetch_health(port: int, timeout: float = 6.0):
+    url = f"http://127.0.0.1:{port}/api/health"
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def stop_child(child, kill_after=6):
+    proc = child["proc"]
+    if proc.poll() is None:
+        proc.terminate()
+        deadline = time.time() + kill_after
+        while time.time() < deadline and proc.poll() is None:
+            time.sleep(0.25)
+    if proc.poll() is None:
+        proc.kill()
+    try:
+        child["log"].close()
+    except Exception:
+        pass
+
+
+def restart_child(children, child, reason: str):
+    account = child["account"]
+    name = child["config"].stem
+    print(f"Restarting {name}: {reason}")
+    stop_child(child)
+    child["restarts"] += 1
+    delay = min(180, 5 * (2 ** min(child["restarts"] - 1, 5)))
+    time.sleep(delay)
+    replacement = start_child(account)
+    replacement["restarts"] = child["restarts"]
+    children[children.index(child)] = replacement
+
+
+def write_status(children):
+    rows = []
+    for child in children:
+        proc = child["proc"]
+        rows.append({
+            "name": child["config"].stem,
+            "port": child["port"],
+            "pid": proc.pid,
+            "running": proc.poll() is None,
+            "returncode": proc.returncode,
+            "restarts": child["restarts"],
+            "last_start": child["last_start"],
+            "last_health_at": child.get("last_health_at", 0),
+            "last_health_error": child.get("last_health_error", ""),
+            "last_health": child.get("last_health", {}),
+            "log_path": child.get("log_path", ""),
+        })
+    atomic_write_json(STATUS_PATH, {"updated_at": time.time(), "children": rows})
+
+
+def main():
+    accounts = load_accounts()
+    if not accounts:
+        return 1
+    children = [start_child(account) for account in accounts]
+    stopping = False
+
+    def stop_all(*_):
+        nonlocal stopping
+        stopping = True
+        print("Stopping bot instances...")
+        for child in list(children):
+            stop_child(child)
+        write_status(children)
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGINT, stop_all)
+    signal.signal(signal.SIGTERM, stop_all)
+
+    while True:
+        for child in list(children):
+            proc = child["proc"]
+            account = child["account"]
+            auto_restart = bool(account.get("auto_restart", True))
+            name = child["config"].stem
+
+            if proc.poll() is not None:
+                runtime = time.time() - child["last_start"]
+                print(f"{name} exited with code {proc.returncode} after {int(runtime)}s")
+                try:
+                    child["log"].close()
+                except Exception:
+                    pass
+                if stopping or not auto_restart:
+                    children.remove(child)
+                    continue
+                restart_child(children, child, f"process exited code={proc.returncode}")
+                continue
+
+            interval = int(account.get("health_check_interval_seconds") or 30)
+            if time.time() - float(child.get("last_health_at") or 0) >= interval:
+                try:
+                    health = fetch_health(child["port"])
+                    child["last_health"] = health
+                    child["last_health_error"] = ""
+                    child["last_health_at"] = time.time()
+                    stale_limit = int(account.get("stale_restart_seconds") or 0)
+                    stale = int(health.get("runner_stale_seconds") or 0)
+                    runner_running = bool(health.get("runner_running"))
+                    # Only stale-restart an actually running runner. A logged-in idle dashboard
+                    # should not be treated as timed out.
+                    if auto_restart and stale_limit > 0 and runner_running and stale >= stale_limit:
+                        restart_child(children, child, f"runner stale for {stale}s")
+                except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+                    child["last_health_error"] = str(exc)
+                    child["last_health_at"] = time.time()
+                    grace = int(account.get("startup_grace_seconds") or 120)
+                    if auto_restart and (time.time() - child["last_start"]) > grace:
+                        failures = int(child.setdefault("health_failures", 0)) + 1
+                        child["health_failures"] = failures
+                        if failures >= int(account.get("health_failure_restart_count") or 5):
+                            restart_child(children, child, f"health endpoint failed {failures} times: {exc}")
+                    continue
+                child["health_failures"] = 0
+
+        write_status(children)
+        if not children:
+            return 0
+        time.sleep(5)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

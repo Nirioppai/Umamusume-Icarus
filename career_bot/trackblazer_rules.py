@@ -1,0 +1,197 @@
+"""Pure Trackblazer policy constants shared by item/race logic.
+
+These rules intentionally contain no Android/OCR concepts.  They are the
+algorithmic part of the Android Trackblazer policy translated for SweepyCL's
+native game-state payloads.
+"""
+
+TRACKBLAZER_SHOP_TIERS = {
+    # Tier 1: race/training economy spine and emergency protection.
+    "good-luck_charm": 1,
+    "master_cleat_hammer": 1,
+    "artisan_cleat_hammer": 1,
+    "glow_sticks": 1,
+    "royal_kale_juice": 1,
+    "grilled_carrots": 1,
+    "rich_hand_cream": 1,
+    "miracle_cure": 1,
+
+    # Tier 2: direct stats, with scrolls/manuals above low-value notepads.
+    "speed_scroll": 2,
+    "stamina_scroll": 2,
+    "power_scroll": 2,
+    "guts_scroll": 2,
+    "wit_scroll": 2,
+    "speed_manual": 2,
+    "stamina_manual": 2,
+    "power_manual": 2,
+    "guts_manual": 2,
+    "wit_manual": 2,
+
+    # Tier 3: recovery/mood stabilizers.
+    "vita_65": 3,
+    "vita_40": 3,
+    "vita_20": 3,
+    "berry_sweet_cupcake": 3,
+    "plain_cupcake": 3,
+
+    # Tier 4: training-effect items.
+    "empowering_megaphone": 4,
+    "motivating_megaphone": 4,
+    "coaching_megaphone": 4,
+    "reset_whistle": 4,
+    "speed_ankle_weights": 4,
+    "stamina_ankle_weights": 4,
+    "power_ankle_weights": 4,
+    "guts_ankle_weights": 4,
+
+    # Tier 5: condition cures other than the Trackblazer-critical ones above.
+    "fluffy_pillow": 5,
+    "pocket_planner": 5,
+    "smart_scale": 5,
+    "aroma_diffuser": 5,
+    "practice_drills_dvd": 5,
+
+    # Tier 6: permanent facility gains.
+    "speed_training_application": 6,
+    "stamina_training_application": 6,
+    "power_training_application": 6,
+    "guts_training_application": 6,
+    "wit_training_application": 6,
+
+    # Tier 7: max-energy investments.
+    "energy_drink_max": 7,
+    "energy_drink_max_ex": 7,
+
+    # Tier 8: expensive one-time statuses and low-impact bond item.
+    "pretty_mirror": 8,
+    "reporters_binoculars": 8,
+    "master_practice_guide": 8,
+    "scholars_hat": 8,
+    "yummy_cat_food": 8,
+
+    # Notepads are usable if owned, but usually not worth buying before the real kit.
+    "speed_notepad": 8,
+    "stamina_notepad": 8,
+    "power_notepad": 8,
+    "guts_notepad": 8,
+    "wit_notepad": 8,
+}
+
+DEFAULT_ENERGY_RECOVERY_THRESHOLD = 40
+DEFAULT_ENERGY_ITEM_RESERVE = 1
+DEFAULT_CUPCAKE_RESERVE = 1
+ENERGY_OVERSHOOT_CAP_RATIO = 1.10
+ENERGY_CRITICAL_KALE_THRESHOLD = 20
+
+VITA_GAINS = {
+    "Vita 20": 20,
+    "Vita 40": 40,
+    "Vita 65": 65,
+}
+
+ENERGY_CONSERVATION_ORDER = ("Vita 20", "Vita 40", "Vita 65")
+CUPCAKE_ORDER = ("Berry Sweet Cupcake", "Plain Cupcake")
+
+DEFAULT_CHARM_FAILURE_THRESHOLD = 20
+DEFAULT_CHARM_MIN_MAIN_GAIN = 20
+DEFAULT_LOW_MOOD_ITEM_GAIN_FLOOR = 15
+
+RACE_ITEM_CONSERVATION_START_TURN = 65
+TRACKBLAZER_FINALE_RACE_TURNS = (74, 76, 78)
+TRACKBLAZER_FINAL_RACE_TURN = 78
+DEFAULT_MASTER_HAMMER_FINALE_RESERVE = 2
+DEFAULT_ARTISAN_HAMMER_MIN_STOCK_FOR_G3 = 3
+DEFAULT_ARTISAN_HAMMER_MIN_STOCK_FOR_G2 = 2
+DEFAULT_GLOW_STICK_FINAL_RESERVE = 1
+DEFAULT_GLOW_STICK_MIN_FANS = 20000
+TOP_TIER_G1_GLOW_FAN_FLOOR = 30000
+
+GRADE_RANK = {"G1": 5, "G2": 4, "G3": 3, "OP": 2, "PRE-OP": 1, "800": 0, "900": 0}
+
+
+def normalize_grade(value):
+    text = str(value or "").strip().upper()
+    if text in GRADE_RANK:
+        return text
+    # Old race_instance_id encoding used a leading digit for grade. Keep this as
+    # a fallback for legacy race_map rows that do not carry official grade text.
+    if text.startswith("1"):
+        return "G1"
+    if text.startswith("2"):
+        return "G2"
+    if text.startswith("3"):
+        return "G3"
+    return text
+
+# P1 decision-policy defaults.  These stay pure and scenario-local so the
+# strategy/item layers can share thresholds without Android-specific logic.
+IRREGULAR_TRAINING_MIN_TURN = 25
+DEFAULT_IRREGULAR_TRAINING_SCORE_THRESHOLD = 0.62
+DEFAULT_IRREGULAR_TRAINING_FAILURE_LIMIT = 24
+DEFAULT_IRREGULAR_TRAINING_MIN_MAIN_GAIN = 30
+DEFAULT_IRREGULAR_TRAINING_CHARM_FAILURE_LIMIT = 65
+DEFAULT_IRREGULAR_TRAINING_CHARM_MIN_MAIN_GAIN = 30
+
+DEFAULT_RACE_CHAIN_TARGET = 3
+DEFAULT_CHAIN_CRITICAL_VITAL = 10
+DEFAULT_CHAIN_LOW_VITAL = 35
+DEFAULT_CHAIN_TRAINING_THRESHOLD = 0.22
+DEFAULT_CHAIN_FAILURE_LIMIT = 30
+UNSAFE_CHAIN_MIN_GRADE_RANK = 3  # G3+ only when a voluntary streak is already unsafe.
+
+DEFAULT_WHISTLE_SCORE_THRESHOLD = 35
+DEFAULT_WHISTLE_MIN_TURN = 13
+DEFAULT_WHISTLE_MAX_FAILURE = 49
+DEFAULT_WHISTLE_FORCE_SAFE_SCORE = 25
+
+
+# P2 native decision refinements.
+NEAR_RAINBOW_BOND_THRESHOLD = 60
+NEAR_RAINBOW_BONUS_PER_PARTNER = 0.035
+NEAR_RAINBOW_BONUS_CAP = 0.14
+SUMMER_PRIORITY_BONUS_BY_RANK = (0.18, 0.10, 0.05)
+TRAINING_LEVEL_MULTIPLIER_BY_RANK = {
+    0: {2: 1.08, 3: 1.16, 4: 1.26, 5: 1.38},
+    1: {2: 1.04, 3: 1.08, 4: 1.14, 5: 1.22},
+    2: {2: 1.02, 3: 1.05, 4: 1.08, 5: 1.12},
+}
+CAP_RAINBOW_ALLOWANCE_FACTOR = 0.22
+CAP_SOFT_BUFFER_RATIO = 0.97
+
+RACE_SELECTION_GRADE_WEIGHT = 100000
+RACE_SELECTION_RIVAL_WEIGHT = 10000000
+RACE_SELECTION_DISTANCE_WEIGHT = 10000
+RACE_SELECTION_SURFACE_WEIGHT = 5000
+RACE_SELECTION_APTITUDE_WEIGHT = 100
+
+SMART_SOLVER_TRAIN_LOCK_DEFAULT = True
+
+
+# P3 event-choice scoring parity.  These numbers mirror the Android
+# Trackblazer event fallback policy, but remain generic native scoring inputs.
+EVENT_CHAIN_UNLOCK_BONUS = 1000
+EVENT_CHAIN_END_PENALTY = -300
+EVENT_RANDOM_PENALTY = -10
+EVENT_RANDOM_PARTIAL_BONUS = 50
+EVENT_SKILL_HINT_BONUS = 25
+EVENT_POSITIVE_STATUS_BONUS = 25
+EVENT_NEGATIVE_STATUS_PENALTY = -25
+EVENT_BOND_GAIN_BONUS = 20
+EVENT_BOND_LOSS_PENALTY = -20
+EVENT_MOOD_LOSS_PENALTY = -150
+EVENT_STAT_PRIORITY_BONUS_BY_RANK = (50, 40, 30, 20, 10)
+EVENT_ENERGY_PRIORITIZE_MULTIPLIER = 100
+EVENT_LOW_ENERGY_MULTIPLIERS = (
+    (30, 4),
+    (50, 3),
+    (70, 2),
+    (90, 1),
+)
+EVENT_MOOD_BONUS_BY_MOTIVATION = {
+    1: 150,
+    2: 120,
+    3: 90,
+    4: 60,
+    5: 0,
+}

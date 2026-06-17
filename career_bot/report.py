@@ -1,8 +1,15 @@
 import json
 import re
 import traceback
+import tempfile
 from datetime import datetime
 from pathlib import Path
+
+from career_bot.ai_dataset import export_report_ai_datasets
+try:
+    from career_bot.ai_trainer import after_career_export
+except Exception:  # keep report writer import-safe for minimal test harnesses
+    after_career_export = None
 
 
 def now_iso():
@@ -101,11 +108,42 @@ def add_decision(report, state, decision):
     data = (state or {}).get("data") or {}
     chara = data.get("chara_info") or {}
     payload = dict(getattr(decision, "payload", {}) or {})
+    runner_context = data.get("runner_context") or {}
+    clock_policy = runner_context.get("clock_retry_policy") or {
+        "user_enabled": bool(runner_context.get("burn_clocks")),
+        "enabled": bool(runner_context.get("burn_clocks")),
+        "source": "decision_context",
+    }
     turn = get_turn(report, payload.get("current_turn") or chara.get("turn") or 0)
     turn["current_command"] = payload
     turn["selected_action"] = getattr(decision, "action", "")
     turn["decision_reason"] = getattr(decision, "reason", "")
     turn["current_action_taken"] = getattr(decision, "action", "")
+    turn["decision_report"] = {
+        "action": getattr(decision, "action", ""),
+        "reason": getattr(decision, "reason", ""),
+        "payload": payload,
+        "state": {
+            "turn": safe_int(chara.get("turn")),
+            "hp": safe_int(chara.get("vital")),
+            "max_hp": safe_int(chara.get("max_vital"), 100),
+            "mood": safe_int(chara.get("motivation")),
+            "fans": safe_int(chara.get("fans")),
+            "speed": safe_int(chara.get("speed")),
+            "stamina": safe_int(chara.get("stamina")),
+            "power": safe_int(chara.get("power")),
+            "guts": safe_int(chara.get("guts")),
+            "wit": safe_int(chara.get("wiz")),
+            "skill_point": safe_int(chara.get("skill_point")),
+        },
+        "race_context": {
+            "program_id": payload.get("program_id"),
+            "forced_race": bool(payload.get("_forced_race")),
+            "clock_policy": clock_policy,
+            "clocks_used_so_far": safe_int(runner_context.get("clocks_used")),
+            "clocks_left": safe_int(runner_context.get("clocks_left")),
+        },
+    }
 
 
 def set_error(report, exc):
@@ -133,19 +171,50 @@ def write_report(report, output_dir):
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = output_dir / f"career_log_{stamp}.json"
-    
+
     def _json_default(obj):
         if isinstance(obj, bytes):
             return obj.hex()
         return str(obj)
 
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(report, f, ensure_ascii=False, indent=2, default=_json_default)
-    
+    # v5.31: write atomically and validate before replacing the final log.
+    # This prevents truncated/malformed JSON exports if Python is killed while
+    # the file is being written.
+    fd, tmp_name = tempfile.mkstemp(prefix=path.name, suffix=".tmp", dir=str(output_dir))
+    tmp = Path(tmp_name)
+    try:
+        with open(fd, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2, default=_json_default)
+            f.write("\n")
+        json.loads(tmp.read_text(encoding="utf-8"))
+        tmp.replace(path)
+    except Exception:
+        try:
+            broken = output_dir / f"career_log_{stamp}.broken.json"
+            tmp.replace(broken)
+        except Exception:
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
+        raise
+
     latest = output_dir / "latest_career_log.json"
     try:
         import shutil
         shutil.copyfile(path, latest)
+        json.loads(latest.read_text(encoding="utf-8"))
     except Exception:
         pass
+
+    # v5.32: AI-ready learning exports are best-effort observability.
+    # They never alter the user-facing career log and must never stop report
+    # creation if a derived dataset cannot be written.
+    try:
+        manifest = export_report_ai_datasets(report, output_dir, build_version="SweepyModv5.40AI")
+        report["ai_export_manifest"] = manifest
+        if after_career_export:
+            report["ai_auto_training"] = after_career_export(output_dir, manifest=manifest, build_version="SweepyModv5.40AI")
+    except Exception as exc:
+        report["ai_export_error"] = {"type": type(exc).__name__, "message": str(exc)}
     return path

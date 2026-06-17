@@ -4,28 +4,52 @@ import re
 import subprocess
 import sys
 
-try:
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=True,
-    )
-except Exception:
-    pass
+
+def _check_required_packages():
+    """Fail fast with a useful message instead of mutating the env on every launch."""
+    required = {
+        "fastapi": "fastapi",
+        "uvicorn": "uvicorn",
+        "frida": "frida",
+        "pydantic": "pydantic",
+        "msgpack": "msgpack",
+        "requests": "requests",
+    }
+    missing = []
+    for import_name, package_name in required.items():
+        try:
+            __import__(import_name)
+        except Exception:
+            missing.append(package_name)
+    if missing:
+        joined = ", ".join(sorted(set(missing)))
+        raise RuntimeError(
+            "Missing Python dependencies: " + joined +
+            ". Install them once with: python -m pip install -r requirements.txt"
+        )
+
+
+_check_required_packages()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pathlib import Path
+from copy import deepcopy
 import random
 import time
 import threading
+import requests
+from urllib.parse import urlparse
+from urllib.request import Request as UrlRequest, urlopen
 import frida
 from career_bot import master_data
-from career_bot.presets import PresetStore
-from career_bot.runner import CareerRunner
+from career_bot import trackblazer
+from career_bot import diagnostics
+from career_bot import ai_dataset, ai_advisor, ai_trainer, local_llm, event_outcomes
+from career_bot.config_store import ConfigStore
+from career_bot.runner import CareerRunner, runtime_output_root
 from uma_api.client import UmaClient, get_ticket
 
 PROCESS_NAME = "UmamusumePrettyDerby.exe"
@@ -181,6 +205,231 @@ JS_CODE = r"""
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+def _userdata_pointer_dir():
+    """OS-user-scoped directory holding the cross-version userdata pointer.
+
+    Lives at ``~/.sweepycl`` on every OS. Independent of the build folder so
+    a fresh v7.x install can find the userdata path the user configured
+    under a previous version, even if they didn't overwrite the old build.
+    """
+    return Path.home() / ".sweepycl"
+
+
+def _userdata_pointer_path():
+    return _userdata_pointer_dir() / "userdata_pointer.json"
+
+
+def _read_userdata_pointer():
+    """Read the pointer file. Returns dict or empty dict if absent/invalid."""
+    p = _userdata_pointer_path()
+    try:
+        if p.exists():
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def _write_userdata_pointer(patch):
+    """Merge ``patch`` into the pointer file. Creates the dir if needed."""
+    p = _userdata_pointer_path()
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        existing = _read_userdata_pointer()
+        merged = {**existing, **(patch or {})}
+        p.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+        return merged
+    except Exception as exc:
+        print(f"SweepyCL: writing userdata pointer failed: {exc}")
+        return None
+
+
+def _resolve_userdata_dir():
+    """Return the directory holding user-customizable files that should
+    persist across SweepyCL version upgrades (presets, settings,
+    accounts, steam token).
+
+    Resolution order (v7.1 — adds the user-configurable pointer file):
+
+      1. ``$SWEEPYCL_USERDATA_DIR`` -- explicit env var override (new name).
+      2. ``$SWEEPYCLAUDE_USERDATA_DIR`` -- legacy env var, still honored.
+      3. ``~/.sweepycl/userdata_pointer.json`` -- user-configured path set
+         via the dashboard. Lives outside the build folder so a fresh
+         install of a new version automatically picks up where the user
+         told the previous version their data lives.
+      4. ``<DIR>/../SweepyCL_userdata`` -- sibling folder convention.
+      5. ``<DIR>/../SweepyClaude_userdata`` -- legacy sibling folder.
+      6. Fallback: ``DIR`` itself (in-build paths).
+
+    Also populates module-level ``USERDATA_SOURCE`` and
+    ``USERDATA_DETECTION_WARNING`` so the dashboard can show the user
+    where their data is coming from and whether anything looks off.
+    """
+    global USERDATA_SOURCE, USERDATA_DETECTION_WARNING
+    USERDATA_SOURCE = "fallback_build_dir"
+    USERDATA_DETECTION_WARNING = None
+
+    # 1-2: env vars
+    for env_name, source_label in (
+        ("SWEEPYCL_USERDATA_DIR", "env_sweepycl"),
+        ("SWEEPYCLAUDE_USERDATA_DIR", "env_legacy_sweepyclaude"),
+    ):
+        env = os.environ.get(env_name, "").strip()
+        if env:
+            try:
+                p = Path(env).expanduser().resolve()
+                p.mkdir(parents=True, exist_ok=True)
+                USERDATA_SOURCE = source_label
+                return str(p)
+            except Exception as exc:
+                print(f"SweepyCL: env {env_name} resolution failed: {exc}")
+                USERDATA_DETECTION_WARNING = f"Env var {env_name} is set but failed to resolve: {exc}"
+
+    # 3: cross-version pointer file
+    pointer = _read_userdata_pointer()
+    pointer_target = (pointer.get("userdata_path") or "").strip()
+    if pointer_target:
+        try:
+            p = Path(pointer_target).expanduser().resolve()
+            if p.exists() and p.is_dir():
+                USERDATA_SOURCE = "pointer_file"
+                return str(p)
+            else:
+                # The user configured a path under a previous install but it's
+                # not reachable from this machine/install. This is exactly the
+                # "can't detect previous userdata folder" case the popup
+                # warns about.
+                USERDATA_DETECTION_WARNING = (
+                    f"Your saved userdata path ({p}) doesn't exist or isn't "
+                    f"a folder. Settings will fall back to a default location "
+                    f"until you fix this."
+                )
+        except Exception as exc:
+            USERDATA_DETECTION_WARNING = f"Saved userdata path is invalid: {exc}"
+
+    # 4-5: sibling folder conventions
+    for sibling_name, source_label in (
+        ("SweepyCL_userdata", "sibling_sweepycl"),
+        ("SweepyClaude_userdata", "sibling_legacy_sweepyclaude"),
+    ):
+        sibling = Path(DIR).parent / sibling_name
+        if sibling.exists() and sibling.is_dir():
+            USERDATA_SOURCE = source_label
+            return str(sibling.resolve())
+
+    # 6: fallback
+    USERDATA_SOURCE = "fallback_build_dir"
+    if not USERDATA_DETECTION_WARNING:
+        USERDATA_DETECTION_WARNING = (
+            "No userdata folder is configured. Settings will be saved inside "
+            "the build folder, which means they'll be lost when you upgrade "
+            "to a new version unless you overwrite the install."
+        )
+    return DIR
+
+
+# Populated by _resolve_userdata_dir() below. Strings used by the dashboard.
+USERDATA_SOURCE = "fallback_build_dir"
+USERDATA_DETECTION_WARNING = None
+
+
+USERDATA_DIR = _resolve_userdata_dir()
+
+
+def _user_settings_path():
+    return os.path.join(USERDATA_DIR, "settings.json")
+
+
+def _user_accounts_path():
+    return Path(USERDATA_DIR) / "accounts.json"
+
+
+def _user_presets_dir():
+    p = Path(USERDATA_DIR) / "data" / "presets"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _user_steam_token_path(profile_name):
+    p = Path(USERDATA_DIR) / "auth" / (profile_name or "default")
+    p.mkdir(parents=True, exist_ok=True)
+    return p / "steam_token.txt"
+
+
+def _user_auth_config_path(profile_name):
+    """Userdata location for the headless-bypass auth_config.json.
+
+    v6.7.18: the v6.7.6 work only persisted steam_token.txt to userdata,
+    but check_saved_auth() actually reads auth_config.json -- which was
+    only ever written to RUNTIME_DIR (the build folder).  Since
+    RUNTIME_DIR is wiped on every version upgrade, the headless bypass
+    broke on upgrade and fell back to a manual Steam launch.  Persisting
+    the full auth_config.json here lets the bypass survive upgrades.
+    """
+    p = Path(USERDATA_DIR) / "auth" / (profile_name or "default")
+    p.mkdir(parents=True, exist_ok=True)
+    return p / "auth_config.json"
+
+
+def _save_auth_config_both(save_cfg, profile_name):
+    """Persist the (already-obfuscated) auth_config to BOTH the runtime
+    build folder and userdata.  Best-effort: a failure on either side is
+    logged but never raised, so saving auth never blocks login."""
+    try:
+        payload = json.dumps(save_cfg, indent=4)
+    except Exception as exc:
+        print(f"[-] auth_config serialize failed: {exc}")
+        return
+    try:
+        with open(os.path.join(RUNTIME_DIR, "auth_config.json"), "w") as f:
+            f.write(payload)
+    except Exception as exc:
+        print(f"[-] runtime auth_config write failed: {exc}")
+    try:
+        _user_auth_config_path(profile_name).write_text(payload, encoding="utf-8")
+    except Exception as exc:
+        print(f"[-] userdata auth_config write failed: {exc}")
+
+
+def _migrate_to_userdata_dir():
+    """One-way migration: copy in-build default files into the userdata
+    folder when the userdata folder is in use but doesn't already have
+    them.  Never overwrites existing userdata files (the user's customized
+    state wins).  Safe to call repeatedly -- second-and-later calls are
+    no-ops for already-migrated files.
+    """
+    if USERDATA_DIR == DIR:
+        return  # No external folder configured; nothing to migrate.
+    try:
+        # accounts.json
+        src = Path(DIR) / "accounts.json"
+        dst = _user_accounts_path()
+        if src.exists() and not dst.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(src.read_bytes())
+        # settings.json
+        src = Path(DIR) / "settings.json"
+        dst = Path(_user_settings_path())
+        if src.exists() and not dst.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(src.read_bytes())
+        # data/presets/*.json -- copy any preset that doesn't already
+        # exist in userdata.  Lets the user keep custom presets across
+        # versions while still getting any new defaults the build ships.
+        src_presets = Path(DIR) / "data" / "presets"
+        dst_presets = _user_presets_dir()
+        if src_presets.exists():
+            for f in src_presets.glob("*.json"):
+                target = dst_presets / f.name
+                if not target.exists():
+                    target.write_bytes(f.read_bytes())
+    except Exception as exc:
+        print(f"SweepyCL: userdata migration partial: {exc}")
+
+
 PROFILE_NAME = "default"
 INSTANCE_CONFIG = {}
 PORT = 1616
@@ -282,8 +531,19 @@ if len(sys.argv) > 1 and sys.argv[1].endswith(".json"):
             needs_save = True
 
     if needs_save:
-        with open(config_path, "w", encoding="utf-8") as f:
+        config_file = Path(config_path)
+        backup_dir = Path(DIR) / "uma_runtime" / "config_backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        if config_file.exists():
+            try:
+                backup = backup_dir / f"{config_file.stem}-{int(time.time())}.json"
+                backup.write_text(config_file.read_text(encoding="utf-8"), encoding="utf-8")
+            except Exception:
+                pass
+        tmp_path = config_file.with_suffix(config_file.suffix + ".tmp")
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(INSTANCE_CONFIG, f, indent=4)
+        tmp_path.replace(config_file)
 
 RUNTIME_DIR = os.path.join(DIR, "uma_runtime", PROFILE_NAME)
 os.makedirs(RUNTIME_DIR, exist_ok=True)
@@ -301,13 +561,53 @@ active_parent_cards = {}
 active_parent_rank_points = {}
 pending_game_auth_config = {}
 raw_load_index_response = None
-active_selection = {"deck": None, "friend": None, "trainee": None, "veterans": []}
+active_selection = {"deck": None, "friend": None, "trainee": None, "veterans": [], "guestParents": []}
+
+
+
+
+@app.on_event("startup")
+async def _start_ai_auto_trainer():
+    try:
+        ai_trainer.start_background_trainer(base_dir, runner_active=lambda: bool(career_runner.snapshot().get("running")))
+    except Exception as exc:
+        print(f"AI auto-trainer startup skipped: {exc}")
+
+
+def _empty_ui_selection():
+    return {"deck": None, "friend": None, "trainee": None, "veterans": [], "guestParents": []}
+
+
+def _clear_finished_career_setup_state(clear_selection=True):
+    """Clear stale setup locks after a career has fully finished.
+
+    The runner status and dashboard account can disagree after a natural finish or
+    a manual stop: the runner says finished, while the setup page still sees an
+    active account career and blocks friend/parent refresh.  This helper only
+    clears the local dashboard/session state; it does not call game endpoints.
+    """
+    global active_account, active_dashboard_data, active_selection
+    if isinstance(active_account, dict):
+        active_account["career"] = None
+    if isinstance(active_dashboard_data, dict):
+        account = active_dashboard_data.get("account")
+        if isinstance(account, dict):
+            account["career"] = None
+        elif isinstance(active_account, dict):
+            active_dashboard_data["account"] = active_account
+    if clear_selection:
+        active_selection = _empty_ui_selection()
+    return {
+        "account": active_account,
+        "selection": active_selection,
+        "selection_cleared": bool(clear_selection),
+    }
 turn_delay_min_sec = 2.5
 turn_delay_max_sec = 5.0
 turn_delay_restore_min_sec = 2.5
 turn_delay_restore_max_sec = 5.0
 turn_delay_disabled = False
-preset_store = PresetStore(DIR)
+preset_store = ConfigStore(DIR, userdata_dir=USERDATA_DIR)
 career_runner = CareerRunner(DIR)
 
 base_dir = Path(__file__).parent.absolute()
@@ -336,6 +636,168 @@ if chara_path.exists():
 if support_path.exists():
     with open(support_path, "r", encoding="utf-8") as f:
         support_map = json.load(f)
+
+
+
+PROFILE_REFRESH_STATUS = {
+    "enabled": True,
+    "running": False,
+    "last_started": 0,
+    "last_finished": 0,
+    "last_result": None,
+    "last_error": None,
+}
+
+
+# Session-only completed career history. This intentionally lives only in RAM
+# and is cleared whenever python main.py exits/restarts.
+COMPLETED_CAREER_HISTORY = []
+COMPLETED_CAREER_RUN_IDS = set()
+
+
+def _env_truthy(name, default=True):
+    value = os.environ.get(name)
+    if value is None:
+        return bool(default)
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _env_int(name, default):
+    try:
+        return int(os.environ.get(name, default))
+    except Exception:
+        return int(default)
+
+
+def _profile_cache_age_days(base_dir):
+    profile_path = Path(base_dir) / "data" / "trainee_skill_profiles.generated.json"
+    if not profile_path.exists():
+        return None
+    try:
+        return max(0.0, (time.time() - profile_path.stat().st_mtime) / 86400.0)
+    except Exception:
+        return None
+
+
+def _profile_refresh_needed(base_dir, max_age_days):
+    profile_path = Path(base_dir) / "data" / "trainee_skill_profiles.generated.json"
+    url_path = Path(base_dir) / "data" / "game8_character_urls.txt"
+    if not url_path.exists():
+        return False, "missing-url-list"
+    if not profile_path.exists():
+        return True, "missing-generated-profiles"
+    age = _profile_cache_age_days(base_dir)
+    if age is None:
+        return True, "unknown-cache-age"
+    if age >= float(max_age_days):
+        return True, f"cache-stale-{age:.1f}d"
+    return False, f"cache-fresh-{age:.1f}d"
+
+
+def _run_profile_refresh(base_dir, force=False):
+    PROFILE_REFRESH_STATUS["running"] = True
+    PROFILE_REFRESH_STATUS["last_started"] = time.time()
+    PROFILE_REFRESH_STATUS["last_error"] = None
+    try:
+        from tools import game8_character_profile_scraper
+
+        delay = float(os.environ.get("UMA_PROFILE_REFRESH_DELAY", "1.0"))
+        limit = _env_int("UMA_PROFILE_REFRESH_LIMIT", 0)
+
+        # Call the scraper's public functions instead of shelling out, so this
+        # works from multi-account manager processes too.
+        root = Path(base_dir)
+        url_path = root / "data" / "game8_character_urls.txt"
+        out_path = root / "data" / "trainee_skill_profiles.generated.json"
+        urls = [u.strip() for u in url_path.read_text(encoding="utf-8").splitlines() if u.strip()]
+        if limit > 0:
+            urls = urls[:limit]
+
+        profiles = {}
+        errors = []
+        for idx, url in enumerate(urls, 1):
+            try:
+                html = game8_character_profile_scraper.fetch(url)
+                profile = game8_character_profile_scraper.extract_profile(url, html)
+                profiles[profile["name"]] = profile
+                print(f"[profile-refresh] {idx}/{len(urls)} {profile['name']}", flush=True)
+            except Exception as exc:
+                errors.append({"url": url, "error": str(exc)})
+                print(f"[profile-refresh] ERROR {url}: {exc}", flush=True)
+            if delay > 0:
+                time.sleep(delay)
+
+        profiles.setdefault("__fallback__", {
+            "name": "__fallback__",
+            "profile_source": "fallback",
+            "track_aptitude": {"turf": "A", "dirt": "G"},
+            "distance_aptitude": {"sprint": "C", "mile": "C", "medium": "C", "long": "C"},
+            "style_aptitude": {"front": "C", "pace": "C", "late": "C", "end": "C"},
+            "recommended_style": "front",
+            "primary_distances": ["mile", "medium"],
+            "secondary_distances": ["sprint", "long"],
+            "avoid_distances": [],
+            "preferred_skill_fragments": [],
+            "avoid_skill_fragments": [],
+            "green_skill_cap": 1,
+        })
+
+        tmp = out_path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(profiles, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(out_path)
+
+        report = {
+            "source_urls": len(urls),
+            "profiles_generated": len([k for k in profiles if k != "__fallback__"]),
+            "errors": len(errors),
+            "generated_names": sorted(k for k in profiles if k != "__fallback__"),
+            "finished_at": int(time.time()),
+        }
+        (root / "data" / "trainee_skill_profiles.report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        if errors:
+            (root / "data" / "trainee_skill_profiles.errors.json").write_text(json.dumps(errors, indent=2), encoding="utf-8")
+
+        PROFILE_REFRESH_STATUS["last_result"] = report
+        print(f"[profile-refresh] wrote {len(profiles)} profiles", flush=True)
+    except Exception as exc:
+        PROFILE_REFRESH_STATUS["last_error"] = str(exc)
+        print(f"[profile-refresh] failed: {exc}", flush=True)
+    finally:
+        PROFILE_REFRESH_STATUS["running"] = False
+        PROFILE_REFRESH_STATUS["last_finished"] = time.time()
+
+
+def maybe_start_profile_refresh(base_dir, force=False):
+    enabled = _env_truthy("UMA_PROFILE_AUTO_REFRESH", True)
+    PROFILE_REFRESH_STATUS["enabled"] = enabled
+    if not enabled and not force:
+        PROFILE_REFRESH_STATUS["last_result"] = {"skipped": "disabled"}
+        return {"success": True, "started": False, "reason": "disabled"}
+
+    max_age_days = max(1, _env_int("UMA_PROFILE_REFRESH_DAYS", 7))
+    needed, reason = _profile_refresh_needed(base_dir, max_age_days)
+    if not force and not needed:
+        PROFILE_REFRESH_STATUS["last_result"] = {"skipped": reason}
+        return {"success": True, "started": False, "reason": reason}
+
+    if PROFILE_REFRESH_STATUS.get("running"):
+        return {"success": True, "started": False, "reason": "already-running"}
+
+    thread = threading.Thread(target=_run_profile_refresh, args=(base_dir, force), daemon=True)
+    thread.start()
+    return {"success": True, "started": True, "reason": "force" if force else reason}
+
+
+@app.get("/api/trainee/profile-refresh/status")
+def api_profile_refresh_status():
+    status = dict(PROFILE_REFRESH_STATUS)
+    status["cache_age_days"] = _profile_cache_age_days(DIR)
+    return {"success": True, "status": status}
+
+
+@app.post("/api/trainee/profile-refresh")
+def api_profile_refresh(force: bool = True):
+    return maybe_start_profile_refresh(DIR, force=force)
 
 
 def display_support_type(value):
@@ -376,6 +838,433 @@ def get_turn_delay():
         "restore_max": turn_delay_restore_max_sec,
         "disabled": turn_delay_disabled,
     }
+
+
+# Umabot-compatible TP recovery settings. This intentionally replaces the old
+# Toughness/Carats restore selector with a single item-aware mode stored in
+# settings.json so the browser UI and loop runner share the same policy.
+SETTINGS_PATH = _user_settings_path()
+# v6.7.6: copy in-build defaults to userdata on first run so upgrades
+# don't lose pre-existing configuration.  No-op when userdata == DIR.
+_migrate_to_userdata_dir()
+TP_RECOVERY_MODES = ("potion_first", "potion_only", "jewels_only")
+
+
+def _read_settings():
+    try:
+        with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_settings(data):
+    try:
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Failed to write settings.json: {e}")
+        return False
+
+
+def load_tp_recovery_mode():
+    mode = _read_settings().get("tp_recovery", "potion_first")
+    return mode if mode in TP_RECOVERY_MODES else "potion_first"
+
+
+def set_tp_recovery_mode(mode):
+    if mode not in TP_RECOVERY_MODES:
+        mode = "potion_first"
+    data = _read_settings()
+    data["tp_recovery"] = mode
+    _write_settings(data)
+    return mode
+
+
+def tp_recovery_label(mode):
+    return {
+        "potion_first": "TP items first, Jewels fallback",
+        "potion_only": "TP items only",
+        "jewels_only": "Jewels only",
+    }.get(mode, "TP items first, Jewels fallback")
+
+
+# v6.7.27 — Bot speed (per-endpoint anti-detection delay scale).
+# Persisted under settings.json `bot_speed_scale`. Applied on startup and on
+# every config write. See career_bot/delay.py:DELAY_SCALE for the runtime knob.
+BOT_SPEED_PRESETS = {
+    "realistic": 1.0,
+    "brisk":     0.5,
+    "fast":      0.25,
+    "speedrun":  0.05,
+}
+
+
+def load_bot_speed_scale():
+    raw = _read_settings().get("bot_speed_scale", 1.0)
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        v = 1.0
+    return max(0.0, min(2.0, v))
+
+
+def set_bot_speed_scale(scale):
+    try:
+        v = float(scale)
+    except (TypeError, ValueError):
+        v = 1.0
+    v = max(0.0, min(2.0, v))
+    data = _read_settings()
+    data["bot_speed_scale"] = v
+    _write_settings(data)
+    # Apply immediately to the running delay module so the next call sees it.
+    try:
+        from career_bot import delay as _delay_mod
+        _delay_mod.set_delay_scale(v)
+    except Exception:
+        pass
+    return v
+
+
+def bot_speed_label(scale):
+    s = float(scale)
+    if abs(s - 1.0) < 0.01: return "Realistic (1.0×)"
+    if abs(s - 0.5) < 0.01: return "Brisk (0.5×)"
+    if abs(s - 0.25) < 0.01: return "Fast (0.25×)"
+    if abs(s - 0.05) < 0.01: return "Speedrun (0.05×)"
+    if s <= 0.0: return f"Off (machine-speed)"
+    return f"Custom ({s:.2f}×)"
+
+
+# Apply persisted bot speed on startup so the value survives restarts.
+try:
+    from career_bot import delay as _delay_mod_startup
+    _delay_mod_startup.set_delay_scale(load_bot_speed_scale())
+except Exception:
+    pass
+
+
+def _runtime_json_path(name):
+    return Path(RUNTIME_DIR) / name
+
+
+def _read_json_file(path):
+    try:
+        path = Path(path)
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        pass
+    return {}
+
+
+def _write_json_file(path, data):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data if isinstance(data, dict) else {}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _event_choice_paths():
+    return (
+        _runtime_json_path("events_seen.json"),
+        _runtime_json_path("event_overrides.json"),
+        base_dir / "data" / "event_outcomes.json",
+    )
+
+
+# ===========================================================================
+# v6.7.26 — Dumper Watcher
+#
+# A background poller that imports event outcome data from the community
+# dumper tool's outcomes.json into a STAGING file. Staging is intentionally
+# isolated from the bot's live decision path:
+#
+#   - Live file:    data/event_outcomes.json
+#                   (read by career_bot/events.py:EventManager during runs)
+#
+#   - Staging file: data/event_outcomes_staging.json
+#                   (read by nothing in the runner; only by /api/dumper-watcher/*)
+#
+# Until the user explicitly clicks PROMOTE in the dashboard, staged data has
+# zero effect on bot decisions. This lets observations accumulate without
+# polluting the auto-pick KB until the user has reviewed them.
+# ===========================================================================
+
+_DUMPER_WATCHER_DEFAULT_INTERVAL = 30
+_DUMPER_WATCHER_MIN_INTERVAL = 5
+_dumper_watcher_thread = None
+_dumper_watcher_stop = threading.Event()
+_dumper_watcher_lock = threading.Lock()
+
+
+def _dumper_watcher_state_path():
+    return _runtime_json_path("dumper_watcher_state.json")
+
+
+def _dumper_watcher_read_state():
+    return _read_json_file(_dumper_watcher_state_path()) or {}
+
+
+def _dumper_watcher_write_state(state):
+    _write_json_file(_dumper_watcher_state_path(), state)
+
+
+def _dumper_watcher_config():
+    settings = _read_settings()
+    cfg = settings.get("dumper_watcher") if isinstance(settings.get("dumper_watcher"), dict) else {}
+    return {
+        "enabled": bool(cfg.get("enabled", False)),
+        "source_path": str(cfg.get("source_path") or "").strip(),
+        "poll_interval_sec": max(_DUMPER_WATCHER_MIN_INTERVAL, int(cfg.get("poll_interval_sec") or _DUMPER_WATCHER_DEFAULT_INTERVAL)),
+    }
+
+
+def _dumper_watcher_save_config(patch):
+    settings = _read_settings()
+    current = settings.get("dumper_watcher") if isinstance(settings.get("dumper_watcher"), dict) else {}
+    merged = {**current, **(patch or {})}
+    # Normalize before persisting.
+    merged["enabled"] = bool(merged.get("enabled"))
+    merged["source_path"] = str(merged.get("source_path") or "").strip()
+    try:
+        merged["poll_interval_sec"] = max(_DUMPER_WATCHER_MIN_INTERVAL, int(merged.get("poll_interval_sec") or _DUMPER_WATCHER_DEFAULT_INTERVAL))
+    except (TypeError, ValueError):
+        merged["poll_interval_sec"] = _DUMPER_WATCHER_DEFAULT_INTERVAL
+    settings["dumper_watcher"] = merged
+    _write_settings(settings)
+    return merged
+
+
+def _dumper_watcher_staging_path():
+    return base_dir / "data" / "event_outcomes_staging.json"
+
+
+def _dumper_watcher_live_path():
+    return base_dir / "data" / "event_outcomes.json"
+
+
+def _dumper_watcher_run_once(source_path=None):
+    """Single poll: stat the source, import to staging if changed."""
+    with _dumper_watcher_lock:
+        cfg = _dumper_watcher_config()
+        state = _dumper_watcher_read_state()
+        state["last_poll_at"] = time.time()
+        src = (source_path or cfg["source_path"] or "").strip()
+        if not src:
+            state["last_error"] = "No source_path configured."
+            _dumper_watcher_write_state(state)
+            return {"success": False, "detail": state["last_error"], "state": state}
+        p = Path(src).expanduser()
+        if not p.exists():
+            state["last_error"] = f"Source file not found: {p}"
+            _dumper_watcher_write_state(state)
+            return {"success": False, "detail": state["last_error"], "state": state}
+        try:
+            st = p.stat()
+            mtime = st.st_mtime
+            size = st.st_size
+        except Exception as exc:
+            state["last_error"] = f"Stat failed: {exc}"
+            _dumper_watcher_write_state(state)
+            return {"success": False, "detail": state["last_error"], "state": state}
+        state["source_path"] = str(p)
+        state["source_mtime"] = mtime
+        state["source_size"] = size
+        last_mtime = state.get("last_imported_mtime")
+        last_size = state.get("last_imported_size")
+        if last_mtime == mtime and last_size == size:
+            state["last_error"] = None
+            _dumper_watcher_write_state(state)
+            return {"success": True, "changed": False, "state": state}
+        # Run the staging import.
+        try:
+            report = event_outcomes.import_outcomes_to_staging(base_dir, source_path=str(p))
+        except Exception as exc:
+            state["last_error"] = f"Staging import failed: {exc}"
+            _dumper_watcher_write_state(state)
+            return {"success": False, "detail": state["last_error"], "state": state}
+        state["last_imported_at"] = time.time()
+        state["last_imported_mtime"] = mtime
+        state["last_imported_size"] = size
+        state["last_import_report"] = report
+        state["last_error"] = None
+        _dumper_watcher_write_state(state)
+        return {"success": True, "changed": True, "state": state, "report": report}
+
+
+def _dumper_watcher_loop():
+    """Background poll loop. Quietly idles when disabled or unconfigured."""
+    backoff_when_idle = 5
+    while not _dumper_watcher_stop.is_set():
+        try:
+            cfg = _dumper_watcher_config()
+            if not cfg["enabled"] or not cfg["source_path"]:
+                _dumper_watcher_stop.wait(timeout=backoff_when_idle)
+                continue
+            try:
+                _dumper_watcher_run_once()
+            except Exception:
+                pass  # state already records the error
+            _dumper_watcher_stop.wait(timeout=cfg["poll_interval_sec"])
+        except Exception:
+            _dumper_watcher_stop.wait(timeout=10)
+
+
+def start_dumper_watcher():
+    """Idempotent — safe to call repeatedly. The loop self-gates on enabled."""
+    global _dumper_watcher_thread
+    if _dumper_watcher_thread and _dumper_watcher_thread.is_alive():
+        return
+    _dumper_watcher_stop.clear()
+    _dumper_watcher_thread = threading.Thread(
+        target=_dumper_watcher_loop,
+        daemon=True,
+        name="DumperWatcher",
+    )
+    _dumper_watcher_thread.start()
+
+
+def _dumper_watcher_diff_summary():
+    """Compare staging vs live keys WITHOUT touching either file."""
+    live = _read_json_file(_dumper_watcher_live_path()) or {}
+    staging = _read_json_file(_dumper_watcher_staging_path()) or {}
+    live_keys = set(live.keys())
+    staging_keys = set(staging.keys())
+    new_keys = sorted(staging_keys - live_keys)
+    overlap = staging_keys & live_keys
+    # v6.7.26 — Strip provenance/meta fields before comparing so events whose
+    # only delta is the import source attribution don't show up as "updated".
+    # The user cares about actual outcome data changes, not which file the
+    # entry came from.
+    META_FIELDS = ("source",)
+    def _meaningful(entry):
+        if not isinstance(entry, dict):
+            return entry
+        return {k: v for k, v in entry.items() if k not in META_FIELDS}
+    updated_keys = sorted(k for k in overlap if _meaningful(staging.get(k)) != _meaningful(live.get(k)))
+    return {
+        "staging_total": len(staging),
+        "live_total": len(live),
+        "new_count": len(new_keys),
+        "updated_count": len(updated_keys),
+        "unchanged_count": len(overlap) - len(updated_keys),
+        "new_sample": new_keys[:20],
+        "updated_sample": updated_keys[:20],
+    }
+
+
+def _dumper_watcher_promote(mode="new_only"):
+    """Promote staging -> live. mode in {'new_only', 'all'}."""
+    live_path = _dumper_watcher_live_path()
+    staging_path = _dumper_watcher_staging_path()
+    live = _read_json_file(live_path) or {}
+    staging = _read_json_file(staging_path) or {}
+    if not staging:
+        return {"success": False, "detail": "Staging is empty — nothing to promote."}
+    # Same meta filter so promote-all doesn't churn the live file when only
+    # the attribution string differs.
+    META_FIELDS = ("source",)
+    def _meaningful(entry):
+        if not isinstance(entry, dict):
+            return entry
+        return {k: v for k, v in entry.items() if k not in META_FIELDS}
+    promoted = 0
+    for key, entry in staging.items():
+        if not isinstance(entry, dict):
+            continue
+        if mode == "new_only" and key in live:
+            continue
+        if key in live and _meaningful(live.get(key)) == _meaningful(entry):
+            continue
+        live[key] = entry
+        promoted += 1
+    _write_json_file(live_path, live)
+    return {
+        "success": True,
+        "mode": mode,
+        "promoted": promoted,
+        "live_total_now": len(live),
+        "staging_total": len(staging),
+    }
+
+
+def _dumper_watcher_clear_staging():
+    """Wipe the staging file and reset the watcher mtime so next poll re-imports."""
+    staging_path = _dumper_watcher_staging_path()
+    staging = _read_json_file(staging_path) or {}
+    cleared = len(staging)
+    _write_json_file(staging_path, {})
+    state = _dumper_watcher_read_state()
+    state.pop("last_imported_mtime", None)
+    state.pop("last_imported_size", None)
+    _dumper_watcher_write_state(state)
+    return {"success": True, "cleared": cleared}
+
+
+def _dumper_watcher_status_payload():
+    cfg = _dumper_watcher_config()
+    state = _dumper_watcher_read_state()
+    diff = _dumper_watcher_diff_summary()
+    return {
+        "success": True,
+        "config": cfg,
+        "state": state,
+        "diff": diff,
+        "thread_alive": bool(_dumper_watcher_thread and _dumper_watcher_thread.is_alive()),
+        "staging_file": str(_dumper_watcher_staging_path()),
+        "live_file": str(_dumper_watcher_live_path()),
+        "isolation_note": (
+            "Staging data is read by neither EventManager nor the AI Dataset. "
+            "It cannot influence bot decisions until you click PROMOTE."
+        ),
+    }
+
+
+def _discord_logging_config(redacted=False):
+    cfg = _read_settings().get("discord_logging") or {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    result = {
+        "enabled": bool(cfg.get("enabled", False)),
+        "webhook_url": str(cfg.get("webhook_url") or ""),
+        "send_turn_logs": bool(cfg.get("send_turn_logs", True)),
+        "send_career_summary": bool(cfg.get("send_career_summary", True)),
+        "redact_sensitive": bool(cfg.get("redact_sensitive", True)),
+    }
+    if redacted and result["webhook_url"]:
+        tail = result["webhook_url"][-8:]
+        result["webhook_url_redacted"] = "••••" + tail
+    return result
+
+
+def _save_discord_logging_config(patch):
+    data = _read_settings()
+    current = data.get("discord_logging") if isinstance(data.get("discord_logging"), dict) else {}
+    current = {**current, **(patch or {})}
+    current["enabled"] = bool(current.get("enabled") and str(current.get("webhook_url") or "").strip())
+    data["discord_logging"] = current
+    _write_settings(data)
+    return _discord_logging_config(redacted=True)
+
+
+def _send_discord_webhook_test(url):
+    payload = {
+        "username": "SweepyCL",
+        "content": "SweepyCL Discord webhook test: configuration saved successfully.",
+    }
+    req = UrlRequest(
+        str(url),
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "User-Agent": "SweepyCL/7.0"},
+        method="POST",
+    )
+    with urlopen(req, timeout=12) as resp:
+        code = getattr(resp, "status", None) or resp.getcode()
+        return 200 <= int(code) < 300
 
 
 import hashlib
@@ -578,6 +1467,411 @@ def update_start_state(data):
         active_start_state["succession_rank_point"] = get_item_count(item_list, 75)
 
 
+
+def _iter_nested_arrays(obj, path=""):
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            next_path = f"{path}.{key}" if path else str(key)
+            if isinstance(value, list):
+                yield next_path, value
+                for idx, item in enumerate(value[:1000]):
+                    yield from _iter_nested_arrays(item, f"{next_path}[{idx}]")
+            elif isinstance(value, dict):
+                yield from _iter_nested_arrays(value, next_path)
+    elif isinstance(obj, list):
+        for idx, item in enumerate(obj[:1000]):
+            yield from _iter_nested_arrays(item, f"{path}[{idx}]")
+
+
+def _candidate_card_id(item):
+    if not isinstance(item, dict):
+        return 0
+    for key in (
+        "card_id", "chara_card_id", "trained_card_id", "rental_card_id",
+        "guest_card_id", "parent_card_id", "favorite_chara_card_id",
+        "favorite_card_id", "chara_id", "support_card_id",
+    ):
+        value = item.get(key)
+        if value:
+            return value
+    nested_keys = ("chara_info", "trained_chara", "rental_chara", "guest_chara", "parent_chara", "succession_chara")
+    for key in nested_keys:
+        value = item.get(key)
+        if isinstance(value, dict):
+            nested = _candidate_card_id(value)
+            if nested:
+                return nested
+    return 0
+
+
+def _candidate_instance_id(item):
+    if not isinstance(item, dict):
+        return 0
+    for key in (
+        "trained_chara_id", "succession_chara_id", "rental_chara_id", "guest_chara_id",
+        "trained_chara_uuid", "rental_chara_uuid", "guest_chara_uuid", "parent_chara_id",
+        "id", "viewer_id", "owner_viewer_id",
+    ):
+        value = item.get(key)
+        if value:
+            return value
+    return 0
+
+
+def _guest_parent_like(item, path=""):
+    """Return True for full guest/rental parent rows or lightweight followed rows.
+
+    The Guests tab has changed payload shape across builds. This intentionally
+    accepts a broader set of card/user rows, then marks incomplete ones later.
+    """
+    if not isinstance(item, dict):
+        return False
+    keys = set(item.keys())
+    path_low = str(path or "").lower()
+
+    # Guest Parents must be succession/trained-chara rows, not friend support
+    # cards. A pure support-card row has support_card_id but no trained/rental
+    # character payload, so it is intentionally rejected even if it came from a
+    # friend/follow path.
+    if "support_card_id" in keys and not any(k in keys for k in (
+        "trained_chara_id", "succession_chara_id", "rental_chara_id", "guest_chara_id",
+        "chara_info", "trained_chara", "rental_chara", "guest_chara",
+        "succession_trained_chara_id", "trained_chara", "succession_chara_array",
+    )):
+        return False
+
+    has_card = bool(_candidate_card_id(item))
+    has_instance = bool(_candidate_instance_id(item))
+    has_lineage = any(k in keys for k in (
+        "succession_chara_array", "factor_id_array", "win_saddle_id_array",
+        "parent_chara_array", "parents", "parent1", "parent2",
+    ))
+    has_user = any(k in keys for k in ("viewer_id", "owner_viewer_id", "user_id", "trainer_name", "name"))
+    path_hint = any(token in path_low for token in ("follow", "friend", "guest", "rental", "succession", "parent"))
+    return has_card and (has_instance or has_lineage or (path_hint and has_user))
+
+
+def _empty_lineage(card_id=0, name=""):
+    return {
+        "card_id": card_id or 0,
+        "name": name or (chara_map.get(str(card_id), f"Unknown ({card_id})") if card_id else ""),
+        "factors": [],
+        "wins": get_win_summary([]),
+    }
+
+
+def _normalize_guest_parent_item(item, owner_info=None, source="guest", path=""):
+    owner_info = owner_info or {}
+
+    # Some payloads wrap the actual chara under nested keys.
+    wrapped = item
+    for key in ("chara_info", "trained_chara", "rental_chara", "guest_chara", "parent_chara", "succession_chara"):
+        if isinstance(item.get(key), dict):
+            wrapped = {**item, **item[key]}
+            break
+
+    raw_id = _candidate_card_id(wrapped)
+    cid = str(raw_id or 0)
+    instance_id = _candidate_instance_id(wrapped) or f"{source}:{cid}:{owner_info.get('viewer_id') or wrapped.get('viewer_id') or ''}"
+
+    display_name = (
+        wrapped.get("chara_name")
+        or wrapped.get("card_name")
+        or wrapped.get("name")
+        or wrapped.get("support_name")
+        or chara_map.get(cid, f"Unknown ({cid})")
+    )
+
+    tree = {
+        "self": {
+            "card_id": cid,
+            "name": chara_map.get(cid, display_name),
+            "factors": get_factors(get_chara_factor_ids(wrapped), cid),
+            "wins": get_win_summary(wrapped.get("win_saddle_id_array", [])),
+        },
+        "p1": _empty_lineage(),
+        "p2": _empty_lineage(),
+        "gp1": _empty_lineage(),
+        "gp2": _empty_lineage(),
+        "gp3": _empty_lineage(),
+        "gp4": _empty_lineage(),
+    }
+
+    succession = wrapped.get("succession_chara_array") or wrapped.get("parent_chara_array") or []
+    for i, sc in enumerate(succession or []):
+        if not isinstance(sc, dict):
+            continue
+        pos = sc.get("position_id")
+        key = {10: "p1", 20: "p2", 11: "gp1", 12: "gp2", 21: "gp3", 22: "gp4"}.get(pos)
+        if not key:
+            key = ["p1", "p2", "gp1", "gp2", "gp3", "gp4"][i] if i < 6 else None
+        if not key:
+            continue
+        sc_cid = _candidate_card_id(sc)
+        tree[key]["card_id"] = sc_cid
+        tree[key]["name"] = chara_map.get(str(sc_cid), f"Unknown ({sc_cid})")
+        tree[key]["factors"] = get_factors(sc.get("factor_id_array", []), sc_cid)
+        tree[key]["wins"] = get_win_summary(sc.get("win_saddle_id_array", []))
+
+    has_full_lineage = bool(
+        (wrapped.get("factor_id_array") or wrapped.get("succession_chara_array") or wrapped.get("parent_chara_array"))
+        or tree["p1"]["card_id"]
+        or tree["p2"]["card_id"]
+    )
+
+    viewer_id = (
+        owner_info.get("viewer_id")
+        or wrapped.get("viewer_id")
+        or wrapped.get("owner_viewer_id")
+        or wrapped.get("user_id")
+        or item.get("viewer_id")
+        or item.get("owner_viewer_id")
+        or 0
+    )
+    trainer_name = (
+        owner_info.get("name")
+        or owner_info.get("trainer_name")
+        or wrapped.get("trainer_name")
+        or wrapped.get("owner_name")
+        or wrapped.get("user_name")
+        or item.get("name")
+        or ""
+    )
+
+    return {
+        "instance_id": instance_id,
+        "card_id": cid,
+        "name": chara_map.get(cid, display_name),
+        "rank": wrapped.get("rank", wrapped.get("evaluation_rank", 0)),
+        "tree": tree,
+        "viewer_id": viewer_id,
+        "trainer_name": trainer_name,
+        "source": source,
+        "path": path,
+        "incomplete": not has_full_lineage,
+    }
+
+
+def _array_score_for_guest_path(path):
+    low = str(path or "").lower()
+    score = 0
+    for token, pts in [
+        ("guest", 80), ("rental", 75), ("follow", 70), ("friend", 50),
+        ("succession", 45), ("parent", 40), ("trained_chara", 25), ("chara", 10),
+    ]:
+        if token in low:
+            score += pts
+    if "support" in low:
+        score -= 25
+    return score
+
+
+def discover_guest_parent_sources(data):
+    """Return candidate guest-parent arrays with diagnostics."""
+    sources = []
+    for path, arr in _iter_nested_arrays(data):
+        if not isinstance(arr, list) or not arr:
+            continue
+        score = _array_score_for_guest_path(path)
+        if score <= 0:
+            continue
+        candidates = [item for item in arr if _guest_parent_like(item, path)]
+        if candidates:
+            sources.append({
+                "path": path,
+                "score": score,
+                "count": len(candidates),
+                "items": candidates,
+            })
+    sources.sort(key=lambda x: (x["score"], x["count"]), reverse=True)
+    return sources
+
+
+def _collect_owned_parent_identity_keys(data):
+    """Collect owned/veteran parent identities so Guest Parents can exclude them."""
+    owned = set()
+    own_viewer = (
+        data.get("viewer_id")
+        or data.get("user_id")
+        or ((data.get("user_info") or {}).get("viewer_id"))
+        or ((data.get("trained_chara") or {}).get("viewer_id"))
+    )
+
+    def add_identity(item):
+        if not isinstance(item, dict):
+            return
+        cid = _candidate_card_id(item)
+        iid = _candidate_instance_id(item)
+        viewer = item.get("viewer_id") or item.get("owner_viewer_id") or item.get("user_id") or own_viewer
+        if iid:
+            owned.add(("instance", str(iid)))
+        if viewer and cid:
+            owned.add(("viewer_card", str(viewer), str(cid)))
+        if cid and not viewer:
+            owned.add(("card", str(cid)))
+
+    own_arrays = [
+        "trained_chara_array",
+        "trained_chara_data_array",
+        "own_trained_chara_array",
+        "user_trained_chara_array",
+        "succession_trained_chara_array",
+        "trained_chara",
+        "directory_card_array",
+        "directory_chara_array",
+        "scenario_record_array",
+    ]
+    for key in own_arrays:
+        value = data.get(key)
+        if isinstance(value, list):
+            for item in value:
+                add_identity(item)
+        elif isinstance(value, dict):
+            add_identity(value)
+    return owned
+
+
+def _guest_identity_keys(item):
+    cid = str(item.get("card_id") or "")
+    iid = str(item.get("instance_id") or "")
+    viewer = str(item.get("viewer_id") or "")
+    keys = set()
+    if iid:
+        keys.add(("instance", iid))
+    if viewer and cid:
+        keys.add(("viewer_card", viewer, cid))
+    if cid and not viewer:
+        keys.add(("card", cid))
+    return keys
+
+
+def _guest_dedupe_key(item):
+    """Stable key that collapses the same rental shown from many API paths."""
+    cid = str(item.get("card_id") or "")
+    iid = str(item.get("instance_id") or "")
+    viewer = str(item.get("viewer_id") or "")
+    trainer = str(item.get("trainer_name") or "").strip().lower()
+    if iid and not iid.lower().startswith(("trained_chara[", "scenario_record_array", "directory_card_array")):
+        return ("iid", iid)
+    if viewer and cid:
+        return ("viewer_card", viewer, cid)
+    if cid and trainer:
+        return ("trainer_card", trainer, cid)
+    return ("card_name_rank", cid, str(item.get("name") or "").strip().lower(), str(item.get("rank") or ""))
+
+
+def normalize_guest_parents(data):
+    """Extract unique real guests/rentals while excluding owned veteran parents.
+
+    The API can surface the same rental through many paths. It can also expose
+    local trained characters in generic arrays. This normalizer keeps only one
+    display card per guest identity and filters likely owned/veteran rows.
+    """
+    guests = []
+    seen = set()
+    owned_keys = _collect_owned_parent_identity_keys(data or {})
+
+    def add_item(item, owner=None, source="guest", path=""):
+        path_l = str(path or source or "").lower()
+        if any(token in path_l for token in ("directory_card_array", "directory_chara_array", "scenario_record_array")):
+            return
+        if not _guest_parent_like(item, path):
+            return
+        normalized = _normalize_guest_parent_item(item, owner_info=owner, source=source, path=path)
+        identity = _guest_identity_keys(normalized)
+        if identity and any(key in owned_keys for key in identity):
+            return
+        key = _guest_dedupe_key(normalized)
+        if key in seen:
+            return
+        seen.add(key)
+        guests.append(normalized)
+
+    known_arrays = [
+        "rental_chara_data_array",
+        "rental_succession_chara_array",
+        "guest_chara_data_array",
+        "guest_parent_array",
+        "guest_parent_chara_array",
+        "follow_chara_data_array",
+        "follow_succession_chara_array",
+        "friend_succession_chara_array",
+        "follow_trained_chara_array",
+        "follow_parent_chara_array",
+        "follow_rental_chara_array",
+        "rental_trained_chara_array",
+        "rental_parent_chara_array",
+        "succession_chara_data_array",
+        "parent_chara_data_array",
+        "friend_trained_chara_array",
+        "friend_parent_chara_array",
+    ]
+    for key in known_arrays:
+        for item in data.get(key, []) or []:
+            add_item(item, source=key, path=key)
+
+    for user in data.get("summary_user_info_array", []) or []:
+        for path, arr in _iter_nested_arrays(user):
+            if any(token in path.lower() for token in ("rental", "succession", "guest", "parent", "chara", "follow")):
+                for item in arr:
+                    add_item(item, owner=user, source=f"summary_user_info_array.{path}", path=path)
+        if _guest_parent_like(user, "summary_user_info_array"):
+            add_item(user, owner=user, source="summary_user_info_array", path="summary_user_info_array")
+
+    for source in discover_guest_parent_sources(data):
+        for item in source["items"]:
+            add_item(item, source=source["path"], path=source["path"])
+
+    # Final safety pass: remove any support-card fallback entries that slipped
+    # through nested payloads.
+    guests = [
+        g for g in guests
+        if "support" not in str(g.get("source") or "").lower()
+        and "support" not in str(g.get("path") or "").lower()
+        and not str(g.get("instance_id") or "").startswith("fallback")
+    ]
+    return guests
+
+
+def fallback_guest_parents_from_friend_summaries(data):
+    """Last-resort visual guest list from followed-user/friend summaries.
+
+    This is intentionally marked incomplete. It prevents a blank Guest Parents
+    panel when the API exposes followed users but hides full guest lineage.
+    """
+    friends, _, source = normalize_friend_cards(data)
+    guests = []
+    seen = set()
+    for idx, friend in enumerate(friends):
+        key = (str(friend.get("viewer_id") or ""), str(friend.get("support_card_id") or friend.get("card_id") or ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        support_id = friend.get("support_card_id") or friend.get("card_id") or 100101
+        guests.append({
+            "instance_id": f"follow-{friend.get('viewer_id', idx)}",
+            "card_id": str(support_id or 100101),
+            "name": friend.get("support_name") or friend.get("name") or "Followed Trainer",
+            "rank": 0,
+            "tree": {
+                "self": _empty_lineage(support_id or 100101, friend.get("support_name") or friend.get("name") or "Followed Trainer"),
+                "p1": _empty_lineage(),
+                "p2": _empty_lineage(),
+                "gp1": _empty_lineage(),
+                "gp2": _empty_lineage(),
+                "gp3": _empty_lineage(),
+                "gp4": _empty_lineage(),
+            },
+            "viewer_id": friend.get("viewer_id", 0),
+            "trainer_name": friend.get("name", ""),
+            "source": f"fallback_friend_summary:{source}",
+            "path": "fallback_friend_summary",
+            "incomplete": True,
+        })
+    return guests
+
+
+
 def normalize_friend_cards(data):
     source = "refresh"
     friend_data = data.get("friend_support_card_data")
@@ -640,6 +1934,23 @@ def normalize_card_name(name):
 def validate_start_selection(req):
     support_ids = [int(card_id) for card_id in req.support_card_ids]
     friend_card_id = int(req.friend_card_id)
+    parent_id_1 = int(getattr(req, "parent_id_1", 0) or 0)
+    parent_id_2 = int(getattr(req, "parent_id_2", 0) or 0)
+    rental_viewer_id = int(getattr(req, "rental_viewer_id", 0) or 0)
+    rental_trained_chara_id = int(getattr(req, "rental_trained_chara_id", 0) or 0)
+    rental_card_id = int(getattr(req, "rental_card_id", 0) or 0)
+    has_rental = bool(rental_viewer_id or rental_trained_chara_id)
+
+    if has_rental:
+        if not parent_id_1:
+            return "Guest parent requires one owned parent"
+        if parent_id_2:
+            return "Guest parent cannot be combined with two owned parents"
+        if not rental_viewer_id or not rental_trained_chara_id:
+            return "Guest parent is missing viewer or trained character id"
+    elif not (parent_id_1 and parent_id_2):
+        return "Select parents: 2 own, or 1 own + 1 guest"
+
     if friend_card_id in support_ids:
         return "Friend support card is already in selected deck"
 
@@ -667,13 +1978,12 @@ def validate_start_selection(req):
             if support_name and support_name == trainee_name:
                 return "Selected deck contains a support card with the same character as the trainee"
 
-    parent1_cards = active_parent_cards.get(int(req.parent_id_1), [])
-    parent2_cards = active_parent_cards.get(int(req.parent_id_2), [])
-    if (
-        parent1_cards
-        and parent2_cards
-        and int(req.card_id) in (parent1_cards[0], parent2_cards[0])
-    ):
+    parent1_cards = active_parent_cards.get(parent_id_1, [])
+    parent2_cards = active_parent_cards.get(parent_id_2, []) if parent_id_2 else []
+    direct_parent_cards = [cards[0] for cards in (parent1_cards, parent2_cards) if cards]
+    if rental_card_id:
+        direct_parent_cards.append(rental_card_id)
+    if direct_parent_cards and int(req.card_id) in direct_parent_cards:
         return "Selected direct parent is same character as trainee"
 
     return None
@@ -734,12 +2044,114 @@ def parent_rank_point(parent_id):
 
 
 def selected_succession_rank_point(req):
-    selected_total = parent_rank_point(req.parent_id_1) + parent_rank_point(
-        req.parent_id_2
+    # Rank points are locally cached only for owned veteran parents. Rental/guest
+    # parent costs are represented by the rental payload and by the live start
+    # endpoint, so do not treat a rental trained_chara_id as an owned parent id.
+    selected_total = parent_rank_point(getattr(req, "parent_id_1", 0)) + parent_rank_point(
+        getattr(req, "parent_id_2", 0)
     )
     if selected_total:
         return selected_total
     return active_start_state.get("succession_rank_point", 0)
+
+
+def _safe_int(value, default=0):
+    try:
+        if value is None or value == "":
+            return default
+        return int(value)
+    except Exception:
+        return default
+
+
+def _has_rental_parent(req):
+    return bool(
+        _safe_int(getattr(req, "rental_viewer_id", 0))
+        or _safe_int(getattr(req, "rental_trained_chara_id", 0))
+    )
+
+
+def _guest_matches_start_request(req, guest):
+    if not isinstance(guest, dict):
+        return False
+    req_viewer = _safe_int(getattr(req, "rental_viewer_id", 0))
+    req_card = _safe_int(getattr(req, "rental_card_id", 0))
+    req_trained = str(getattr(req, "rental_trained_chara_id", "") or "")
+    guest_viewer = _safe_int(guest.get("viewer_id"))
+    guest_card = _safe_int(guest.get("card_id"))
+    guest_trained = str(guest.get("instance_id") or guest.get("trained_chara_id") or guest.get("id") or "")
+    if req_trained and guest_trained and req_trained == guest_trained:
+        return True
+    if req_viewer and req_card and guest_viewer == req_viewer and guest_card == req_card:
+        return True
+    return False
+
+
+def _refresh_guest_parent_for_start(req, data):
+    """Verify a selected rental parent against a fresh pre-start payload.
+
+    Rental/guest parent entries can expire or be removed after a career completes.
+    Reusing a stale `rental_succession_trained_chara` can make
+    `single_mode_free/start` return 501. Before each looped career start, refresh
+    the available guest list and rewrite the request with the fresh trained-chara
+    id if the same viewer/card is still available.
+    """
+    if not _has_rental_parent(req):
+        return None
+    guests = normalize_guest_parents(data or {})
+    if active_dashboard_data is not None:
+        active_dashboard_data["guestParents"] = guests
+        active_dashboard_data["guestParentsLoaded"] = True
+    match = None
+    for guest in guests:
+        if _guest_matches_start_request(req, guest):
+            match = guest
+            break
+    if not match:
+        return {
+            "success": False,
+            "fatal_start": True,
+            "detail": (
+                "Selected guest parent is no longer available in the fresh pre-start "
+                "rental list. Refresh Guest Parents and reselect before starting another loop."
+            ),
+        }
+    trained_id = _safe_int(match.get("instance_id") or match.get("trained_chara_id") or match.get("id"))
+    viewer_id = _safe_int(match.get("viewer_id"), _safe_int(getattr(req, "rental_viewer_id", 0)))
+    card_id = _safe_int(match.get("card_id"), _safe_int(getattr(req, "rental_card_id", 0)))
+    if not viewer_id or not trained_id:
+        return {
+            "success": False,
+            "fatal_start": True,
+            "detail": (
+                "Selected guest parent was refreshed, but the fresh entry is missing "
+                "viewer_id or trained_chara_id. Refresh Guest Parents and reselect."
+            ),
+        }
+    req.rental_viewer_id = viewer_id
+    req.rental_trained_chara_id = trained_id
+    req.rental_card_id = card_id
+    req.parent_id_2 = 0
+    return None
+
+
+def _pre_start_refresh(req):
+    """Refresh pre-start state and validate guest rental availability."""
+    try:
+        result = active_client.pre_single_mode([req.friend_viewer_id] if req.friend_viewer_id else [])
+        data = result.get("data", {}) or {}
+        update_start_state(data)
+        rental_error = _refresh_guest_parent_for_start(req, data)
+        if rental_error:
+            return rental_error
+    except Exception as exc:
+        if _has_rental_parent(req):
+            return {
+                "success": False,
+                "fatal_start": True,
+                "detail": f"Could not refresh selected guest parent before start: {exc}",
+            }
+    return {"success": True}
 
 
 skill_data = {}
@@ -760,6 +2172,60 @@ if race_map_path.exists():
     with open(race_map_path, "r", encoding="utf-8") as f:
         race_map = json.load(f)
 
+win_saddle_core = {}
+win_saddle_path = base_dir / "data" / "win_saddle_core.json"
+if win_saddle_path.exists():
+    try:
+        with open(win_saddle_path, "r", encoding="utf-8") as f:
+            win_saddle_core = {str(row.get("id")): row for row in json.load(f) or []}
+    except Exception:
+        win_saddle_core = {}
+
+career_rank_thresholds = []
+career_rank_thresholds_path = base_dir / "data" / "career_rank_thresholds_core.json"
+if career_rank_thresholds_path.exists():
+    try:
+        with open(career_rank_thresholds_path, "r", encoding="utf-8") as f:
+            career_rank_thresholds = list(json.load(f) or [])
+    except Exception:
+        career_rank_thresholds = []
+
+tp_restore_items_core = []
+tp_restore_items_path = base_dir / "data" / "tp_restore_items_core.json"
+if tp_restore_items_path.exists():
+    try:
+        with open(tp_restore_items_path, "r", encoding="utf-8") as f:
+            tp_restore_items_core = list(json.load(f) or [])
+    except Exception:
+        tp_restore_items_core = []
+
+succession_scoring_core = {}
+succession_scoring_path = base_dir / "data" / "succession_scoring_core.json"
+if succession_scoring_path.exists():
+    try:
+        with open(succession_scoring_path, "r", encoding="utf-8") as f:
+            succession_scoring_core = json.load(f) or {}
+    except Exception:
+        succession_scoring_core = {}
+
+succession_initial_points_by_star = {}
+for row in succession_scoring_core.get("initial_factors") or []:
+    try:
+        if int(row.get("factor_type") or 0) == 1:
+            succession_initial_points_by_star[int(row.get("value_1") or 0)] = int(row.get("add_point") or 0)
+    except Exception:
+        continue
+
+career_progression_core = []
+career_progression_path = base_dir / "data" / "career_progression_core.json"
+if career_progression_path.exists():
+    try:
+        with open(career_progression_path, "r", encoding="utf-8") as f:
+            payload = json.load(f) or {}
+            career_progression_core = list(payload.get("grades") or [])
+    except Exception:
+        career_progression_core = []
+
 
 def skill_entry_name(entry):
     if isinstance(entry, dict):
@@ -768,10 +2234,27 @@ def skill_entry_name(entry):
 
 
 def get_win_summary(win_saddle_ids):
-    summary = {"g1": 0, "g2": 0, "g3": 0}
+    summary = {"g1": 0, "g2": 0, "g3": 0, "total": 0, "names": []}
 
     for saddle_id in win_saddle_ids or []:
-        race = race_map.get(str(saddle_id))
+        sid = str(saddle_id)
+        core = win_saddle_core.get(sid) or {}
+        if core:
+            name = str(core.get("name") or "").strip()
+            if name and name not in summary["names"]:
+                summary["names"].append(name)
+            for grade in core.get("grades") or []:
+                g = str(grade or "").upper()
+                if g == "G1":
+                    summary["g1"] += 1
+                elif g == "G2":
+                    summary["g2"] += 1
+                elif g == "G3":
+                    summary["g3"] += 1
+            continue
+
+        # Legacy fallback: older race_map.json builds were sometimes flat.
+        race = race_map.get(sid) if isinstance(race_map, dict) else None
         grade = race.get("grade") if race else None
         if grade == "G1":
             summary["g1"] += 1
@@ -841,8 +2324,15 @@ def get_factors(fid_array, owner_card_id=None):
                 factor_info.get("name", f"Unknown({fid})"), base_id, category
             )
             stars = factor_info.get("stars", fid % 100)
+            initial_points = succession_initial_points_by_star.get(int(stars or 0), 0)
             results.append(
-                {"name": name, "stars": stars, "id": fid, "category": category}
+                {
+                    "name": name,
+                    "stars": stars,
+                    "id": fid,
+                    "category": category,
+                    "initial_points": initial_points,
+                }
             )
             continue
 
@@ -860,8 +2350,15 @@ def get_factors(fid_array, owner_card_id=None):
             category = "skill"
             name = skill_entry_name(skill_data[bid_str])
 
+        initial_points = succession_initial_points_by_star.get(int(stars or 0), 0)
         results.append(
-            {"name": name, "stars": stars, "id": base_id, "category": category}
+            {
+                "name": name,
+                "stars": stars,
+                "id": base_id,
+                "category": category,
+                "initial_points": initial_points,
+            }
         )
 
     return [
@@ -880,11 +2377,238 @@ def get_chara_factor_ids(chara):
     return [f.get("factor_id", 0) for f in chara.get("factor_info_array", [])]
 
 
+def _coerce_int(value, default=0):
+    try:
+        if value is None or value == "":
+            return default
+        return int(value)
+    except Exception:
+        return default
+
+
+def _first_present(mapping, keys):
+    if not isinstance(mapping, dict):
+        return None
+    for key in keys:
+        if key in mapping and mapping.get(key) is not None:
+            return mapping.get(key)
+    return None
+
+
+def _item_id_from_payload(item):
+    return _coerce_int(_first_present(item or {}, ("item_id", "itemId", "id")), 0)
+
+
+def _item_count_from_payload(item):
+    # Live account payloads have drifted across endpoint versions.  The old TP
+    # restore code only accepted `number`, which can make owned Toughness 30 look
+    # missing when the API reports the same value as `item_num`, `num`, or
+    # another count-shaped field.
+    return _coerce_int(
+        _first_present(
+            item or {},
+            (
+                "number",
+                "item_num",
+                "itemNum",
+                "num",
+                "count",
+                "quantity",
+                "owned_num",
+                "own_num",
+                "item_count",
+            ),
+        ),
+        0,
+    )
+
+
 def get_item_count(item_list, item_id):
+    wanted = _coerce_int(item_id, item_id)
     for item in item_list or []:
-        if item.get("item_id") == item_id:
-            return item.get("number", 0)
+        current = _item_id_from_payload(item)
+        if current == wanted:
+            return _item_count_from_payload(item)
     return 0
+
+
+def find_item_count(item_list, item_id):
+    """Return an item count only when the payload actually includes the item.
+
+    Career responses can include partial user_item arrays. Missing item 32 means
+    "unchanged", not zero, so TP item counts fall back to the cached client map.
+    """
+    wanted = _coerce_int(item_id, item_id)
+    for item in item_list or []:
+        current = _item_id_from_payload(item)
+        if current == wanted:
+            return _item_count_from_payload(item)
+    return None
+
+
+def _master_mdb_path_for_lookup():
+    try:
+        db_path = master_data.configured_master_mdb_path(base_dir)
+        if db_path and Path(db_path).exists():
+            return Path(db_path)
+    except Exception:
+        pass
+    return None
+
+
+def _detect_toughness_item_ids_from_core():
+    """Return exact Toughness 30 item IDs from generated master-data JSON."""
+    ids = []
+    for row in tp_restore_items_core or []:
+        try:
+            if str(row.get("kind") or "").lower() != "toughness_30":
+                continue
+            item_id = int(row.get("item_id") or 0)
+        except Exception:
+            continue
+        if item_id and item_id not in ids:
+            ids.append(item_id)
+    return ids
+
+
+def _detect_toughness_item_ids_from_master():
+    """Lookup the exact Toughness 30 item ID from master.mdb.
+
+    master.mdb stores generic item names in text_data category 23 using
+    text_data.index = item_data.id. The previous broad scanner could mistakenly
+    return text_data.id/category (23) instead of the actual item ID (32). This
+    direct query intentionally returns item_data.id only.
+    """
+    db_path = _master_mdb_path_for_lookup()
+    if not db_path:
+        return []
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(db_path))
+        try:
+            rows = conn.execute(
+                '''
+                SELECT i.id
+                FROM item_data i
+                LEFT JOIN text_data n
+                  ON n.category = 23 AND n."index" = i.id
+                LEFT JOIN text_data d
+                  ON d.category = 10 AND d."index" = i.id
+                WHERE i.item_category = 20
+                  AND i.effect_type_1 = 2
+                  AND i.effect_value_1 = 30
+                  AND n.text = 'Toughness 30'
+                ORDER BY i.id
+                '''
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        return []
+    result = []
+    for row in rows:
+        try:
+            item_id = int(row[0])
+        except Exception:
+            continue
+        if item_id and item_id not in result:
+            result.append(item_id)
+    return result
+
+
+def _parse_toughness_configured_ids():
+    raw = os.environ.get("UMA_TOUGHNESS_ITEM_IDS", "")
+    source = "env" if raw else ""
+    if not raw:
+        cfg_path = Path(DIR) / "data" / "toughness_item_ids.json"
+        try:
+            if cfg_path.exists():
+                payload = json.loads(cfg_path.read_text(encoding="utf-8"))
+                raw_values = payload.get("item_ids") if isinstance(payload, dict) else payload
+                raw = ",".join(str(x) for x in (raw_values or []))
+                source = str(payload.get("source") or "data/toughness_item_ids.json") if isinstance(payload, dict) else "data/toughness_item_ids.json"
+        except Exception:
+            raw = ""
+            source = ""
+    ids = []
+    for part in str(raw or "").replace(";", ",").split(","):
+        try:
+            value = int(part.strip())
+            if value > 0 and value not in ids:
+                ids.append(value)
+        except Exception:
+            pass
+    return ids, source
+
+
+def _canonical_toughness_item_ids():
+    # master.mdb says Toughness 30 is item_data.id 32.  Prefer the generated
+    # core export because it is bundled with the release, and fall back to the
+    # active local master.mdb if the export is unavailable.
+    return _detect_toughness_item_ids_from_core() or _detect_toughness_item_ids_from_master()
+
+
+def get_toughness_item_ids():
+    """Return validated Toughness 30 item ids.
+
+    Older builds could write or recommend stale ids such as text_data.category
+    23 instead of item_data.id 32.  Configured ids are now accepted only when
+    they match the authoritative master-data Toughness 30 id.  This keeps a
+    stale local config from overriding the fixed detector.
+    """
+    configured, source = _parse_toughness_configured_ids()
+    canonical = _canonical_toughness_item_ids()
+    if configured and canonical:
+        valid = [iid for iid in configured if iid in set(canonical)]
+        invalid = [iid for iid in configured if iid not in set(canonical)]
+        if invalid:
+            try:
+                out_path = Path(DIR) / "data" / "toughness_item_ids.invalid.json"
+                out_path.write_text(
+                    json.dumps(
+                        {
+                            "ignored_item_ids": invalid,
+                            "accepted_item_ids": valid or canonical,
+                            "configured_source": source,
+                            "reason": "Configured ids did not match the master-data Toughness 30 item_data.id.",
+                        },
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+            except Exception:
+                pass
+        if valid:
+            return valid
+        return canonical
+    if configured:
+        return configured
+    detected = canonical
+    if detected:
+        try:
+            out_path = Path(DIR) / "data" / "toughness_item_ids.detected.json"
+            out_path.write_text(json.dumps({"item_ids": detected, "source": "master.mdb auto-detect"}, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+    return detected
+
+
+def get_toughness_count(item_list=None):
+    try:
+        ids = get_toughness_item_ids()
+        if not ids:
+            return 0, []
+        total = 0
+        for iid in ids:
+            if item_list is None and active_client:
+                count = int(active_client.item_map.get(int(iid), 0) or 0)
+            else:
+                count = int(get_item_count(item_list or [], int(iid)) or 0)
+            total += count
+        return total, ids
+    except Exception:
+        # Account status must never fail because an optional resource counter did.
+        return 0, []
 
 
 def get_account_status(data, career_data=None):
@@ -893,10 +2617,18 @@ def get_account_status(data, career_data=None):
         active_client.coin_info if active_client else {}
     )
     item_list = data.get("item_list") or data.get("user_item_array")
-    if item_list is None:
-        gold = active_client.item_map.get(59, 0) if active_client else 0
-    else:
-        gold = get_item_count(item_list, 59)
+    # Umabot TP item cache behavior: partial career item arrays do not reset
+    # absent items to zero. Only update item 32/59 when explicitly present.
+    cache = active_client.item_map if active_client else {}
+    gold_seen = find_item_count(item_list, 59)
+    potions_seen = find_item_count(item_list, 32)
+    gold = gold_seen if gold_seen is not None else cache.get(59, 0)
+    potions = potions_seen if potions_seen is not None else cache.get(32, 0)
+    if active_client:
+        if gold_seen is not None:
+            active_client.item_map[59] = gold_seen
+        if potions_seen is not None:
+            active_client.item_map[32] = potions_seen
     career = data.get("single_mode_chara_light") or None
 
     if career_data:
@@ -917,6 +2649,11 @@ def get_account_status(data, career_data=None):
             "total": (coin_info.get("fcoin", 0) or 0) + (coin_info.get("coin", 0) or 0),
         },
         "gold": gold,
+        "potions": potions,
+        "tp_recovery": {
+            "mode": load_tp_recovery_mode(),
+            "label": tp_recovery_label(load_tp_recovery_mode()),
+        },
         "clocks": active_client.item_map.get(95, 0) if active_client else 0,
         "career": None,
     }
@@ -1020,6 +2757,216 @@ class DeleteCareerRequest(BaseModel):
     current_turn: int = 0
 
 
+
+@app.get("/api/settings/tp-recovery")
+async def get_tp_recovery_settings():
+    mode = load_tp_recovery_mode()
+    potions = None
+    if active_client is not None:
+        try:
+            potions = active_client.tp_potion_count()
+        except Exception:
+            potions = None
+    return {
+        "success": True,
+        "mode": mode,
+        "label": tp_recovery_label(mode),
+        "modes": list(TP_RECOVERY_MODES),
+        "potions": potions,
+    }
+
+
+class TpRecoveryRequest(BaseModel):
+    mode: str = "potion_first"
+
+
+@app.post("/api/settings/tp-recovery")
+async def set_tp_recovery_settings(req: TpRecoveryRequest):
+    mode = set_tp_recovery_mode(req.mode)
+    return {"success": True, "mode": mode, "label": tp_recovery_label(mode)}
+
+
+# v6.7.27 — Bot speed settings.
+class BotSpeedRequest(BaseModel):
+    scale: float = 1.0
+
+
+@app.get("/api/settings/bot-speed")
+async def get_bot_speed_settings():
+    scale = load_bot_speed_scale()
+    return {
+        "success": True,
+        "scale": scale,
+        "label": bot_speed_label(scale),
+        "presets": BOT_SPEED_PRESETS,
+        "note": (
+            "Scales per-endpoint anti-detection delays. 1.0 = original behavior. "
+            "Lower values mean faster careers but more bot-obvious traffic patterns. "
+            "Error-recovery backoffs are NOT scaled."
+        ),
+    }
+
+
+@app.post("/api/settings/bot-speed")
+async def set_bot_speed_settings(req: BotSpeedRequest):
+    scale = set_bot_speed_scale(req.scale)
+    return {"success": True, "scale": scale, "label": bot_speed_label(scale)}
+
+
+# v7.1 — Userdata folder management.
+#
+# The dashboard pops up a window on first load to walk the user through
+# choosing a stable, version-independent userdata folder. The pointer file
+# at ~/.sweepycl/userdata_pointer.json remembers their choice so a fresh
+# install of a future version automatically finds it.
+class UserdataSetPathRequest(BaseModel):
+    path: str = ""
+    migrate_current: bool = False  # copy currently-loaded settings to new path
+
+
+class UserdataIntroDismissRequest(BaseModel):
+    dont_show_again: bool = True
+
+
+def _userdata_info_payload():
+    """Build the status payload the dashboard popup reads."""
+    pointer = _read_userdata_pointer()
+    pointer_target = (pointer.get("userdata_path") or "").strip() or None
+    pointer_exists_on_disk = False
+    if pointer_target:
+        try:
+            pointer_exists_on_disk = Path(pointer_target).expanduser().is_dir()
+        except Exception:
+            pointer_exists_on_disk = False
+    is_fallback = (USERDATA_DIR == DIR)
+    is_legacy = USERDATA_SOURCE in ("env_legacy_sweepyclaude", "sibling_legacy_sweepyclaude")
+    intro_seen = bool(pointer.get("intro_seen"))
+    # The popup is "needed" if any of:
+    #   - the user has never dismissed the intro
+    #   - there's a detection warning (pointer points nowhere, or we're on fallback)
+    #   - we're using the in-build fallback (no real userdata)
+    needs_attention = bool(USERDATA_DETECTION_WARNING) or is_fallback
+    should_show_intro = needs_attention or not intro_seen
+    return {
+        "success": True,
+        "current_path": USERDATA_DIR,
+        "current_source": USERDATA_SOURCE,
+        "is_fallback_build_dir": is_fallback,
+        "is_legacy_path": is_legacy,
+        "pointer_file": str(_userdata_pointer_path()),
+        "pointer_target": pointer_target,
+        "pointer_exists_on_disk": pointer_exists_on_disk,
+        "detection_warning": USERDATA_DETECTION_WARNING,
+        "intro_seen": intro_seen,
+        "should_show_intro": should_show_intro,
+        "needs_attention": needs_attention,
+        "build_dir": DIR,
+        "suggested_sibling": str(Path(DIR).parent / "SweepyCL_userdata"),
+        "restart_required": False,  # set true after a path change in this session
+    }
+
+
+# Module-level flag set after a successful set-path call. The popup nags the
+# user to restart so the new path takes effect across all consumers of
+# USERDATA_DIR (preset_store, settings reads, accounts, auth, etc.).
+_userdata_restart_pending = False
+
+
+@app.get("/api/userdata/info")
+async def get_userdata_info():
+    payload = _userdata_info_payload()
+    payload["restart_required"] = _userdata_restart_pending
+    return payload
+
+
+@app.post("/api/userdata/set-path")
+async def set_userdata_path(req: UserdataSetPathRequest):
+    global _userdata_restart_pending
+    target = (req.path or "").strip()
+    if not target:
+        raise HTTPException(status_code=400, detail="path is required")
+    try:
+        p = Path(target).expanduser().resolve()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Path is not parseable: {exc}")
+    # Don't allow pointing at a file.
+    if p.exists() and not p.is_dir():
+        raise HTTPException(status_code=400, detail=f"Path exists but isn't a directory: {p}")
+    # Create the directory if missing; surface clear error if we can't.
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Couldn't create folder at {p}: {exc}")
+    # Probe writability so the user finds out NOW, not on first settings save.
+    probe = p / ".sweepycl_write_probe"
+    try:
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Folder isn't writable: {exc}")
+    # Optionally migrate the current userdata contents (non-destructive copy
+    # for files that don't already exist at the destination).
+    migrated_files = 0
+    if req.migrate_current and USERDATA_DIR and Path(USERDATA_DIR).resolve() != p:
+        try:
+            import shutil
+            src_root = Path(USERDATA_DIR)
+            for src_file in src_root.rglob("*"):
+                if not src_file.is_file():
+                    continue
+                # Skip the in-build defaults that shouldn't follow the user.
+                rel = src_file.relative_to(src_root)
+                dest = p / rel
+                if dest.exists():
+                    continue  # never overwrite at the new location
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_file, dest)
+                migrated_files += 1
+        except Exception as exc:
+            # Non-fatal — the path is saved, migration partly succeeded.
+            print(f"SweepyCL: userdata migration during set-path failed: {exc}")
+    # Persist the pointer.
+    saved = _write_userdata_pointer({"userdata_path": str(p)})
+    if saved is None:
+        raise HTTPException(status_code=500, detail="Failed to write pointer file. Check that ~/.sweepycl is writable.")
+    _userdata_restart_pending = True
+    payload = _userdata_info_payload()
+    payload["restart_required"] = True
+    payload["migrated_files"] = migrated_files
+    payload["message"] = "Path saved. Restart SweepyCL for the new location to take effect."
+    return payload
+
+
+@app.post("/api/userdata/intro-dismissed")
+async def dismiss_userdata_intro(req: UserdataIntroDismissRequest = None):
+    payload = req or UserdataIntroDismissRequest()
+    if payload.dont_show_again:
+        _write_userdata_pointer({"intro_seen": True})
+    info = _userdata_info_payload()
+    info["restart_required"] = _userdata_restart_pending
+    return info
+
+
+@app.post("/api/userdata/reopen-intro")
+async def reopen_userdata_intro():
+    """Reset the intro_seen flag so the popup shows again on next dashboard load.
+    Useful when a user wants to revisit the setup walkthrough."""
+    _write_userdata_pointer({"intro_seen": False})
+    info = _userdata_info_payload()
+    info["restart_required"] = _userdata_restart_pending
+    return info
+
+
+@app.get("/api/tp-restore/status")
+async def tp_restore_status():
+    """Backward-compatible alias for older callers.
+
+    SweepyCL now uses the Umabot TP recovery item system. The old
+    Toughness/Carats selector is intentionally not reported here.
+    """
+    return await get_tp_recovery_settings()
+
+
 class StartCareerRequest(BaseModel):
     card_id: int
     support_card_ids: list[int]
@@ -1027,6 +2974,10 @@ class StartCareerRequest(BaseModel):
     friend_card_id: int
     parent_id_1: int
     parent_id_2: int
+    rental_viewer_id: int = 0
+    rental_trained_chara_id: int = 0
+    rental_card_id: int = 0
+    parent_selection_mode: str = ""
     scenario_id: int = 4
     deck_id: int = 1
     use_tp: int = 30
@@ -1035,6 +2986,9 @@ class StartCareerRequest(BaseModel):
     is_boost: int = 0
     boost_story_event_id: int = 0
     burn_clocks: bool = False
+    tp_restore_currency: str = "carats"
+    tp_restore_mode: str = ""
+    tp_restore_allow_carats_fallback: bool = False
 
 
 class RunCareerRequest(BaseModel):
@@ -1044,6 +2998,10 @@ class RunCareerRequest(BaseModel):
     friend_card_id: int = 0
     parent_id_1: int = 0
     parent_id_2: int = 0
+    rental_viewer_id: int = 0
+    rental_trained_chara_id: int = 0
+    rental_card_id: int = 0
+    parent_selection_mode: str = ""
     scenario_id: int = 4
     deck_id: int = 1
     use_tp: int = 30
@@ -1055,10 +3013,55 @@ class RunCareerRequest(BaseModel):
     max_steps: int = 2500
     burn_clocks: bool = False
     dev_mode: bool = False
+    run_count: int = 1  # 1 = one career, N = bounded loop, 0 = loop until stopped.
+    tp_restore_currency: str = "carats"
+    tp_restore_mode: str = ""
+    tp_restore_allow_carats_fallback: bool = False
+    race_planner_mode: str = "smart"
+    manual_race_ids: list[int] = []
+
+
+class AiImportLogsRequest(BaseModel):
+    source_path: str = ""
+    rebuild_dataset: bool = True
+    train_after_import: bool = True
+    import_presets: bool = True
 
 
 class SaveRacesRequest(BaseModel):
     races: list[int]
+    preset_name: str = ""
+    source: str = ""
+
+
+class EventOverrideRequest(BaseModel):
+    story_id: str
+    choice: int = -1  # -1 clears runtime override and returns to automatic scoring.
+
+
+class EventOutcomeImportRequest(BaseModel):
+    source_path: str = ""
+    replace: bool = False
+
+
+# v6.7.26 — Dumper Watcher request models.
+class DumperWatcherConfigRequest(BaseModel):
+    enabled: bool = False
+    source_path: str = ""
+    poll_interval_sec: int = 30
+
+
+class DumperWatcherRunRequest(BaseModel):
+    source_path: str = ""  # optional override for one-shot
+
+
+class DumperWatcherPromoteRequest(BaseModel):
+    mode: str = "new_only"  # "new_only" or "all"
+
+
+class DiscordWebhookRequest(BaseModel):
+    webhook_url: str = ""
+    enabled: bool = True
 
 
 class SavePresetRequest(BaseModel):
@@ -1067,6 +3070,18 @@ class SavePresetRequest(BaseModel):
 
 class DeletePresetByNameRequest(BaseModel):
     name: str
+
+
+class SaveSettingsPresetRequest(BaseModel):
+    preset: dict
+
+
+class SaveSkillConfigRequest(BaseModel):
+    config: dict
+
+
+class SaveSmartSolverConfigRequest(BaseModel):
+    config: dict
 
 
 class CareerActionRequest(BaseModel):
@@ -1080,6 +3095,7 @@ class CareerActionRequest(BaseModel):
 
 class FriendListRequest(BaseModel):
     exclude_viewer_ids: list[int] = []
+    force_refresh: bool = False
 
 
 class ApiDelayRequest(BaseModel):
@@ -1100,6 +3116,433 @@ async def get_turn_delay_settings():
 @app.post("/api/settings/turn-delay")
 async def set_turn_delay_settings(req: ApiDelayRequest):
     return set_turn_delay(req.min, req.max, req.disabled)
+
+
+@app.get("/api/events")
+async def get_event_choices(cards: str = ""):
+    seen_path, overrides_path, db_path = _event_choice_paths()
+    seen = _read_json_file(seen_path)
+    overrides = _read_json_file(overrides_path)
+    db = _read_json_file(db_path)
+    support_filter = {int(x) for x in re.split(r"[,\s]+", str(cards or "")) if x.strip().isdigit()}
+
+    merged = {}
+    for sid in set(seen.keys()) | set(db.keys()):
+        seen_row = seen.get(sid) if isinstance(seen.get(sid), dict) else {}
+        db_row = db.get(sid) if isinstance(db.get(sid), dict) else {}
+        support_card_id = _safe_int(seen_row.get("support_card_id"))
+        if support_filter and support_card_id and support_card_id not in support_filter:
+            continue
+        outcomes = db_row.get("outcomes") or {}
+        merged[sid] = {
+            "story_id": sid,
+            "event_id": seen_row.get("event_id", ""),
+            "event_name": seen_row.get("event_name") or db_row.get("event_name") or "",
+            "support_card_id": support_card_id,
+            "num_choices": int(seen_row.get("num_choices") or len(outcomes) or 0),
+            "auto_pick": seen_row.get("picked"),
+            "auto_source": seen_row.get("source") or ("db" if db_row else ""),
+            "count": int(seen_row.get("count") or 0),
+            "override": int(overrides[sid]) if sid in overrides else None,
+            "outcomes": outcomes if isinstance(outcomes, dict) else {},
+        }
+    events = sorted(merged.values(), key=lambda row: (row.get("support_card_id") or 0, -int(row.get("count") or 0), row.get("event_name") or "~", row.get("story_id") or ""))
+    return {"success": True, "events": events}
+
+
+@app.post("/api/events/override")
+async def set_event_choice_override(req: EventOverrideRequest):
+    _, overrides_path, _ = _event_choice_paths()
+    overrides = _read_json_file(overrides_path)
+    sid = str(req.story_id or "").strip()
+    if not sid:
+        return {"success": False, "detail": "story_id required"}
+    if int(req.choice) < 0:
+        overrides.pop(sid, None)
+    else:
+        overrides[sid] = int(req.choice)
+    _write_json_file(overrides_path, overrides)
+    return {"success": True, "story_id": sid, "override": overrides.get(sid)}
+
+
+# v6.7.25 — bulk reset: wipes every saved override so all events fall back to Auto.
+@app.post("/api/events/overrides/clear")
+async def clear_all_event_choice_overrides():
+    _, overrides_path, _ = _event_choice_paths()
+    overrides = _read_json_file(overrides_path) or {}
+    cleared = len(overrides)
+    _write_json_file(overrides_path, {})
+    return {"success": True, "cleared": cleared}
+
+
+# v6.7.25 — deck/support card hover info + deck-quality scorelet.
+# Resolves each card's effect values at the level implied by its LB, then
+# computes a heuristic deck score against the selected trainee's growth profile.
+_SUPPORT_TYPE_NAMES = {1: "speed", 2: "stamina", 3: "power", 4: "guts", 5: "wit", 6: "friend", 7: "group"}
+_RARITY_LABELS = {1: "SSR", 2: "SR", 3: "R"}
+_RARITY_LB0_BASE_LV = {1: 30, 2: 25, 3: 20}  # max level at LB 0
+
+_BONUS_DISPLAY = [
+    ("friendship_bonus", "Friendship", "%"),
+    ("training_effectiveness", "Training Effect.", "%"),
+    ("motivation_bonus", "Motivation", "%"),
+    ("race_bonus", "Race Bonus", "%"),
+    ("fan_bonus", "Fan Bonus", "%"),
+    ("skill_point_bonus", "Skill Pts", "%"),
+    ("wisdom_recovery_bonus", "Wit Recovery", "%"),
+    ("speed_bonus", "Speed", "%"),
+    ("stamina_bonus", "Stamina", "%"),
+    ("power_bonus", "Power", "%"),
+    ("guts_bonus", "Guts", "%"),
+    ("wisdom_bonus", "Wit", "%"),
+    ("initial_speed", "Initial Speed", ""),
+    ("initial_stamina", "Initial Stamina", ""),
+    ("initial_power", "Initial Power", ""),
+    ("initial_guts", "Initial Guts", ""),
+    ("initial_wisdom", "Initial Wit", ""),
+    ("initial_skill_points", "Initial SP", ""),
+    ("hint_levels", "Hint Lv+", ""),
+    ("hint_frequency", "Hint Rate", "%"),
+    ("specialty_priority", "Specialty Priority", ""),
+]
+
+
+def _resolve_card_effects_at_lb(card, lb):
+    """Pick the resolved effect row for the level implied by rarity + LB."""
+    rarity = int(card.get("rarity") or 1)
+    base_lv = _RARITY_LB0_BASE_LV.get(rarity, 30)
+    target_lv = base_lv + max(0, int(lb)) * 5
+    table = card.get("effect_values_by_level") or {}
+    if not table:
+        return target_lv, {}
+    available = sorted((int(k) for k in table.keys() if str(k).lstrip("-").isdigit()))
+    chosen = target_lv
+    if available:
+        # Largest available level <= target.
+        below = [lv for lv in available if lv <= target_lv]
+        chosen = below[-1] if below else available[0]
+    return chosen, dict(table.get(str(chosen)) or {})
+
+
+def _load_resolved_supports():
+    path = base_dir / "data" / "support_effects_resolved_core.json"
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            blob = json.load(f)
+    except Exception:
+        return None
+    cards = blob.get("support_cards") if isinstance(blob, dict) else None
+    if not isinstance(cards, list):
+        return None
+    return {int(c.get("support_card_id") or 0): c for c in cards}
+
+
+def _load_trainee_profile(card_id):
+    if not card_id:
+        return None
+    path = base_dir / "data" / "trainee_profiles_core.json"
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            profiles = json.load(f)
+    except Exception:
+        return None
+    target = int(card_id)
+    for entry in profiles:
+        if int(entry.get("card_id") or 0) == target:
+            return entry
+        if int(entry.get("chara_id") or 0) == target:
+            return entry
+    return None
+
+
+def _compute_deck_score(cards_out, trainee_profile):
+    """Return (score_0_to_10, verdict_string, breakdown_dict)."""
+    known = [c for c in cards_out if not c.get("unknown")]
+    if not known:
+        return 0.0, "No card data available.", {}
+    n = len(known)
+    growth = (trainee_profile or {}).get("growth") or {}
+    trainee_name = (trainee_profile or {}).get("name") or "the trainee"
+    # Type counts
+    type_counts = {}
+    for c in known:
+        t = c.get("type_label", "?")
+        type_counts[t] = type_counts.get(t, 0) + 1
+    # LB density (max LB 4 per card)
+    total_lb = sum(int(c.get("lb") or 0) for c in known)
+    lb_score = min(1.0, total_lb / float(max(1, 4 * n)))
+    # Rarity weighted (SSR=3, SR=2, R=1)
+    rarity_score = min(1.0, sum({1: 3, 2: 2, 3: 1}.get(int(c.get("rarity") or 3), 1) for c in known) / float(3 * n))
+    # Effect strength: sum of friendship/training/race/skill_pt across the deck
+    eff_keys = ("friendship_bonus", "training_effectiveness", "race_bonus",
+                "skill_point_bonus", "motivation_bonus")
+    eff_sum = 0
+    for c in known:
+        eff = c.get("effects") or {}
+        for k in eff_keys:
+            try:
+                eff_sum += int(eff.get(k) or 0)
+            except Exception:
+                pass
+    # Rough cap: a stacked SSR LB4 deck pushes ~600+.
+    eff_score = min(1.0, eff_sum / 600.0)
+    # Type match vs trainee growth
+    total_growth = sum(max(0, int(v or 0)) for v in growth.values()) or 1
+    type_match = 0.0
+    growth_stat_to_type = {"speed": "speed", "stamina": "stamina", "power": "power",
+                           "guts": "guts", "wit": "wit", "wiz": "wit"}
+    primary_type = max(growth.items(), key=lambda kv: int(kv[1] or 0))[0] if growth else None
+    for stat, g in growth.items():
+        if not g or int(g or 0) <= 0:
+            continue
+        t = growth_stat_to_type.get(stat)
+        if not t:
+            continue
+        share = type_counts.get(t, 0) / float(n)
+        weight = int(g) / float(total_growth)
+        type_match += share * weight
+    # Friend card always contributes; bonus for having at least one
+    if type_counts.get("friend", 0) >= 1:
+        type_match += 0.15
+    type_match = min(1.0, type_match)
+    # Variety penalty: all-same-type without trainee preference is bad
+    distinct = len(type_counts)
+    variety_score = min(1.0, distinct / 4.0)  # 4+ distinct types = full credit
+    # Weighted combine to 0..10
+    raw = (type_match * 4.0
+           + eff_score * 2.5
+           + lb_score * 2.0
+           + rarity_score * 1.0
+           + variety_score * 0.5)
+    score = round(raw, 1)
+    # Verdict
+    top_type, top_count = max(type_counts.items(), key=lambda kv: kv[1])
+    primary_type_for_label = growth_stat_to_type.get(primary_type or "", primary_type)
+    if score >= 7.5:
+        verdict = f"Strong fit for {trainee_name}: {top_type}-heavy ({top_count}/{n}), good LB + bonuses."
+    elif score >= 5.5:
+        verdict = f"Solid for {trainee_name}: leans {top_type}. Room to grow on LB or balance."
+    elif score >= 3.5:
+        if primary_type_for_label and type_counts.get(primary_type_for_label, 0) < n / 2:
+            verdict = f"Workable but mismatched: {trainee_name} grows {primary_type_for_label}, deck leans {top_type}."
+        else:
+            verdict = f"Workable for {trainee_name}, but LB or rarity could be higher."
+    else:
+        verdict = f"Weak fit for {trainee_name}: low LB, low effects, or mismatched types."
+    breakdown = {
+        "type_match": round(type_match, 3),
+        "effect_strength": round(eff_score, 3),
+        "lb_density": round(lb_score, 3),
+        "rarity": round(rarity_score, 3),
+        "variety": round(variety_score, 3),
+        "total_lb": total_lb,
+        "type_counts": type_counts,
+        "primary_growth_type": primary_type_for_label,
+    }
+    return score, verdict, breakdown
+
+
+@app.get("/api/supports/details")
+async def get_support_details(ids: str = "", lbs: str = "", trainee_card_id: int = 0):
+    """Per-card resolved effects at the LB-implied level + deck-quality scorelet.
+
+    Query params:
+        ids: comma-separated support_card_ids (in deck slot order)
+        lbs: comma-separated LB levels (parallel to ids; missing = 0)
+        trainee_card_id: optional; used for the type-match score.
+    """
+    raw_ids = [x for x in re.split(r"[,\s]+", str(ids or "")) if x.strip()]
+    id_list = [int(x) for x in raw_ids if x.lstrip("-").isdigit()]
+    raw_lbs = [x for x in re.split(r"[,\s]+", str(lbs or "")) if x.strip()]
+    lb_list = []
+    for i in range(len(id_list)):
+        if i < len(raw_lbs) and raw_lbs[i].lstrip("-").isdigit():
+            lb_list.append(int(raw_lbs[i]))
+        else:
+            lb_list.append(0)
+
+    card_by_id = _load_resolved_supports()
+    if card_by_id is None:
+        return {
+            "success": False,
+            "detail": "support_effects_resolved_core.json not found. Run master data sync.",
+            "cards": [],
+        }
+
+    trainee_profile = _load_trainee_profile(trainee_card_id) if trainee_card_id else None
+
+    cards_out = []
+    for sid, lb in zip(id_list, lb_list):
+        card = card_by_id.get(int(sid))
+        if not card:
+            cards_out.append({
+                "support_card_id": int(sid),
+                "name": f"Unknown ({sid})",
+                "lb": int(lb),
+                "effects": {},
+                "unknown": True,
+            })
+            continue
+        chosen_level, raw_effects = _resolve_card_effects_at_lb(card, lb)
+        # Keep only non-trivial values for display.
+        clean_effects = {}
+        for k, v in raw_effects.items():
+            try:
+                iv = int(v)
+            except Exception:
+                continue
+            if iv in (0, -1):
+                continue
+            clean_effects[k] = iv
+        type_id = int(card.get("support_card_type") or 0)
+        cards_out.append({
+            "support_card_id": int(sid),
+            "name": card.get("name") or f"Card {sid}",
+            "rarity": int(card.get("rarity") or 1),
+            "rarity_label": _RARITY_LABELS.get(int(card.get("rarity") or 1), "?"),
+            "type_id": type_id,
+            "type_label": _SUPPORT_TYPE_NAMES.get(type_id, "?"),
+            "lb": int(lb),
+            "level": int(chosen_level),
+            "effects": clean_effects,
+            "effects_ordered": [
+                {"key": k, "label": label, "value": clean_effects[k], "unit": unit}
+                for k, label, unit in _BONUS_DISPLAY
+                if k in clean_effects
+            ],
+        })
+
+    score, verdict, breakdown = _compute_deck_score(cards_out, trainee_profile)
+    return {
+        "success": True,
+        "cards": cards_out,
+        "deck_score": score,
+        "deck_verdict": verdict,
+        "deck_breakdown": breakdown,
+        "trainee_name": (trainee_profile or {}).get("name") if trainee_profile else None,
+    }
+
+
+@app.get("/api/events/outcome-kb")
+async def get_event_outcome_kb():
+    return event_outcomes.summary(base_dir)
+
+
+@app.post("/api/events/outcome-kb/import")
+async def import_event_outcome_kb(req: EventOutcomeImportRequest = None):
+    payload = req or EventOutcomeImportRequest()
+    try:
+        return event_outcomes.import_outcomes(
+            base_dir,
+            source_path=(payload.source_path.strip() or None),
+            replace=bool(payload.replace),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Event outcome import failed: {exc}")
+
+
+# ===========================================================================
+# v6.7.26 — Dumper Watcher endpoints.
+#
+# All write operations go to the STAGING file (event_outcomes_staging.json).
+# The only path that mutates the live event_outcomes.json is /promote, and
+# that requires an explicit user click in the dashboard.
+# ===========================================================================
+
+@app.get("/api/dumper-watcher/status")
+async def dumper_watcher_status():
+    return _dumper_watcher_status_payload()
+
+
+@app.post("/api/dumper-watcher/config")
+async def dumper_watcher_set_config(req: DumperWatcherConfigRequest = None):
+    payload = req or DumperWatcherConfigRequest()
+    merged = _dumper_watcher_save_config({
+        "enabled": payload.enabled,
+        "source_path": payload.source_path,
+        "poll_interval_sec": payload.poll_interval_sec,
+    })
+    # Make sure the watcher loop is alive (no-op if already running).
+    start_dumper_watcher()
+    return {"success": True, "config": merged}
+
+
+@app.post("/api/dumper-watcher/run-now")
+async def dumper_watcher_run_now(req: DumperWatcherRunRequest = None):
+    payload = req or DumperWatcherRunRequest()
+    # If user passed an ad-hoc source_path, honor it but don't persist it.
+    src = (payload.source_path or "").strip() or None
+    try:
+        result = _dumper_watcher_run_once(source_path=src)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Watcher tick failed: {exc}")
+    return result
+
+
+@app.get("/api/dumper-watcher/diff")
+async def dumper_watcher_diff():
+    return {"success": True, "diff": _dumper_watcher_diff_summary()}
+
+
+@app.post("/api/dumper-watcher/promote")
+async def dumper_watcher_promote(req: DumperWatcherPromoteRequest = None):
+    payload = req or DumperWatcherPromoteRequest()
+    mode = (payload.mode or "new_only").strip().lower()
+    if mode not in ("new_only", "all"):
+        raise HTTPException(status_code=400, detail="mode must be 'new_only' or 'all'")
+    try:
+        return _dumper_watcher_promote(mode=mode)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Promote failed: {exc}")
+
+
+@app.post("/api/dumper-watcher/clear-staging")
+async def dumper_watcher_clear_staging():
+    try:
+        return _dumper_watcher_clear_staging()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Clear failed: {exc}")
+
+
+@app.on_event("startup")
+async def _startup_dumper_watcher():
+    # Idempotent; safe even when watcher is disabled in settings.
+    start_dumper_watcher()
+
+
+@app.get("/api/settings/discord-webhook")
+async def get_discord_webhook():
+    cfg = _discord_logging_config(redacted=True)
+    return {"success": True, "configured": bool(cfg.get("enabled") and cfg.get("webhook_url")), **cfg}
+
+
+@app.post("/api/settings/discord-webhook")
+async def set_discord_webhook(req: DiscordWebhookRequest):
+    cfg = _save_discord_logging_config({
+        "enabled": bool(req.enabled and str(req.webhook_url or "").strip()),
+        "webhook_url": str(req.webhook_url or "").strip(),
+        "send_turn_logs": True,
+        "send_career_summary": True,
+        "redact_sensitive": True,
+    })
+    return {"success": True, "configured": bool(cfg.get("enabled") and cfg.get("webhook_url")), **cfg}
+
+
+@app.post("/api/settings/discord-webhook/test")
+async def test_discord_webhook():
+    cfg = _discord_logging_config()
+    url = str(cfg.get("webhook_url") or "").strip()
+    if not url:
+        return {"success": False, "detail": "No Discord webhook URL configured"}
+    try:
+        ok = _send_discord_webhook_test(url)
+        return {"success": bool(ok)}
+    except Exception as exc:
+        return {"success": False, "detail": str(exc)}
 
 
 @app.get("/api/master-data/status")
@@ -1134,14 +3577,766 @@ async def generate_master_data():
 
 @app.post("/api/presets/save_races")
 async def save_races(req: SaveRacesRequest):
-    preset = preset_store.read_one("xguri parent")
+    preset_name = (req.preset_name or "").strip()
+    if not preset_name:
+        preset_name = preset_store.read_settings_presets().get("active") or "Default"
+    preset = preset_store.read_one(preset_name)
     if not preset:
-        return {"success": False, "detail": "xguri parent preset missing"}
+        return {"success": False, "detail": f"Preset missing: {preset_name}"}
     preset["extra_race_list"] = req.races
+    source = str(getattr(req, "source", "") or "").strip().lower()
+    if source in {"manual", "smart"}:
+        preset["extra_race_list_source"] = source
+    elif req.races:
+        preset["extra_race_list_source"] = "manual"
+    else:
+        preset.pop("extra_race_list_source", None)
     preset_store.write(preset)
-    return {"success": True}
+    return {"success": True, "preset_name": preset_name, "race_count": len(req.races), "source": preset.get("extra_race_list_source", "")}
 
 
+
+
+@app.post("/api/trackblazer/sync")
+def api_trackblazer_sync(force: bool = False):
+    try:
+        return trackblazer.download_scheduler_data(DIR, force=force)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+class TrackblazerPlanRequest(BaseModel):
+    aptitudes: dict = Field(default_factory=dict)
+    trainee_name: str = ""
+    trainee_id: str = ""
+    running_style: str = ""
+    primary_distances: list = Field(default_factory=list)
+    distance_preference_mode: str = "balanced"
+    fan_bonus: float = 0
+    max_races_in_row: int = 2
+    include_op: bool = False
+    min_aptitude_floor: int = 6
+    solver: str = "auto"
+    weights: dict = Field(default_factory=dict)
+    target_epithets: list = Field(default_factory=list)
+    forced_epithets: list = Field(default_factory=list)
+    training_blocks: list = Field(default_factory=list)
+    manual_locks: dict = Field(default_factory=dict)
+    timeout: int = 30
+
+
+class TraineeProfileRequest(BaseModel):
+    trainee_name: str = ""
+    trainee_id: str = ""
+
+class WeightedSkillPreviewRequest(BaseModel):
+    trainee_name: str = ""
+    trainee_id: str = ""
+    preset_name: str = ""
+    limit: int = 30
+
+
+
+def _trackblazer_profile_aptitudes(req):
+    """Build Trackblazer aptitude payload from an explicit selected trainee.
+
+    Generic fallback profiles are intentionally not used here.  An empty
+    aptitude payload means "planner default" and is safer than passing C/C/C/C,
+    which filters every race at the default B floor.
+    """
+    explicit_aptitudes = bool(req.aptitudes)
+    aptitudes = dict(req.aptitudes or {})
+    key_map = {
+        "sprint": "Sprint", "mile": "Mile", "medium": "Medium", "middle": "Medium", "long": "Long",
+        "turf": "Turf", "dirt": "Dirt",
+        "front": "Front", "pace": "Pace", "late": "Late", "end": "End",
+    }
+    for distance in req.primary_distances or []:
+        mapped = key_map.get(str(distance).lower(), str(distance))
+        aptitudes.setdefault(mapped, "A")
+    if req.running_style:
+        mapped = key_map.get(str(req.running_style).lower(), str(req.running_style))
+        aptitudes.setdefault(mapped, "A")
+
+    has_specific_trainee = bool(str(req.trainee_name or "").strip() or str(req.trainee_id or "").strip())
+    if not aptitudes and has_specific_trainee:
+        try:
+            from career_bot.dynamic_skill_profiles import find_profile
+            profile = find_profile(DIR, req.trainee_name or "", req.trainee_id or None)
+            if profile and profile.get("name") != "__fallback__" and profile.get("profile_source") != "fallback":
+                for key, value in (profile.get("distance_aptitude") or {}).items():
+                    aptitudes[key_map.get(str(key).lower(), str(key))] = value
+                for key, value in (profile.get("track_aptitude") or {}).items():
+                    aptitudes[key_map.get(str(key).lower(), str(key))] = value
+                if profile.get("recommended_style"):
+                    mapped = key_map.get(str(profile.get("recommended_style")).lower(), str(profile.get("recommended_style")))
+                    aptitudes.setdefault(mapped, "A")
+        except Exception:
+            pass
+
+    rank_value = {"S": 8, "A": 7, "B": 6, "C": 5, "D": 4, "E": 3, "F": 2, "G": 1}
+    distance_keys = {"Sprint", "Mile", "Medium", "Long"}
+    distance_values = [rank_value.get(str(aptitudes.get(k, "")).upper(), 0) for k in distance_keys if k in aptitudes]
+    # If every supplied distance is below the Trackblazer floor, replace with
+    # broad planning aptitudes instead of returning a zero-race route.
+    if not explicit_aptitudes and distance_values and max(distance_values) < 6:
+        for key in distance_keys:
+            aptitudes[key] = "B"
+        aptitudes.setdefault("Turf", "A")
+    return aptitudes
+
+
+
+def _profile_to_trackblazer_payload(profile):
+    key_map = {
+        "sprint": "Sprint", "mile": "Mile", "medium": "Medium", "middle": "Medium", "long": "Long",
+        "turf": "Turf", "dirt": "Dirt",
+        "front": "Front", "pace": "Pace", "late": "Late", "end": "End",
+    }
+    source = profile.get("profile_source") or profile.get("source") or ""
+    is_fallback = profile.get("name") == "__fallback__" or source == "fallback"
+
+    aptitudes = {}
+    if is_fallback:
+        # Skill fallback profiles use C/C/C/C to avoid overconfident purchases.
+        # Trackblazer planning cannot use those as hard filters because the
+        # default floor is B. Use broad, non-destructive planning aptitudes until
+        # a real generated/manual profile exists for the trainee.
+        aptitudes = {
+            "Sprint": "B",
+            "Mile": "B",
+            "Medium": "B",
+            "Long": "B",
+            "Turf": "A",
+            "Dirt": "G",
+        }
+    else:
+        for key, value in (profile.get("distance_aptitude") or {}).items():
+            aptitudes[key_map.get(str(key).lower(), str(key))] = value
+        for key, value in (profile.get("track_aptitude") or {}).items():
+            aptitudes[key_map.get(str(key).lower(), str(key))] = value
+        for key, value in (profile.get("style_aptitude") or {}).items():
+            aptitudes[key_map.get(str(key).lower(), str(key))] = value
+        if profile.get("recommended_style"):
+            mapped = key_map.get(str(profile.get("recommended_style")).lower(), str(profile.get("recommended_style")))
+            aptitudes.setdefault(mapped, "A")
+
+    return {
+        "name": profile.get("name") or "",
+        "profile_source": source,
+        "fallback_planning": bool(is_fallback),
+        "aptitudes": aptitudes,
+        "running_style": profile.get("recommended_style") or profile.get("running_style") or "",
+        "primary_distances": profile.get("primary_distances") or ([] if is_fallback else []),
+        "secondary_distances": profile.get("secondary_distances") or [],
+        "avoid_distances": [] if is_fallback else (profile.get("avoid_distances") or []),
+        "source_url": profile.get("source_url") or "",
+    }
+
+
+@app.post("/api/trainee/profile")
+def api_trainee_profile(req: TraineeProfileRequest):
+    try:
+        from career_bot.dynamic_skill_profiles import find_profile
+        profile = find_profile(DIR, req.trainee_name or "", req.trainee_id or None)
+        payload = _profile_to_trackblazer_payload(profile or {})
+        payload["success"] = True
+        payload["trainee_name"] = req.trainee_name
+        payload["trainee_id"] = req.trainee_id
+        return payload
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+
+@app.get("/api/skills")
+def api_skills():
+    """Return skill metadata for the weighted skill library."""
+    try:
+        return {"success": True, "skills": skill_data}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/skills/weighted-preview")
+def api_weighted_skill_preview(req: WeightedSkillPreviewRequest):
+    """Return selected trainee profile + ranked weighted skill preview for the UI."""
+    try:
+        from career_bot.dynamic_skill_profiles import find_profile, score_skill
+        profile = find_profile(DIR, req.trainee_name or "", req.trainee_id or None)
+
+        preset = {}
+        if req.preset_name:
+            preset = preset_store.read_one(req.preset_name) or {}
+        skill_policy = dict(preset.get("skill_policy") or {})
+        skill_strategy = preset.get("skill_strategy") or {}
+
+        # Bridge old UI skill_strategy weights into dynamic scorer weights.
+        weights = dict(skill_policy.get("weights") or {})
+        if isinstance(skill_strategy, dict):
+            w = skill_strategy.get("weights") or {}
+            if "recommended" in w:
+                weights["character_recommended_bonus"] = w.get("recommended")
+            if "yellow" in w:
+                weights["yellow_skill_bonus"] = w.get("yellow")
+            if "green_penalty" in w:
+                weights["green_skill_overcap_penalty"] = -abs(int(w.get("green_penalty") or 0))
+            if "style" in w:
+                weights["style_match_bonus"] = w.get("style")
+            if "distance" in w:
+                weights["distance_match_bonus"] = w.get("distance")
+            if "max_green_per_purchase" in skill_strategy:
+                skill_policy["max_green_skills"] = skill_strategy.get("max_green_per_purchase")
+        manual_skill_weights = {}
+        if isinstance(skill_strategy, dict):
+            manual_skill_weights = dict(skill_strategy.get("manual_skill_weights") or {})
+        skill_policy["weights"] = weights
+        preview_preset = {
+            "strategy_mode": preset.get("strategy_mode") or "auto",
+            "skill_policy": skill_policy,
+        }
+
+        skill_path = Path(DIR) / "data" / "skill_data.json"
+        raw = json.loads(skill_path.read_text(encoding="utf-8")) if skill_path.exists() else {}
+        official_skill_path = Path(DIR) / "data" / "skill_weighting_core.json"
+        try:
+            official_skill_rows = json.loads(official_skill_path.read_text(encoding="utf-8")) if official_skill_path.exists() else []
+        except Exception:
+            official_skill_rows = []
+        official_skill_by_id = {
+            int(row.get("skill_id") or 0): row
+            for row in official_skill_rows if isinstance(row, dict)
+        }
+        try:
+            condition_rows = json.loads((Path(DIR) / "data" / "skill_condition_core.json").read_text(encoding="utf-8"))
+        except Exception:
+            condition_rows = []
+        skill_condition_by_id = {
+            int(row.get("skill_id") or 0): row
+            for row in condition_rows if isinstance(row, dict)
+        }
+        try:
+            source_payload = json.loads((Path(DIR) / "data" / "skill_sources_core.json").read_text(encoding="utf-8"))
+            skill_sources_by_id = {int(k): list(v or []) for k, v in (source_payload.get("skill_to_sources") or {}).items()}
+        except Exception:
+            skill_sources_by_id = {}
+        rows = []
+        forced = set((skill_strategy.get("forced_skills") if isinstance(skill_strategy, dict) else []) or preset.get("learn_skill_list", [[]])[0] if preset.get("learn_skill_list") else [])
+        blacklist = set((skill_strategy.get("blacklist") if isinstance(skill_strategy, dict) else []) or preset.get("learn_skill_blacklist") or [])
+
+        for raw_id, info in raw.items():
+            if not isinstance(info, dict):
+                name = str(info)
+                info = {}
+            else:
+                name = str(info.get("name") or raw_id)
+            if not name or name in blacklist:
+                continue
+            community_bonus = 0
+            tier = ""
+            # Simple tier hint from bundled community tier config.
+            try:
+                tiers = json.loads((Path(DIR) / "data" / "community_skill_tiers.json").read_text(encoding="utf-8"))
+            except Exception:
+                tiers = {}
+            for tier_name, names in (tiers or {}).items():
+                if name in (names or []):
+                    tier = tier_name
+                    community_bonus = {"SS": 115, "S": 86, "A": 58, "B": 34}.get(str(tier_name).upper(), 20)
+                    break
+
+            row = score_skill({
+                "name": name,
+                "icon_id": info.get("icon_id") or info.get("iconId") or "",
+                "type": info.get("type") or "",
+            }, profile, preset=preview_preset, community_tier_score=community_bonus)
+            official = official_skill_by_id.get(int(raw_id)) if str(raw_id).isdigit() else {}
+            condition = skill_condition_by_id.get(int(raw_id)) if str(raw_id).isdigit() else {}
+            sources = skill_sources_by_id.get(int(raw_id)) if str(raw_id).isdigit() else []
+            if official or condition or sources:
+                cost = max(1, int((official or {}).get("cost") or (condition or {}).get("cost") or info.get("need_skill_point") or 160))
+                grade = int((official or {}).get("grade_value") or (condition or {}).get("grade_value") or 0)
+                official_bonus = min(45, grade / cost * 10) if grade else 0
+                ability_types = (official or {}).get("ability_types") or (condition or {}).get("ability_types") or []
+                official_bonus += len(ability_types) * 4
+                support_source_count = len([src for src in sources if src.get("source_type") in {"support", "support_hint"}])
+                trainee_source_count = len([src for src in sources if src.get("source_type") == "trainee"])
+                official_bonus += min(12, support_source_count * 1.5)
+                official_bonus += min(8, trainee_source_count * 1.0)
+                if int((official or {}).get("disable_singlemode") or (condition or {}).get("disable_singlemode") or 0):
+                    official_bonus -= 120
+                if official_bonus:
+                    row["score"] = int(row.get("score") or 0) + int(official_bonus)
+                    row.setdefault("reasons", []).append(f"official_master:{round(official_bonus, 1)}")
+                if (official or {}).get("conditions") or (condition or {}).get("conditions"):
+                    row.setdefault("reasons", []).append("official_conditions")
+                if support_source_count:
+                    row.setdefault("reasons", []).append(f"support_sources:{support_source_count}")
+                if trainee_source_count:
+                    row.setdefault("reasons", []).append(f"trainee_sources:{trainee_source_count}")
+                row["source_count"] = len(sources)
+                row["support_source_count"] = support_source_count
+                row["trainee_source_count"] = trainee_source_count
+                if condition.get("skill_category_label"):
+                    row["skill_category_label"] = condition.get("skill_category_label")
+            manual_boost = int(manual_skill_weights.get(name, 0) or 0)
+            row["base_score"] = int(row.get("score") or 0)
+            row["manual_weight"] = manual_boost
+            if manual_boost:
+                row["score"] = int(row.get("score") or 0) + manual_boost
+                row.setdefault("reasons", []).append(f"manual:{manual_boost:+d}")
+            row["skill_id"] = int(raw_id) if str(raw_id).isdigit() else raw_id
+            row["cost"] = int(info.get("need_skill_point") or 0) if isinstance(info, dict) else 0
+            row["tier"] = tier
+            row["forced"] = name in forced
+            rows.append(row)
+
+        rows.sort(key=lambda r: (1 if r.get("forced") else 0, int(r.get("score") or 0)), reverse=True)
+        limit = max(5, min(int(req.limit or 30), 100))
+        return {
+            "success": True,
+            "profile": profile,
+            "preset": {
+                "name": preset.get("name", ""),
+                "strategy_mode": preset.get("strategy_mode", ""),
+                "skill_strategy": skill_strategy,
+                "skill_policy": skill_policy,
+            },
+            "ranked_skills": rows[:limit],
+            "total_ranked": len(rows),
+            "weighted_system_active": True,
+            "logic": {
+                "order": "forced skills → character recommendations → community tiers → yellow bonus → style/distance/terrain match → penalties",
+                "green_cap": skill_policy.get("max_green_skills", skill_strategy.get("max_green_per_purchase", preset.get("smart_skill_max_green_per_purchase", 1))),
+                "weights": weights,
+            },
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/trackblazer/epithets")
+def api_trackblazer_epithets():
+    try:
+        epithets = trackblazer.epithet_catalog(DIR)
+        return {"success": True, "epithets": epithets, "count": len(epithets), "source": "local-structured"}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/trackblazer/solver/status")
+def api_trackblazer_solver_status():
+    try:
+        return trackblazer.solver_status(DIR)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/trackblazer/solver/defaults")
+def api_trackblazer_solver_defaults():
+    try:
+        return {"success": True, "defaults": trackblazer.solver_defaults(DIR)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# v6.5 -- character profile endpoints for the dashboard panel
+@app.get("/api/character-profile/active")
+def api_character_profile_active():
+    """Return the currently-active character profile as resolved from the
+    runner's last-seen chara_info, with all overrides surfaced for the
+    dashboard's Character Profile panel.
+
+    v6.7.1: fixed NameError -- the global is ``career_runner`` (not
+    ``runner``) and state is accessed via ``.snapshot()`` (not ``.status``).
+    Also adds a fallback to ``active_selection['trainee']`` for the idle
+    case where a career hasn't started yet but the user has selected a
+    trainee on the dashboard.
+    """
+    try:
+        from career_bot import character_profiles, character_data
+
+        # 1. Live runner state (career running, chara_info loaded)
+        try:
+            status = career_runner.snapshot() if career_runner else {}
+        except Exception:
+            status = {}
+        chara = (status.get("chara_info") or {}) if isinstance(status, dict) else {}
+        card_id = int(chara.get("card_id") or 0)
+        chara_id = int(chara.get("chara_id") or 0)
+        scenario_id = int((status.get("scenario_id") if isinstance(status, dict) else 0) or 0)
+        preset_name = str((status.get("preset_name") if isinstance(status, dict) else "") or "")
+
+        # 2. Fall back to the dashboard's idle selection (the Smart Race
+        # Solver Settings 'Character Preset' picker writes here).  The
+        # selection shape is {deck, friend, trainee: {id|card_id, name,
+        # ...}, veterans, guestParents}.
+        selected_name = ""
+        if not card_id and not chara_id:
+            try:
+                sel = active_selection or {}
+                trainee = sel.get("trainee") if isinstance(sel, dict) else None
+                if isinstance(trainee, dict):
+                    cid_candidate = trainee.get("card_id") or trainee.get("id")
+                    if cid_candidate:
+                        try:
+                            card_id = int(cid_candidate)
+                            # chara_id is the first 4 digits of card_id
+                            # (per the chara_list.json convention)
+                            chara_id = int(str(card_id)[:4]) if card_id else 0
+                        except (TypeError, ValueError):
+                            pass
+                    name = trainee.get("name") or trainee.get("display_name") or trainee.get("trained_chara_name")
+                    if isinstance(name, str) and name.strip():
+                        selected_name = name.strip()
+            except Exception:
+                pass
+
+        # 3. As a last resort, look up the display name in chara_list.json
+        if card_id and not selected_name:
+            try:
+                chara_list_path = Path(DIR) / "data" / "chara_list.json"
+                if chara_list_path.exists():
+                    chara_list = json.loads(chara_list_path.read_text(encoding="utf-8"))
+                    name_from_list = chara_list.get(str(card_id))
+                    if isinstance(name_from_list, str):
+                        selected_name = name_from_list
+            except Exception:
+                pass
+
+        # 4. v6.7.9: when still no card_id available, look at the persisted
+        # runner status's ``active_character_profile`` field.  That's the
+        # profile the runner USED in the most recent turn / run, with the
+        # trainee's display_name and original card_id we can re-resolve
+        # from.  Without this fallback the panel falsely showed "default"
+        # between runs even when the last career was using a specific
+        # profile (e.g. oguri_cap matched via card_id).
+        resolved_from_last_run = False
+        if not card_id and not chara_id and isinstance(status, dict):
+            try:
+                last_profile = status.get("active_character_profile") or {}
+                if isinstance(last_profile, dict):
+                    last_name = last_profile.get("display_name")
+                    if isinstance(last_name, str) and last_name.strip():
+                        selected_name = last_name.strip()
+                        resolved_from_last_run = True
+                    # If the persisted profile carried a card_id directly,
+                    # use it -- gives us the strongest match path.
+                    last_cid = last_profile.get("card_id") or last_profile.get("matched_card_id")
+                    if last_cid:
+                        try:
+                            card_id = int(last_cid)
+                            chara_id = int(str(card_id)[:4]) if card_id else 0
+                        except (TypeError, ValueError):
+                            pass
+                    # Also pull scenario_id from the persisted profile if
+                    # we didn't get one earlier.
+                    last_scenario = last_profile.get("scenario_id")
+                    if last_scenario and not scenario_id:
+                        try:
+                            scenario_id = int(last_scenario)
+                        except (TypeError, ValueError):
+                            pass
+            except Exception:
+                pass
+
+        # Build a minimal chara_info-shaped dict so resolve_profile's
+        # auto-derivation has something to work with even when the
+        # runner hasn't seen the live API payload yet.
+        effective_chara = dict(chara) if chara else {}
+        if not effective_chara and (card_id or chara_id or selected_name):
+            effective_chara = {
+                "card_id": card_id,
+                "chara_id": chara_id,
+                "trained_chara_name": selected_name,
+            }
+
+        # Default scenario is 4 (Trackblazer) since that's what every v6.x
+        # profile tunes for
+        if not scenario_id:
+            scenario_id = 4
+
+        profile = character_profiles.resolve_profile(
+            card_id=card_id, chara_id=chara_id, scenario_id=scenario_id,
+            base_dir=DIR, preset_name=preset_name,
+            chara_info=effective_chara if effective_chara else None,
+            display_name=selected_name or None,
+        )
+
+        # Catalog rows for the picker -- only character-tagged ones for
+        # the active trainee plus a count of the full catalog
+        char_filtered = []
+        all_epithets_count = 0
+        try:
+            catalog = character_data.load_epithet_catalog(DIR)
+            all_epithets_count = len(catalog)
+            for title, row in catalog.items():
+                if not isinstance(row, dict):
+                    continue
+                if profile.display_name and profile.display_name in (row.get("characters") or []):
+                    char_filtered.append({
+                        "title": title,
+                        "name": row.get("name") or title,
+                        "characters": row.get("characters") or [],
+                        "bullet_points": row.get("bullet_points") or [],
+                    })
+        except Exception:
+            pass
+
+        # v6.7.4: live epithet progress from race history.  Reports
+        # per-target status (in_progress / completed / not_started / dead)
+        # with the races already won and races still needed.
+        epithet_progress = []
+        try:
+            from career_bot import trackblazer as _tb
+            # Collect effective targets across preset, profile, forced.
+            effective_targets = list(profile.target_epithets or [])
+            if profile.auto_pick_epithets and not effective_targets:
+                effective_targets = list(profile.auto_picked_epithets or [])
+            # Pull race history from the live runner snapshot.  When the
+            # career hasn't started yet history is empty, which is fine --
+            # everything will show status "not_started".
+            history = []
+            try:
+                snap = career_runner.snapshot() if career_runner else {}
+                history = list(snap.get("race_results") or [])
+            except Exception:
+                history = []
+            epithet_progress = _tb.epithet_progress(DIR, effective_targets, history)
+            # Mark dead epithets from the solver's last replan.
+            try:
+                snap2 = career_runner.snapshot() if career_runner else {}
+                dead = set((snap2.get("last_smart_replan") or {}).get("dead_epithets") or [])
+                for entry in epithet_progress:
+                    if entry.get("name") in dead and entry.get("status") != "completed":
+                        entry["status"] = "dead"
+            except Exception:
+                pass
+        except Exception:
+            epithet_progress = []
+
+        return {
+            "success": True,
+            "profile": profile.to_dict(),
+            "character_filtered_epithets": char_filtered,
+            "all_epithets_count": all_epithets_count,
+            "epithet_progress": epithet_progress,
+            "resolved_from": {
+                "card_id": card_id, "chara_id": chara_id,
+                "scenario_id": scenario_id, "preset_name": preset_name,
+                "selected_name": selected_name,
+                "source": (
+                    "runner" if chara
+                    else "last_run" if resolved_from_last_run
+                    else "selection" if (card_id or selected_name)
+                    else "default"
+                ),
+            },
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/character-profile/list")
+def api_character_profile_list():
+    """List all on-disk character profiles for the dashboard."""
+    try:
+        from career_bot import character_profiles
+        return {"success": True, "profiles": character_profiles.list_available_profiles(DIR)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/character-profile/mode")
+def api_character_profile_mode(req: dict):
+    """Toggle the training_scorer_mode for a named profile.
+
+    Body: ``{"profile_id": "oguri_cap", "mode": "authoritative" | "hint" | "disabled"}``
+
+    Writes the change to the profile's JSON file on disk.  Per-scenario
+    overrides aren't supported via this endpoint -- edit the JSON directly
+    for that.
+    """
+    try:
+        profile_id = str((req or {}).get("profile_id") or "").strip()
+        mode = str((req or {}).get("mode") or "").strip().lower()
+        if mode not in ("hint", "authoritative", "disabled"):
+            raise HTTPException(status_code=400, detail=f"invalid mode: {mode!r}")
+        if not profile_id or "/" in profile_id or ".." in profile_id:
+            raise HTTPException(status_code=400, detail="invalid profile_id")
+        from career_bot import character_profiles
+        path = Path(DIR) / "data" / character_profiles.PROFILES_DIRNAME / f"{profile_id}.json"
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"profile not found: {profile_id}")
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        payload["training_scorer_mode"] = mode
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+        return {"success": True, "profile_id": profile_id, "mode": mode}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/character-profile/auto-pick")
+def api_character_profile_auto_pick(req: dict):
+    """Toggle auto_pick_epithets for a named profile.
+
+    v6.7.6: when enabled, the profile's signature epithets (auto-derived
+    from the character_data catalog) seed the solver's target_epithets
+    list if no explicit user targets are set.  Default is OFF (changed
+    in v6.7.6) -- the solver picks high-value races organically without
+    being biased toward a specific signature.
+
+    Body: ``{"profile_id": "oguri_cap", "auto_pick": true | false}``
+    """
+    try:
+        profile_id = str((req or {}).get("profile_id") or "").strip()
+        if not profile_id or "/" in profile_id or ".." in profile_id:
+            raise HTTPException(status_code=400, detail="invalid profile_id")
+        if "auto_pick" not in (req or {}):
+            raise HTTPException(status_code=400, detail="missing auto_pick boolean")
+        auto_pick = bool((req or {}).get("auto_pick"))
+        from career_bot import character_profiles
+        path = Path(DIR) / "data" / character_profiles.PROFILES_DIRNAME / f"{profile_id}.json"
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"profile not found: {profile_id}")
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        payload["auto_pick_epithets"] = auto_pick
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+        return {"success": True, "profile_id": profile_id, "auto_pick_epithets": auto_pick}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/character-profile/epithets")
+def api_character_profile_epithets(req: dict):
+    """Set explicit target/forced epithets for a profile.
+
+    Body: ``{"profile_id": "oguri_cap",
+              "target_epithets": ["Ideal Idol", ...],
+              "forced_epithets": [...]}``
+
+    Either list may be omitted (no change to that field).  Pass an empty
+    list to clear the explicit setting (auto-pick will resume if the
+    profile has it enabled).
+    """
+    try:
+        profile_id = str((req or {}).get("profile_id") or "").strip()
+        if not profile_id or "/" in profile_id or ".." in profile_id:
+            raise HTTPException(status_code=400, detail="invalid profile_id")
+        from career_bot import character_profiles
+        path = Path(DIR) / "data" / character_profiles.PROFILES_DIRNAME / f"{profile_id}.json"
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"profile not found: {profile_id}")
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        if "target_epithets" in (req or {}):
+            payload["target_epithets"] = [str(x) for x in (req["target_epithets"] or [])]
+        if "forced_epithets" in (req or {}):
+            payload["forced_epithets"] = [str(x) for x in (req["forced_epithets"] or [])]
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+        return {"success": True, "profile_id": profile_id,
+                "target_epithets": payload.get("target_epithets", []),
+                "forced_epithets": payload.get("forced_epithets", [])}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/trackblazer/plan")
+def api_trackblazer_plan(req: TrackblazerPlanRequest):
+    try:
+        if not (str(req.trainee_name or "").strip() or str(req.trainee_id or "").strip()):
+            raise HTTPException(status_code=400, detail="Select a trainee before generating a Trackblazer plan.")
+        aptitudes = _trackblazer_profile_aptitudes(req)
+        fan_bonus = max(0.0, min(float(req.fan_bonus or 0), 300.0))
+        max_races = max(1, min(int(req.max_races_in_row or 2), 10))
+        floor = max(1, min(int(req.min_aptitude_floor or 6), 8))
+        result = trackblazer.make_schedule(
+            DIR,
+            aptitudes=aptitudes,
+            fan_bonus=fan_bonus,
+            max_races_in_row=max_races,
+            include_op=req.include_op,
+            floor=floor,
+            solver=req.solver,
+            weights=req.weights,
+            target_epithets=req.target_epithets,
+            forced_epithets=req.forced_epithets,
+            preferred_distances=req.primary_distances,
+            distance_preference_mode=req.distance_preference_mode,
+            training_blocks=req.training_blocks,
+            manual_locks=req.manual_locks,
+            timeout=req.timeout,
+        )
+        result["aptitudes_used"] = aptitudes
+        result["trainee_name"] = req.trainee_name
+        result["trainee_id"] = req.trainee_id
+        result["plan_key"] = json.dumps({
+            "trainee_name": req.trainee_name,
+            "trainee_id": req.trainee_id,
+            "aptitudes": aptitudes,
+            "fan_bonus": fan_bonus,
+            "max_races_in_row": max_races,
+            "include_op": req.include_op,
+            "target_epithets": req.target_epithets,
+            "forced_epithets": req.forced_epithets,
+            "primary_distances": req.primary_distances,
+            "distance_preference_mode": req.distance_preference_mode,
+        }, sort_keys=True)
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@app.get("/api/settings-presets")
+async def get_settings_presets():
+    payload = preset_store.read_settings_presets()
+    return {"success": True, **payload}
+
+
+@app.post("/api/settings-presets")
+async def save_settings_preset(req: SaveSettingsPresetRequest):
+    return {"success": True, "preset": preset_store.save_settings_preset(req.preset)}
+
+
+@app.post("/api/settings-presets/delete")
+async def delete_settings_preset(req: DeletePresetByNameRequest):
+    return {"success": preset_store.delete_settings_preset(req.name)}
+
+
+@app.get("/api/skill-config")
+async def get_skill_config():
+    return {"success": True, "config": preset_store.read_skill_config()}
+
+
+@app.post("/api/skill-config")
+async def save_skill_config(req: SaveSkillConfigRequest):
+    return {"success": True, "config": preset_store.save_skill_config(req.config)}
+
+
+@app.get("/api/smart-solver/config")
+async def get_smart_solver_config():
+    return {"success": True, "config": preset_store.read_solver_config()}
+
+
+@app.post("/api/smart-solver/config")
+async def save_smart_solver_config(req: SaveSmartSolverConfigRequest):
+    return {"success": True, "config": preset_store.save_solver_config(req.config)}
+
+
+# Backward-compatible preset endpoints.  They now compose/split the three new
+# config files and never recreate data/presets.
 @app.get("/api/presets")
 async def get_presets():
     return {"success": True, "presets": preset_store.read_all()}
@@ -1192,7 +4387,53 @@ def start_career_from_request(req):
 
     tp_info = active_start_state["tp_info"]
     current_tp = int(tp_info.get("current_tp") or 0)
-    if req.use_tp and current_tp < req.use_tp:
+
+    # Umabot TP recovery replacement. Modes are stored in settings.json:
+    #   potion_first: use TP item 32 first, then spend Jewels if still short.
+    #   potion_only: use only TP items and refuse to start if still short.
+    #   jewels_only: spend Jewels only.
+    tp_mode = load_tp_recovery_mode()
+    restore_reasoning = [f"TP recovery mode: {tp_recovery_label(tp_mode)}."]
+
+    if req.use_tp and current_tp < req.use_tp and tp_mode in ("potion_first", "potion_only"):
+        restore_reasoning.append(f"Current TP {current_tp}/{req.use_tp}; trying TP recovery items before career start.")
+        for attempt in range(20):  # Umabot cap: at most 20 items per start.
+            if current_tp >= req.use_tp:
+                break
+            try:
+                potions = active_client.tp_potion_count()
+            except Exception:
+                potions = 0
+            if potions <= 0:
+                restore_reasoning.append("No TP recovery items remain in the live item cache.")
+                break
+            try:
+                active_client.use_recovery_item(item_num=1)
+                tp_info = active_client.tp_info
+                active_start_state["tp_info"] = tp_info
+                new_tp = int(tp_info.get("current_tp") or 0)
+                restore_reasoning.append(f"TP item attempt {attempt + 1}: {current_tp} -> {new_tp} TP; items left {active_client.tp_potion_count()}.")
+                if new_tp <= current_tp:
+                    restore_reasoning.append("TP item did not increase TP; stopping item recovery attempts.")
+                    break
+                current_tp = new_tp
+            except Exception as e:
+                restore_reasoning.append(f"TP item attempt {attempt + 1} failed: {e}")
+                if "213" in str(e):
+                    try:
+                        res = active_client.call("load/index", {"adid": ""})
+                        active_client.refresh_cached_account_state(res.get("data", {}))
+                        tp_info = active_client.tp_info
+                        active_start_state["tp_info"] = tp_info
+                        current_tp = int(tp_info.get("current_tp") or 0)
+                    except Exception:
+                        pass
+                else:
+                    break
+                time.sleep(1)
+
+    if req.use_tp and current_tp < req.use_tp and tp_mode in ("potion_first", "jewels_only"):
+        restore_reasoning.append(f"Current TP {current_tp}/{req.use_tp}; trying Jewel TP recovery.")
         for attempt in range(3):
             try:
                 needed = ((req.use_tp - current_tp) + 29) // 30
@@ -1200,49 +4441,73 @@ def start_career_from_request(req):
                 tp_info = active_client.tp_info
                 active_start_state["tp_info"] = tp_info
                 current_tp = int(tp_info.get("current_tp") or 0)
+                restore_reasoning.append(f"Jewel recovery attempt {attempt + 1}: TP is now {current_tp}.")
                 if current_tp >= req.use_tp:
                     break
             except Exception as e:
+                restore_reasoning.append(f"Jewel recovery attempt {attempt + 1} failed: {e}")
                 if "213" in str(e):
                     try:
                         res = active_client.call("load/index", {"adid": ""})
                         active_client.refresh_cached_account_state(res.get("data", {}))
+                        tp_info = active_client.tp_info
+                        active_start_state["tp_info"] = tp_info
+                        current_tp = int(tp_info.get("current_tp") or 0)
                     except Exception:
                         pass
                 time.sleep(1)
 
     if req.use_tp and current_tp < req.use_tp:
-        return {"success": False, "detail": f"Not enough TP: {current_tp}/{req.use_tp}"}
+        active_start_state["tp_restore_reasoning"] = restore_reasoning
+        return {"success": False, "detail": f"Not enough TP: {current_tp}/{req.use_tp}. TP recovery mode: {tp_mode}"}
 
-    current_money = active_start_state["current_money"]
+    pre_start = _pre_start_refresh(req)
+    if not pre_start.get("success"):
+        active_start_state["tp_restore_reasoning"] = restore_reasoning
+        return pre_start
+    current_money = active_start_state.get("current_money", 0)
     succession_rank_point = selected_succession_rank_point(req)
+    tp_info = active_start_state.get("tp_info", tp_info)
+    time.sleep(random.uniform(0.5, 1.5))
 
+    active_start_state["tp_restore_reasoning"] = restore_reasoning
     try:
-        active_client.pre_single_mode(
-            [req.friend_viewer_id] if req.friend_viewer_id else []
+        result = active_client.start_career(
+            card_id=req.card_id,
+            support_card_ids=req.support_card_ids,
+            friend_viewer_id=req.friend_viewer_id,
+            friend_card_id=req.friend_card_id,
+            parent_id_1=req.parent_id_1,
+            parent_id_2=req.parent_id_2,
+            rental_viewer_id=getattr(req, "rental_viewer_id", 0),
+            rental_trained_chara_id=getattr(req, "rental_trained_chara_id", 0),
+            scenario_id=req.scenario_id,
+            deck_id=req.deck_id,
+            use_tp=req.use_tp,
+            tp_info=tp_info,
+            current_money=current_money,
+            succession_rank_point=succession_rank_point,
+            difficulty_id=req.difficulty_id,
+            difficulty=req.difficulty,
+            is_boost=req.is_boost,
+            boost_story_event_id=req.boost_story_event_id,
         )
-        time.sleep(random.uniform(0.5, 1.5))
-    except Exception:
-        pass
-
-    result = active_client.start_career(
-        card_id=req.card_id,
-        support_card_ids=req.support_card_ids,
-        friend_viewer_id=req.friend_viewer_id,
-        friend_card_id=req.friend_card_id,
-        parent_id_1=req.parent_id_1,
-        parent_id_2=req.parent_id_2,
-        scenario_id=req.scenario_id,
-        deck_id=req.deck_id,
-        use_tp=req.use_tp,
-        tp_info=tp_info,
-        current_money=current_money,
-        succession_rank_point=succession_rank_point,
-        difficulty_id=req.difficulty_id,
-        difficulty=req.difficulty,
-        is_boost=req.is_boost,
-        boost_story_event_id=req.boost_story_event_id,
-    )
+    except Exception as exc:
+        err = str(exc)
+        if _has_rental_parent(req) and ("501" in err or "500" in err):
+            return {
+                "success": False,
+                "fatal_start": True,
+                "detail": (
+                    "The game rejected the guest parent start request after refresh. "
+                    "The selected rental may have expired, been used up, or become unavailable. "
+                    "Refresh Guest Parents and reselect before looping another career. "
+                    f"Original error: {err}"
+                ),
+            }
+        raise
+    if isinstance(result, dict):
+        result["_tp_restore_reasoning"] = restore_reasoning
     return {"success": True, "result": result}
 
 
@@ -1288,12 +4553,7 @@ async def login(req: LoginRequest):
         active_parent_cards = {}
         active_parent_rank_points = {}
         raw_load_index_response = None
-        active_selection = {
-            "deck": None,
-            "friend": None,
-            "trainee": None,
-            "veterans": [],
-        }
+        active_selection = _empty_ui_selection()
 
         has_form_creds = bool(req.username and req.password)
         if req.steam_id and req.steam_session_ticket:
@@ -1346,10 +4606,18 @@ async def login(req: LoginRequest):
                     save_cfg["steam_password_seed"]
                 )
 
-            with open(os.path.join(RUNTIME_DIR, "auth_config.json"), "w") as f:
-                json.dump(save_cfg, f, indent=4)
+            _save_auth_config_both(save_cfg, PROFILE_NAME)
             with open(os.path.join(RUNTIME_DIR, "steam_token.txt"), "w") as f:
                 f.write(tkt)
+            # v6.7.6: also persist the steam token to userdata so it
+            # survives version upgrades.  RUNTIME_DIR lives inside the
+            # build folder and gets blown away on upgrade; the userdata
+            # copy is the authoritative one going forward.
+            try:
+                user_token_path = _user_steam_token_path(PROFILE_NAME)
+                user_token_path.write_text(tkt, encoding="utf-8")
+            except Exception as user_exc:
+                print(f"[-] userdata steam token write failed: {user_exc}")
             print(f"\n[+] UMATRACKER: Saved keys to {RUNTIME_DIR}!", flush=True)
         except Exception as e:
             print(f"[-] Failed to save keys: {e}")
@@ -1556,6 +4824,7 @@ async def login(req: LoginRequest):
                 "rank_score": chara.get("rank_score", 0),
             }
 
+        guest_parents = normalize_guest_parents(d)
         active_dashboard_data = {
             "success": True,
             "account": account,
@@ -1563,6 +4832,8 @@ async def login(req: LoginRequest):
             "supports": supports,
             "decks": decks,
             "parents": parents,
+            "guestParents": guest_parents,
+            "guestParentsLoaded": bool(guest_parents),
         }
         return active_dashboard_data
     except Exception as e:
@@ -1719,6 +4990,57 @@ async def session_status():
     return data
 
 
+def _user_selection_path():
+    """v6.7.9: path for the persisted ``active_selection`` so the
+    Smart Race Solver Settings picker survives server restarts.  When
+    userdata is enabled this lives outside the build folder, so picker
+    state also survives version upgrades.
+    """
+    return Path(USERDATA_DIR) / "active_selection.json"
+
+
+def _save_active_selection():
+    """v6.7.9: persist ``active_selection`` to disk so the dashboard
+    Character Profile panel can resolve to the user's picked trainee
+    between runs / after restarts.  Best-effort: failures are silent
+    so they never break the picker UX."""
+    try:
+        path = _user_selection_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(active_selection, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _load_active_selection():
+    """Read the persisted ``active_selection`` (if any) at server start.
+    Falls back to the empty selection on any error."""
+    try:
+        path = _user_selection_path()
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                # Sanity-check the shape: must have the expected keys.
+                for k in ("deck", "friend", "trainee", "veterans", "guestParents"):
+                    if k not in data:
+                        return None
+                return data
+    except Exception:
+        pass
+    return None
+
+
+# v6.7.9: rehydrate the picker selection from disk on startup so the
+# Character Profile panel can resolve to the user's last-picked trainee
+# even before any career has been started.
+_persisted_selection = _load_active_selection()
+if _persisted_selection:
+    active_selection = _persisted_selection
+
+
 class UISelectionRequest(BaseModel):
     selection: dict
 
@@ -1727,6 +5049,8 @@ class UISelectionRequest(BaseModel):
 async def update_selection(req: UISelectionRequest):
     global active_selection
     active_selection = req.selection
+    # v6.7.9: persist so the picker survives restarts.
+    _save_active_selection()
     return {"success": True}
 
 
@@ -1741,7 +5065,10 @@ async def logout():
     active_parent_rank_points = {}
     raw_load_index_response = None
     pending_game_auth_config = {}
-    active_selection = {"deck": None, "friend": None, "trainee": None, "veterans": []}
+    active_selection = _empty_ui_selection()
+    # v6.7.9: also clear the persisted file so a stale selection from
+    # the previous user doesn't leak across logouts.
+    _save_active_selection()
     return {"success": True}
 
 
@@ -1761,20 +5088,46 @@ backend_loop_thread = None
 backend_loop_stop = False
 
 
+def _effective_run_count(req):
+    try:
+        raw = int(getattr(req, "run_count", 1) or 0)
+    except Exception:
+        raw = 1
+    # Backward compatibility: the old LOOP toggle sent dev_mode=true with no run_count.
+    if getattr(req, "dev_mode", False) and raw == 1:
+        return 0
+    return max(0, raw)
+
+
+def _validate_loop_constraints(req, target):
+    if int(target or 0) == 1:
+        return None
+    if _has_rental_parent(req) and int(target or 0) == 0:
+        return (
+            "Infinite looping is disabled when a guest/rental parent is selected. "
+            "Choose a finite run count so SweepyCL can revalidate the rental before each start."
+        )
+    return None
+
+
 def manage_career_loop(req, preset, initial_result):
     global backend_loop_stop, active_account, active_client
     max_steps = max(1, min(int(req.max_steps or 2500), 3000))
+    target = _effective_run_count(req)
     consecutive_fails = 0
+    runs_done = 0
     current_result = initial_result
 
     while not backend_loop_stop:
+        runs_done += 1
+        career_runner.set_loop_info(runs_done, target)
         career_runner.start(
             active_client,
             preset,
             current_result,
             max_steps,
             burn_clocks=req.burn_clocks,
-            dev_mode=req.dev_mode,
+            dev_mode=True,
         )
 
         while career_runner.snapshot().get("running"):
@@ -1791,7 +5144,8 @@ def manage_career_loop(req, preset, initial_result):
         else:
             consecutive_fails = 0
 
-        if not req.dev_mode:
+        if target and runs_done >= target:
+            print(f"career loop target reached ({runs_done}/{target})", flush=True)
             break
 
         for _ in range(6):
@@ -1802,9 +5156,14 @@ def manage_career_loop(req, preset, initial_result):
         started_ok = False
         while not started_ok and not backend_loop_stop:
             try:
+                # start_career_from_request always calls _pre_start_refresh(), which
+                # refreshes and rewrites guest/rental parent ids before every new run.
                 started = start_career_from_request(req)
                 if not started.get("success"):
                     consecutive_fails += 1
+                    if started.get("fatal_start"):
+                        print(f"career loop stopped before next start: {started.get('detail')}", flush=True)
+                        return
                     if consecutive_fails >= 5:
                         break
                     for _ in range(15):
@@ -1817,7 +5176,7 @@ def manage_career_loop(req, preset, initial_result):
                 active_account = account
                 started_ok = True
                 consecutive_fails = 0
-            except Exception as e:
+            except Exception:
                 consecutive_fails += 1
                 if consecutive_fails >= 5:
                     break
@@ -1837,10 +5196,32 @@ async def run_career(req: RunCareerRequest):
         backend_loop_thread and backend_loop_thread.is_alive()
     ):
         return {"success": False, "detail": "Career runner loop already active"}
-    preset = preset_store.read_one("xguri parent")
+    run_target = _effective_run_count(req)
+    loop_error = _validate_loop_constraints(req, run_target)
+    if loop_error:
+        return {"success": False, "detail": loop_error}
+    preset_name = (req.preset_name or "").strip()
+    preset = preset_store.read_one(preset_name) if preset_name else preset_store.read_one(None)
     if not preset:
-        return {"success": False, "detail": "xguri parent preset missing"}
+        if preset_name:
+            return {"success": False, "detail": f"Preset missing: {preset_name}"}
+        return {"success": False, "detail": "No presets available"}
+    preset_name = preset.get("name", "")
+    req.preset_name = preset_name
     req.scenario_id = int(preset.get("scenario_id") or 4)
+    runtime_preset = dict(preset)
+    race_mode = str(getattr(req, "race_planner_mode", "") or "smart").strip().lower()
+    if race_mode not in {"manual", "smart"}:
+        race_mode = "smart"
+    runtime_preset["extra_race_list_source"] = race_mode
+    if race_mode == "manual" and getattr(req, "manual_race_ids", None):
+        manual_ids = []
+        for value in req.manual_race_ids or []:
+            try:
+                manual_ids.append(int(value))
+            except Exception:
+                continue
+        runtime_preset["extra_race_list"] = manual_ids
     try:
         account = active_account or {}
         career = account.get("career") or {}
@@ -1880,23 +5261,26 @@ async def run_career(req: RunCareerRequest):
             result = started["result"]
             account, chara_info = apply_career_result(result)
 
-        apply_deck_type_counts(preset, req=req, chara_info=chara_info)
+        apply_deck_type_counts(runtime_preset, req=req, chara_info=chara_info)
 
-        if req.dev_mode:
+        looping = run_target != 1
+        if looping:
             backend_loop_stop = False
+            req.dev_mode = True
             backend_loop_thread = threading.Thread(
-                target=manage_career_loop, args=(req, preset, result), daemon=True
+                target=manage_career_loop, args=(req, runtime_preset, result), daemon=True
             )
             backend_loop_thread.start()
             time.sleep(0.5)
         else:
+            career_runner.set_loop_info(1, 1)
             career_runner.start(
                 active_client,
-                preset,
+                runtime_preset,
                 result,
                 max(1, min(int(req.max_steps or 2500), 3000)),
                 burn_clocks=req.burn_clocks,
-                dev_mode=req.dev_mode,
+                dev_mode=False,
             )
 
         return {
@@ -1909,9 +5293,1240 @@ async def run_career(req: RunCareerRequest):
         return {"success": False, "detail": str(e)}
 
 
+
+
+
+
+class AccountsConfigRequest(BaseModel):
+    accounts: list[dict] = []
+
+
+manager_process = None
+
+
+def _accounts_path():
+    # v6.7.6: stored in userdata when an external userdata folder is
+    # configured so the account list survives version upgrades.  Falls
+    # back to the in-build location if userdata isn't being used.
+    return _user_accounts_path()
+
+
+def _default_accounts():
+    return [
+        {"name": PROFILE_NAME or "default", "port": int(PORT), "auto_restart": True, "stale_restart_seconds": 900}
+    ]
+
+
+def _read_accounts_config():
+    path = _accounts_path()
+    if not path.exists():
+        accounts = _default_accounts()
+        path.write_text(json.dumps(accounts, indent=2), encoding="utf-8")
+        return accounts
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except Exception:
+        pass
+    return []
+
+
+def _normalize_account_name(value, fallback):
+    name = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(value or fallback)).strip("_")
+    return name or fallback
+
+
+def _normalize_account_config_name(value, fallback_name):
+    raw = str(value or f"{fallback_name}.json").strip()
+    raw = raw.replace("\\", "/").split("/")[-1]
+    raw = re.sub(r"[^a-zA-Z0-9_.-]+", "_", raw).strip("._")
+    if not raw:
+        raw = f"{fallback_name}.json"
+    if not raw.lower().endswith(".json"):
+        raw = f"{raw}.json"
+    return raw
+
+
+def _validate_accounts_config(accounts):
+    if not isinstance(accounts, list):
+        raise HTTPException(status_code=400, detail="Accounts payload must be a list.")
+
+    clean = []
+    seen_ports = {}
+    seen_names = {}
+    for idx, account in enumerate(accounts):
+        if not isinstance(account, dict):
+            raise HTTPException(status_code=400, detail=f"Account row {idx + 1} must be an object.")
+
+        name = _normalize_account_name(account.get("name"), f"account{idx + 1}")
+        name_key = name.lower()
+        if name_key in seen_names:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Duplicate account name '{name}' used by row {seen_names[name_key] + 1} and row {idx + 1}. Account names must be unique.",
+            )
+        seen_names[name_key] = idx
+
+        try:
+            port = int(account.get("port"))
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Account '{name}' has an invalid port. Use a number from 1024 to 65535.")
+
+        if port < 1024 or port > 65535:
+            raise HTTPException(status_code=400, detail=f"Account '{name}' port {port} is outside the allowed range 1024-65535.")
+
+        if port in seen_ports:
+            other_name = seen_ports[port]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Duplicate port {port} used by '{other_name}' and '{name}'. Each account must use a unique port.",
+            )
+        seen_ports[port] = name
+
+        stale_restart_seconds = account.get("stale_restart_seconds", 900)
+        try:
+            stale_restart_seconds = int(stale_restart_seconds)
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Account '{name}' stale restart seconds must be a number.")
+        stale_restart_seconds = max(60, min(stale_restart_seconds, 86400))
+
+        config_name = _normalize_account_config_name(account.get("config"), name)
+
+        clean.append({
+            "name": name,
+            "config": config_name,
+            "port": port,
+            "auto_restart": bool(account.get("auto_restart", True)),
+            "stale_restart_seconds": stale_restart_seconds,
+        })
+
+    if not clean:
+        clean = _default_accounts()
+
+    return clean
+
+
+def _write_accounts_config(accounts):
+    path = _accounts_path()
+    clean = _validate_accounts_config(accounts)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(clean, indent=2), encoding="utf-8")
+    tmp.replace(path)
+    return clean
+
+
+def _health_for_port(port):
+    import urllib.error
+    import urllib.request
+    url = f"http://127.0.0.1:{int(port)}/api/health"
+    try:
+        with urllib.request.urlopen(url, timeout=1.5) as res:
+            payload = json.loads(res.read().decode("utf-8"))
+            payload["reachable"] = True
+            return payload
+    except Exception as exc:
+        return {"success": False, "reachable": False, "detail": str(exc)}
+
+
+@app.get("/api/accounts")
+async def api_accounts():
+    accounts = _read_accounts_config()
+    return {"success": True, "accounts": accounts, "path": str(_accounts_path())}
+
+
+@app.post("/api/accounts")
+async def api_save_accounts(req: AccountsConfigRequest):
+    accounts = _write_accounts_config(req.accounts)
+    return {"success": True, "accounts": accounts, "path": str(_accounts_path())}
+
+
+@app.get("/api/accounts/status")
+async def api_accounts_status():
+    accounts = _read_accounts_config()
+    manager_status_path = Path(DIR) / "uma_runtime" / "manager_status.json"
+    manager_status = None
+    manager_by_port = {}
+    manager_by_name = {}
+    if manager_status_path.exists():
+        try:
+            manager_status = json.loads(manager_status_path.read_text(encoding="utf-8"))
+            for child in manager_status.get("children", []) or []:
+                manager_by_port[int(child.get("port") or 0)] = child
+                manager_by_name[str(child.get("name") or "")] = child
+        except Exception:
+            manager_status = None
+
+    rows = []
+    now = time.time()
+    for account in accounts:
+        port = int(account.get("port") or 1616)
+        name = str(account.get("name") or "")
+        direct_health = _health_for_port(port)
+        child = manager_by_port.get(port) or manager_by_name.get(name) or {}
+        child_health = child.get("last_health") or {}
+        child_running = bool(child.get("running"))
+
+        health = dict(child_health) if child_health else {}
+        if direct_health.get("reachable"):
+            health.update(direct_health)
+            health["source"] = "direct"
+        elif child_running and child_health:
+            health.update({
+                "reachable": True,
+                "source": "manager-cache",
+                "detail": "",
+            })
+        else:
+            health = direct_health
+            health["source"] = "direct-error"
+
+        health["process_running"] = child_running or bool(health.get("reachable"))
+        health["manager_last_health_at"] = child.get("last_health_at", 0)
+        health["manager_last_health_age"] = int(max(0, now - float(child.get("last_health_at") or 0))) if child else None
+        health["manager_error"] = child.get("last_health_error", "")
+        rows.append({**account, "health": health})
+    return {"success": True, "accounts": rows, "manager_status": manager_status}
+
+
+@app.post("/api/accounts/manager/start")
+async def api_accounts_manager_start():
+    global manager_process
+    if manager_process and manager_process.poll() is None:
+        return {"success": True, "already_running": True, "pid": manager_process.pid}
+    log_dir = Path(DIR) / "uma_runtime" / "manager_logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = open(log_dir / "dashboard-manager.log", "a", encoding="utf-8")
+    manager_process = subprocess.Popen(
+        [sys.executable, "manager.py"],
+        cwd=DIR,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+    )
+    return {"success": True, "pid": manager_process.pid}
+
+
+@app.get("/api/health")
+async def api_health():
+    runner = career_runner.snapshot()
+    account = active_account or {}
+    career = account.get("career") or {}
+    logged_in = active_client is not None
+    runner_running = bool(runner.get("running"))
+    career_active = bool(career.get("active"))
+    last_heartbeat = float(runner.get("last_heartbeat") or runner.get("last_action_at") or 0)
+    stale_seconds = int(runner.get("stale_seconds", 0) or 0)
+    if runner_running and last_heartbeat:
+        stale_seconds = int(max(0, time.time() - last_heartbeat))
+    if runner_running:
+        state = "running"
+    elif logged_in and career_active:
+        state = "career-open"
+    elif logged_in:
+        state = "logged-in"
+    else:
+        state = "booted"
+    return {
+        "success": True,
+        "profile": PROFILE_NAME,
+        "port": PORT,
+        "state": state,
+        "logged_in": logged_in,
+        "career_active": career_active,
+        "runner_running": runner_running,
+        "runner_stale_seconds": stale_seconds,
+        "runner_last_error": runner.get("last_error", ""),
+        "recoveries": runner.get("recoveries", 0),
+        "run_id": runner.get("run_id", ""),
+        "turn": runner.get("turn", career.get("turn", 0)),
+        "last_action": runner.get("last_action", ""),
+        "last_heartbeat": last_heartbeat,
+        "pid": os.getpid(),
+        "updated_at": time.time(),
+    }
+
+
+def _latest_snapshot_path():
+    runner = career_runner.snapshot()
+    candidate = runner.get("last_state_snapshot")
+    if candidate and os.path.exists(candidate):
+        return Path(candidate)
+    root = Path(os.environ.get("UMA_RUNTIME_DIR", RUNTIME_DIR)) / "state_snapshots"
+    if not root.exists():
+        return None
+    files = sorted(root.glob("*.jsonl"), key=lambda item: item.stat().st_mtime, reverse=True)
+    return files[0] if files else None
+
+
+@app.get("/api/career/snapshots/latest")
+async def latest_career_snapshot(limit: int = 120):
+    path = _latest_snapshot_path()
+    if not path:
+        return {"success": False, "detail": "No state snapshots found", "rows": []}
+    rows = []
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            lines = f.readlines()[-max(1, min(int(limit or 120), 1000)):]
+        for line in lines:
+            try:
+                rows.append(json.loads(line))
+            except Exception:
+                pass
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return {"success": True, "path": str(path), "count": len(rows), "rows": rows}
+
+
+@app.get("/api/career/snapshots/latest/download")
+async def download_latest_career_snapshot():
+    path = _latest_snapshot_path()
+    if not path:
+        raise HTTPException(status_code=404, detail="No state snapshots found")
+    return FileResponse(path, filename=path.name, media_type="application/jsonl")
+
+
+
+
+@app.get("/api/diagnostics/summary")
+async def diagnostics_summary():
+    return diagnostics.build_summary(base_dir, career_runner.snapshot())
+
+
+@app.get("/api/diagnostics/bundle")
+async def diagnostics_bundle():
+    path = diagnostics.create_bundle(base_dir, career_runner.snapshot())
+    return FileResponse(path, filename=path.name, media_type="application/zip")
+
+
+
+
+
+@app.get("/api/ai/status")
+async def ai_dataset_status():
+    """Return local AI-ready dataset counts and advisor aggregate status."""
+    return ai_dataset.dataset_status(base_dir)
+
+
+@app.post("/api/ai/rebuild-dataset")
+async def ai_rebuild_dataset():
+    """Rebuild AI JSONL exports from existing career logs.
+
+    This is an offline maintenance action. It does not alter live career logic.
+    """
+    return ai_dataset.rebuild_from_career_logs(base_dir, build_version="SweepyCLv7.0")
+
+
+@app.post("/api/ai/import-logs")
+async def ai_import_previous_logs(req: AiImportLogsRequest):
+    """Import career logs from an older build/runtime folder or zip.
+
+    The import path is resolved by the local SweepyCL server, so users can paste
+    a Windows path such as ``C:/UmamusumeChatGPT/SweepyModv5.33`` or a zip file
+    path. Gameplay logs, AI-safe aggregates, and settings presets are imported;
+    auth files are ignored.
+    """
+    result = ai_dataset.import_previous_logs(
+        base_dir,
+        req.source_path,
+        rebuild=bool(req.rebuild_dataset),
+        build_version="SweepyCLv7.0",
+        import_presets=bool(req.import_presets),
+    )
+    if result.get("success") and req.train_after_import:
+        try:
+            result["training"] = ai_trainer.train_once(base_dir, reason="import_previous_logs", rebuild_stats=True)
+        except Exception as exc:
+            result["training_error"] = f"{type(exc).__name__}: {exc}"
+    return result
+
+
+@app.get("/api/ai/advisor/latest")
+async def ai_advisor_latest():
+    return ai_advisor.post_run_advice(base_dir)
+
+
+@app.get("/api/ai/dataset/download")
+async def ai_dataset_download(kind: str = "turn_decisions"):
+    allowed = ai_dataset.DATASET_FILES
+    if kind not in allowed:
+        raise HTTPException(status_code=400, detail="Unknown dataset kind")
+    path = ai_dataset.runtime_output_root(base_dir) / "ai" / allowed[kind]
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Dataset has not been created yet")
+    return FileResponse(path, filename=path.name, media_type="application/jsonl")
+
+
+
+
+
+
+@app.get("/api/ai/local-llm/config")
+async def ai_local_llm_config_get():
+    return {"success": True, "config": local_llm.latest_payload(base_dir).get("config", {})}
+
+
+@app.post("/api/ai/local-llm/config")
+async def ai_local_llm_config_post(req: dict):
+    cfg = local_llm.save_config(base_dir, req or {})
+    latest = local_llm.latest_payload(base_dir)
+    return {"success": True, "config": latest.get("config", {}), "saved_config": {k: v for k, v in cfg.items() if k != "api_key"}}
+
+
+@app.post("/api/ai/local-llm/test")
+async def ai_local_llm_test():
+    return local_llm.test_connection(base_dir)
+
+
+@app.post("/api/ai/local-llm/analyze-latest-run")
+async def ai_local_llm_analyze_latest_run(req: dict = None):
+    force = bool((req or {}).get("force"))
+    return local_llm.analyze_latest_run(base_dir, force=force)
+
+
+@app.post("/api/ai/local-llm/shadow-advice")
+async def ai_local_llm_shadow_advice(req: dict = None):
+    payload = req or {}
+    force = bool(payload.get("force"))
+    limit = int(payload.get("limit") or 12)
+    return local_llm.shadow_advice(base_dir, force=force, limit=limit)
+
+
+@app.get("/api/ai/local-llm/latest")
+async def ai_local_llm_latest():
+    return local_llm.latest_payload(base_dir)
+
+
+@app.get("/api/ai/auto-training/status")
+async def ai_auto_training_status():
+    return ai_trainer.trainer_status(base_dir)
+
+
+@app.get("/api/ai/auto-training/config")
+async def ai_auto_training_config_get():
+    return {"success": True, "config": ai_trainer.load_auto_config(base_dir)}
+
+
+@app.post("/api/ai/auto-training/config")
+async def ai_auto_training_config_post(req: dict):
+    return {"success": True, "config": ai_trainer.save_auto_config(base_dir, req or {})}
+
+
+@app.post("/api/ai/train-now")
+async def ai_train_now():
+    return ai_trainer.train_once(base_dir, reason="manual", rebuild_stats=True)
+
+
+@app.get("/api/ai/post-run/latest")
+async def ai_latest_post_run_report():
+    path = ai_trainer.ai_root(base_dir) / "post_run_reports" / "latest_post_run_report.json"
+    if not path.exists():
+        return {"success": False, "detail": "No AI post-run report has been generated yet."}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["success"] = True
+        return payload
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/ai/model/download")
+async def ai_model_download(kind: str = "policy_adjustments"):
+    allowed = ai_trainer.MODEL_FILES
+    if kind not in allowed:
+        raise HTTPException(status_code=400, detail="Unknown model kind")
+    path = ai_trainer.ai_root(base_dir) / allowed[kind]
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="AI model artifact has not been created yet")
+    media = "application/json" if path.suffix == ".json" else "text/plain"
+    return FileResponse(path, filename=path.name, media_type=media)
+
+
+
+
+@app.get("/api/ai/safe-debug-bundle")
+async def ai_safe_debug_bundle():
+    path = ai_trainer.create_safe_debug_bundle(base_dir)
+    return FileResponse(path, filename=path.name, media_type="application/zip")
+
+@app.get("/api/ai/dashboard")
+async def ai_dashboard():
+    return ai_trainer.latest_dashboard(base_dir)
+
+
+@app.get("/api/ai/shadow/latest")
+async def ai_shadow_latest():
+    return ai_trainer.latest_shadow_report(base_dir)
+
+
+@app.get("/api/ai/backtest/latest")
+async def ai_backtest_latest():
+    return ai_trainer.latest_backtest_report(base_dir)
+
+
+@app.get("/api/ai/config-suggestions/latest")
+async def ai_config_suggestions_latest():
+    return ai_trainer.latest_config_suggestions(base_dir)
+
+
+@app.get("/api/ai/style-adaptation/latest")
+async def ai_style_adaptation_latest():
+    return ai_trainer.latest_style_adaptation(base_dir)
+
+
+@app.get("/api/career/decision-trace/latest")
+async def latest_decision_trace(limit: int = 80):
+    runner = career_runner.snapshot()
+    path = runner.get("last_decision_trace")
+    if not path or not os.path.exists(path):
+        root = Path(os.environ.get("UMA_RUNTIME_DIR", RUNTIME_DIR)) / "decision_traces"
+        if root.exists():
+            files = sorted(root.glob("*.jsonl"), key=lambda item: item.stat().st_mtime, reverse=True)
+            path = str(files[0]) if files else ""
+    if not path or not os.path.exists(path):
+        return {"success": False, "detail": "No decision traces found", "rows": []}
+    rows = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()[-max(1, min(int(limit or 80), 500)): ]
+        for line in lines:
+            try:
+                rows.append(json.loads(line))
+            except Exception:
+                pass
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return {"success": True, "path": path, "count": len(rows), "rows": rows}
+
+
+@app.get("/api/career/decision-trace/latest/download")
+async def download_latest_decision_trace():
+    runner = career_runner.snapshot()
+    path = runner.get("last_decision_trace")
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="No decision trace found")
+    return FileResponse(path, filename=Path(path).name, media_type="application/jsonl")
+
+
+
+def _club_circle_id_from_value(value):
+    raw = str(value or "").strip()
+    if not raw:
+        raw = os.environ.get("UMA_CIRCLE_ID") or os.environ.get("CIRCLE_ID") or os.environ.get("CIRCLE_URL") or ""
+    m = re.search(r"circles/(\d+)", raw)
+    if m:
+        return m.group(1)
+    m = re.search(r"(\d{5,})", raw)
+    return m.group(1) if m else ""
+
+
+def _club_number(value, default=0):
+    try:
+        n = float(value)
+        if n == n and n not in (float("inf"), float("-inf")):
+            return n
+    except Exception:
+        pass
+    return default
+
+
+def _club_compact_daily_fans(values):
+    if not isinstance(values, list):
+        return []
+    nums = []
+    for value in values:
+        try:
+            nums.append(int(float(value)))
+        except Exception:
+            pass
+    while len(nums) > 1 and nums[-1] == 0 and any(n > 0 for n in nums):
+        nums.pop()
+    return nums
+
+
+def _club_normalize_member(member):
+    if not isinstance(member, dict):
+        return None
+    daily_fans = _club_compact_daily_fans(member.get("daily_fans"))
+    latest = daily_fans[-1] if daily_fans else int(_club_number(member.get("fan") or member.get("fans") or member.get("circle_fans"), 0))
+    previous = daily_fans[-2] if len(daily_fans) >= 2 else latest
+    first_positive_index = next((idx for idx, n in enumerate(daily_fans) if n > 0), -1)
+    first_monthly_value = daily_fans[first_positive_index] if first_positive_index >= 0 else (daily_fans[0] if daily_fans else latest)
+    days_tracked = max(1, len(daily_fans) - 1 - first_positive_index) if first_positive_index >= 0 else 1
+    monthly_gain = max(0, latest - first_monthly_value)
+    daily_gain = max(0, latest - previous)
+    return {
+        "viewer_id": str(member.get("viewer_id") or member.get("id") or ""),
+        "name": str(member.get("trainer_name") or member.get("name") or member.get("viewer_id") or member.get("id") or "Unknown"),
+        "fans": int(latest),
+        "daily_gain": int(daily_gain),
+        "monthly_gain": int(monthly_gain),
+        "seven_day_avg": int(round(monthly_gain / days_tracked)) if days_tracked else 0,
+        "raw_daily_fans": daily_fans,
+    }
+
+
+def _club_normalize_ranking(circle):
+    if not isinstance(circle, dict):
+        return {}
+    rank = circle.get("monthly_rank", circle.get("live_rank", circle.get("rank")))
+    yesterday = circle.get("yesterday_rank")
+    rank_num = int(_club_number(rank, 0)) if rank is not None else None
+    yesterday_num = int(_club_number(yesterday, 0)) if yesterday is not None else None
+    movement = (yesterday_num - rank_num) if rank_num and yesterday_num else None
+    return {
+        "rank": rank_num,
+        "yesterday_rank": yesterday_num,
+        "movement": movement,
+        "monthly_point": int(_club_number(circle.get("monthly_point") or circle.get("point"), 0)),
+        "live_points": int(_club_number(circle.get("live_points"), 0)),
+        "last_updated": circle.get("last_live_update") or circle.get("last_updated") or circle.get("updated_at"),
+    }
+
+
+@app.get("/api/club-tracker")
+async def api_club_tracker(circle: str = "", quota: int = 0, api_key: str = ""):
+    circle_id = _club_circle_id_from_value(circle)
+    if not circle_id:
+        return {"success": False, "detail": "Set a circle id or CIRCLE_URL/UMA_CIRCLE_ID env var."}
+    quota_value = int(quota or _club_number(os.environ.get("QUOTA_DAILY_FANS"), 0) or 5000000)
+    base = (os.environ.get("UMA_API_BASE_URL") or "https://uma.moe").rstrip("/")
+    api_key = (api_key or "").strip() or os.environ.get("UMA_API_KEY") or os.environ.get("UMA_MOE_API_KEY") or ""
+    url = f"{base}/api/v4/circles?circle_id={circle_id}"
+    headers = {"accept": "application/json", "user-agent": "Sweepy-Control-Center/5.14"}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    try:
+        res = requests.get(url, headers=headers, timeout=25)
+        if res.status_code >= 400:
+            return {"success": False, "detail": f"uma.moe returned {res.status_code}: {res.text[:180]}"}
+        payload = res.json()
+    except Exception as exc:
+        return {"success": False, "detail": str(exc)}
+    circle_obj = payload.get("circle") or payload.get("data", {}).get("circle") or {}
+    raw_members = payload.get("members") or payload.get("data", {}).get("members") or []
+    members = [_club_normalize_member(m) for m in raw_members]
+    members = [m for m in members if m]
+    members.sort(key=lambda item: item.get("daily_gain", 0), reverse=True)
+    on_track = [m for m in members if m.get("daily_gain", 0) >= quota_value]
+    behind = [m for m in members if m.get("daily_gain", 0) < quota_value]
+    behind.sort(key=lambda item: item.get("daily_gain", 0))
+    total_daily_gain = sum(int(m.get("daily_gain", 0)) for m in members)
+    total_monthly_gain = sum(int(m.get("monthly_gain", 0)) for m in members)
+    return {
+        "success": True,
+        "circle_id": circle_id,
+        "circle_name": circle_obj.get("name") or os.environ.get("CLUB_DISPLAY_NAME") or f"Circle {circle_id}",
+        "quota": quota_value,
+        "ranking": _club_normalize_ranking(circle_obj),
+        "summary": {
+            "member_count": len(members),
+            "on_track": len(on_track),
+            "behind": len(behind),
+            "total_daily_gain": total_daily_gain,
+            "total_monthly_gain": total_monthly_gain,
+            "avg_daily_gain": int(round(total_daily_gain / len(members))) if members else 0,
+        },
+        "members": members[:50],
+        "on_track": on_track[:20],
+        "behind": behind[:20],
+        "source": "uma.moe api-v4",
+        "checked_at": time.time(),
+    }
+
+
+def _rank_label(value):
+    try:
+        value = int(value)
+    except Exception:
+        return str(value or "")
+    return {
+        1: "G", 2: "G+", 3: "F", 4: "F+", 5: "E", 6: "E+",
+        7: "D", 8: "D+", 9: "C", 10: "C+", 11: "B", 12: "B+",
+        13: "A", 14: "A+", 15: "S", 16: "S+", 17: "SS", 18: "SS+",
+    }.get(value, str(value))
+
+def _history_safe_int(value, default=0):
+    try:
+        return int(value or default)
+    except Exception:
+        return default
+
+
+CAREER_RANK_LABEL_BY_ID = {
+    1: "G", 2: "G+", 3: "F", 4: "F+", 5: "E", 6: "E+",
+    7: "D", 8: "D+", 9: "C", 10: "C+", 11: "B", 12: "B+",
+    13: "A", 14: "A+", 15: "S", 16: "S+", 17: "SS", 18: "SS+",
+}
+
+
+def _history_rank_from_rating(value):
+    rating = _history_safe_int(value, 0)
+    if not rating:
+        return ""
+    for row in career_rank_thresholds or []:
+        try:
+            min_value = int(row.get("min_value") or 0)
+            max_value = int(row.get("max_value") or 0)
+            rank_id = int(row.get("id") or 0)
+        except Exception:
+            continue
+        if min_value <= rating <= max_value:
+            return CAREER_RANK_LABEL_BY_ID.get(rank_id, str(rank_id))
+
+    # Compatibility fallback for old installs that have not generated the
+    # master-data threshold file yet.
+    if rating >= 30000:
+        return "UF"
+    if rating >= 24000:
+        return "UE"
+    if rating >= 20000:
+        return "UG"
+    if rating >= 17000:
+        return "SS+"
+    if rating >= 14500:
+        return "S"
+    if rating >= 12100:
+        return "A+"
+    if rating >= 10000:
+        return "A"
+    if rating >= 8200:
+        return "B+"
+    if rating >= 6500:
+        return "B"
+    if rating >= 4900:
+        return "C+"
+    if rating >= 3500:
+        return "C"
+    return "D"
+
+
+APTITUDE_LABEL_BY_VALUE = {
+    1: "G",
+    2: "F",
+    3: "E",
+    4: "D",
+    5: "C",
+    6: "B",
+    7: "A",
+    8: "S",
+}
+
+
+def _aptitude_label(value):
+    if value is None or value == "":
+        return ""
+    if isinstance(value, str):
+        clean = value.strip()
+        if not clean:
+            return ""
+        if not clean.isdigit():
+            return clean.upper()
+        value = clean
+    try:
+        numeric = int(value)
+    except Exception:
+        return str(value or "").upper()
+    return APTITUDE_LABEL_BY_VALUE.get(numeric, str(value))
+
+
+def _history_normalize_aptitudes(aptitudes):
+    aptitudes = aptitudes or {}
+    def norm(value):
+        return _aptitude_label(value)
+    return {
+        "track": {
+            "turf": norm((aptitudes.get("track") or {}).get("turf") or aptitudes.get("Turf")),
+            "dirt": norm((aptitudes.get("track") or {}).get("dirt") or aptitudes.get("Dirt")),
+        },
+        "distance": {
+            "sprint": norm((aptitudes.get("distance") or {}).get("sprint") or aptitudes.get("Sprint") or aptitudes.get("short")),
+            "mile": norm((aptitudes.get("distance") or {}).get("mile") or aptitudes.get("Mile")),
+            "medium": norm((aptitudes.get("distance") or {}).get("medium") or aptitudes.get("Medium") or aptitudes.get("middle")),
+            "long": norm((aptitudes.get("distance") or {}).get("long") or aptitudes.get("Long")),
+        },
+        "style": {
+            "front": norm((aptitudes.get("style") or {}).get("front") or aptitudes.get("Front") or aptitudes.get("nige")),
+            "pace": norm((aptitudes.get("style") or {}).get("pace") or aptitudes.get("Pace") or aptitudes.get("senko")),
+            "late": norm((aptitudes.get("style") or {}).get("late") or aptitudes.get("Late") or aptitudes.get("sashi")),
+            "end": norm((aptitudes.get("style") or {}).get("end") or aptitudes.get("End") or aptitudes.get("oikomi")),
+        },
+    }
+
+
+def _history_factor_ids(chara):
+    ids = []
+    for value in chara.get("factor_id_array") or []:
+        try:
+            ids.append(int(value))
+        except Exception:
+            pass
+    for row in chara.get("factor_info_array") or []:
+        try:
+            fid = int((row or {}).get("factor_id") or (row or {}).get("id") or 0)
+            if fid:
+                ids.append(fid)
+        except Exception:
+            pass
+    return list(dict.fromkeys(ids))
+
+
+def _history_group_skills(chara):
+    groups = {}
+    labels = {
+        101: "Unique",
+        5: "Unique",
+        1: "Early-Race",
+        2: "Mid-Race",
+        3: "Late-Race",
+        4: "Recovery",
+        0: "General",
+    }
+    for row in chara.get("skill_array") or []:
+        if isinstance(row, dict):
+            sid = _history_safe_int(row.get("skill_id") or row.get("id") or 0)
+        else:
+            sid = _history_safe_int(row, 0)
+        if not sid:
+            continue
+        info = skill_data.get(str(sid)) or {}
+        name = skill_entry_name(info) or f"Skill {sid}"
+        category = _history_safe_int(info.get("skill_category"), 0)
+        label = labels.get(category, "Skills")
+        groups.setdefault(label, []).append({
+            "skill_id": sid,
+            "name": name,
+            "rarity": info.get("rarity", ""),
+            "category": category,
+        })
+    return groups
+
+
+def _history_major_wins(chara, action_history=None, race_results=None):
+    summary = get_win_summary(chara.get("win_saddle_id_array") or [])
+    if summary.get("names"):
+        return ", ".join(summary["names"][:6])
+    if summary.get("g1") or summary.get("g2") or summary.get("g3"):
+        parts = []
+        for key, label in [("g1", "G1"), ("g2", "G2"), ("g3", "G3")]:
+            if summary.get(key):
+                parts.append(f"{summary[key]} {label}")
+        return ", ".join(parts)
+
+    # Fallback to the runner's explicit race result ledger. This is more reliable
+    # than action_history because rank logs live in the lightweight log buffer.
+    wins_by_grade = {"G1": 0, "G2": 0, "G3": 0}
+    won_names = []
+    for row in race_results or []:
+        try:
+            if int(row.get("rank") or 99) != 1:
+                continue
+        except Exception:
+            continue
+        grade = str(row.get("grade") or "").upper()
+        if grade in wins_by_grade:
+            wins_by_grade[grade] += 1
+        name = str(row.get("name") or "").strip()
+        if name and len(won_names) < 4:
+            won_names.append(name)
+    parts = [f"{count} {grade}" for grade, count in wins_by_grade.items() if count]
+    if parts:
+        return ", ".join(parts)
+    if won_names:
+        return ", ".join(won_names)
+
+    # Last fallback: derive a rough win count from any injected action rows.
+    wins = 0
+    for row in action_history or []:
+        if str(row.get("action") or "") in {"race_rank", "race_rank_retry"} and "rank 1" in str(row.get("detail") or ""):
+            wins += 1
+    return f"{wins} wins" if wins else "Unknown"
+
+
+
+def _history_career_grade(races, wins, fans):
+    """Return the highest official career grade requirement satisfied.
+
+    The label intentionally keeps the master-data grade id instead of inventing
+    a localized class name that is not present in the exported table.
+    """
+    best = None
+    for row in career_progression_core or []:
+        try:
+            if int(races or 0) < int(row.get("run_num") or 0):
+                continue
+            if int(wins or 0) < int(row.get("win_num") or 0):
+                continue
+            if int(fans or 0) < int(row.get("need_fan_count") or 0):
+                continue
+            if best is None or int(row.get("grade_id") or 0) > int(best.get("grade_id") or 0):
+                best = row
+        except Exception:
+            continue
+    if not best:
+        return {"grade_id": 0, "label": "Unknown", "need_fan_count": 0, "run_num": 0, "win_num": 0}
+    grade_id = int(best.get("grade_id") or 0)
+    return {
+        "grade_id": grade_id,
+        "label": f"Career Grade {grade_id}",
+        "need_fan_count": int(best.get("need_fan_count") or 0),
+        "run_num": int(best.get("run_num") or 0),
+        "win_num": int(best.get("win_num") or 0),
+    }
+
+
+def _career_history_summary_from_runner(snap):
+    # Freeze the completed run into a private history snapshot.  Career History
+    # must never point at the live runner/status objects or a later run can make
+    # older entries show the newest run's Major Wins.
+    final_chara = deepcopy(snap.get("final_chara") or {})
+    final_stats = deepcopy(snap.get("final_stats") or final_chara.get("stats") or {})
+    final_aptitudes = deepcopy(snap.get("final_aptitudes") or final_chara.get("aptitudes") or {})
+    action_history = deepcopy(list(snap.get("action_history") or []))
+    race_results = deepcopy(list(snap.get("race_results") or final_chara.get("race_results") or []))
+    card_id = str(final_chara.get("card_id") or snap.get("card_id") or "")
+    trainee_name = chara_map.get(card_id, f"Card {card_id}" if card_id else "Unknown")
+    fans_gained = int(snap.get("fans_gained") or 0)
+    fans_current = int(final_chara.get("fans") or snap.get("fans_current") or 0)
+    fans_start = int(snap.get("fans_start") or max(0, fans_current - fans_gained) or 0)
+    if fans_gained <= 0 and fans_current >= fans_start:
+        fans_gained = max(0, fans_current - fans_start)
+
+    rating = final_chara.get("rating") or snap.get("final_rating") or ""
+    explicit_rank = final_chara.get("rank") or snap.get("final_rank") or ""
+    race_count = _history_safe_int(final_chara.get("race_count"), 0)
+    if not race_count:
+        race_count = len(race_results)
+    if not race_count:
+        race_count = sum(1 for row in action_history if str(row.get("action") or "") in {"race", "race_entry"})
+    wins = _history_safe_int(final_chara.get("win_count"), 0)
+    if not wins:
+        wins = sum(1 for row in race_results if _history_safe_int(row.get("rank"), 99) == 1)
+    if not wins:
+        wins = sum(1 for row in action_history if str(row.get("action") or "") in {"race_rank", "race_rank_retry"} and "rank 1" in str(row.get("detail") or ""))
+
+    career_grade = _history_career_grade(race_count, wins, fans_current or fans_gained)
+
+    sparks = get_factors(_history_factor_ids(final_chara), card_id)
+    skills_grouped = _history_group_skills(final_chara)
+    scenario_id = int(snap.get("scenario_id") or 0)
+    scenario = {
+        2: "URA Finale",
+        4: "Trackblazer: Start of the Climax",
+        10: "Unity Cup",
+    }.get(scenario_id, "Trackblazer: Start of the Climax" if scenario_id == 4 else f"Scenario {scenario_id}" if scenario_id else "Unknown")
+
+    explicit_major_wins = (
+        snap.get("major_wins")
+        or final_chara.get("major_wins")
+        or final_chara.get("major_win_summary")
+    )
+    major_wins = str(explicit_major_wins).strip() if explicit_major_wins else _history_major_wins(final_chara, action_history, race_results)
+
+    return {
+        "run_id": snap.get("run_id") or f"run-{len(COMPLETED_CAREER_HISTORY) + 1}",
+        "index": len(COMPLETED_CAREER_HISTORY) + 1,
+        "trainee": trainee_name,
+        "title": final_chara.get("title") or snap.get("title") or "",
+        "card_id": card_id,
+        "portrait_url": f"/api/images/{card_id}.png" if card_id else "",
+        "fans_gained": fans_gained,
+        "fans_start": fans_start,
+        "fans_final": fans_current,
+        "stats": {
+            "speed": int(final_stats.get("speed") or 0),
+            "stamina": int(final_stats.get("stamina") or 0),
+            "power": int(final_stats.get("power") or 0),
+            "guts": int(final_stats.get("guts") or 0),
+            "wit": int(final_stats.get("wit") or final_stats.get("wiz") or 0),
+            "skill_point": int(final_stats.get("skill_point") or final_stats.get("skill_points") or 0),
+        },
+        "rating": rating,
+        "career_rank": explicit_rank or _history_rank_from_rating(rating),
+        "aptitudes": _history_normalize_aptitudes(final_aptitudes),
+        "sparks": sparks,
+        "skills_grouped": skills_grouped,
+        "races": race_count,
+        "wins": wins,
+        "career_grade": career_grade.get("label"),
+        "career_grade_id": career_grade.get("grade_id"),
+        "career_grade_requirements": career_grade,
+        "major_wins": major_wins,
+        "major_win_summary": major_wins,
+        "race_results": deepcopy(race_results),
+        "scenario": scenario,
+        "turn": int(snap.get("turn") or 0),
+        "steps": int(snap.get("steps") or 0),
+        "finished_at": time.time(),
+    }
+
+
+def record_completed_career_from_snapshot(snap):
+    if not isinstance(snap, dict):
+        return None
+    if not snap.get("finished") or snap.get("running") or snap.get("last_error"):
+        return None
+    run_id = str(snap.get("run_id") or "")
+    if not run_id:
+        return None
+    if run_id in COMPLETED_CAREER_RUN_IDS:
+        return None
+    entry = _career_history_summary_from_runner(snap)
+    COMPLETED_CAREER_RUN_IDS.add(run_id)
+    COMPLETED_CAREER_HISTORY.append(entry)
+    return entry
+
+
+
+def _selected_parent_instance_ids():
+    ids = set()
+    try:
+        for parent in (active_selection or {}).get("veterans") or []:
+            iid = _coerce_int((parent or {}).get("instance_id"), 0)
+            if iid:
+                ids.add(iid)
+    except Exception:
+        pass
+    try:
+        career = (active_account or {}).get("career") or {}
+        for key in ("parent_id_1", "parent_id_2"):
+            iid = _coerce_int(career.get(key), 0)
+            if iid:
+                ids.add(iid)
+    except Exception:
+        pass
+    return ids
+
+
+def _evict_parents_from_cache(ids):
+    global active_dashboard_data, active_selection
+    wanted = {int(i) for i in ids or []}
+    if not wanted:
+        return
+    if isinstance(active_dashboard_data, dict):
+        parents = active_dashboard_data.get("parents") or []
+        active_dashboard_data["parents"] = [p for p in parents if int(p.get("instance_id") or 0) not in wanted]
+    if isinstance(active_selection, dict):
+        active_selection["veterans"] = [p for p in (active_selection.get("veterans") or []) if int((p or {}).get("instance_id") or 0) not in wanted]
+
+
+class RemoveParentsRequest(BaseModel):
+    trained_chara_ids: list[int] = []
+
+
+@app.post("/api/parents/remove")
+async def remove_parents(req: RemoveParentsRequest):
+    """Safely delete selected trained characters from the account."""
+    if not active_client:
+        return {"success": False, "detail": "Not logged in"}
+    ids = [int(i) for i in (req.trained_chara_ids or []) if int(i or 0) > 0]
+    if not ids:
+        return {"success": False, "detail": "No trained character IDs provided"}
+    selected = _selected_parent_instance_ids()
+    blocked = [i for i in ids if i in selected]
+    if blocked:
+        return {"success": False, "detail": f"Refusing to delete currently selected/active parent IDs: {blocked}"}
+    try:
+        result = active_client.remove_trained_chara(ids)
+        _evict_parents_from_cache(ids)
+        return {"success": True, "removed": len(ids), "ids": ids, "result": result}
+    except Exception as e:
+        return {"success": False, "detail": str(e)}
+
+
+class RemoveRecentParentsRequest(BaseModel):
+    max_age_hours: float = 24.0
+    dry_run: bool = True
+
+
+@app.post("/api/parents/remove-recent")
+async def remove_recent_parents(req: RemoveRecentParentsRequest):
+    """Preview/delete recently-created parent cards using the dashboard cache.
+
+    This ports the useful Senchou-Saru cleanup idea, but keeps it safer: selected
+    parents are excluded, and the frontend previews first with dry_run=true.
+    """
+    if not active_client:
+        return {"success": False, "detail": "Not logged in"}
+    if not isinstance(active_dashboard_data, dict):
+        return {"success": False, "detail": "Dashboard not loaded; click Sync/Refresh first"}
+    max_age = max(0.0, float(req.max_age_hours or 0))
+    if max_age <= 0:
+        return {"success": False, "detail": "Choose an age window first"}
+    cutoff = time.time() - max_age * 3600.0
+    selected = _selected_parent_instance_ids()
+    candidates = []
+    for p in active_dashboard_data.get("parents") or []:
+        try:
+            iid = int(p.get("instance_id") or 0)
+            created = float(p.get("create_date") or 0)
+        except Exception:
+            continue
+        if not iid or iid in selected or created <= 0 or created < cutoff:
+            continue
+        candidates.append({
+            "instance_id": iid,
+            "card_id": p.get("card_id"),
+            "name": p.get("name") or f"Parent {iid}",
+            "rank": p.get("rank"),
+            "create_date": int(created),
+        })
+    ids = [int(p["instance_id"]) for p in candidates]
+    if req.dry_run:
+        return {"success": True, "dry_run": True, "count": len(ids), "ids": ids, "parents": candidates}
+    if not ids:
+        return {"success": True, "removed": 0, "ids": [], "detail": "No parents matched the age window"}
+    try:
+        result = active_client.remove_trained_chara(ids)
+        _evict_parents_from_cache(ids)
+        return {"success": True, "dry_run": False, "removed": len(ids), "ids": ids, "parents": candidates, "result": result}
+    except Exception as e:
+        return {"success": False, "detail": str(e), "ids": ids}
+
+
+@app.post("/api/career/rescue")
+async def rescue_career():
+    """Probe recovery actions for a stuck single-mode state.
+
+    This is intentionally guarded: it only runs while logged in and while the
+    background runner is stopped, so the probes cannot fight active automation.
+    """
+    if not active_client:
+        return {"success": False, "detail": "Not logged in"}
+    if career_runner.snapshot().get("running"):
+        return {"success": False, "detail": "Stop the career runner first"}
+
+    report = []
+
+    def snap():
+        res = active_client.load_career()
+        d = res.get("data") or {}
+        ch = d.get("chara_info") or {}
+        return {
+            "turn": ch.get("turn"),
+            "playing_state": ch.get("playing_state"),
+            "vital": ch.get("vital"),
+            "race_program_id": ch.get("race_program_id"),
+            "has_race_start_info": bool(d.get("race_start_info")),
+            "events": len(d.get("unchecked_event_array") or []),
+        }
+
+    try:
+        st0 = snap()
+    except Exception as e:
+        return {"success": False, "detail": f"load failed: {e}", "report": report}
+    report.append({"step": "initial", "state": st0})
+
+    start_turn = int(st0.get("turn") or 0)
+    vital = int(st0.get("vital") or 0)
+    if int(st0.get("playing_state") or 1) == 1:
+        return {"success": True, "detail": "career is not stuck", "report": report}
+
+    def probe(label, fn):
+        row = {"step": label}
+        try:
+            fn()
+            row["call"] = "ok"
+        except Exception as e:
+            row["call"] = str(e)[:240]
+        try:
+            row["state"] = snap()
+        except Exception as e:
+            row["state"] = {"error": str(e)[:160]}
+        report.append(row)
+        state = row.get("state") or {}
+        playing_state = int(state.get("playing_state") or 0)
+        turn_now = int(state.get("turn") or 0)
+        return playing_state == 1 or turn_now > start_turn
+
+    t = start_turn
+    probes = [
+        ("race_out turn", lambda: active_client.race_out(current_turn=t)),
+        ("race_out turn+1", lambda: active_client.race_out(current_turn=t + 1)),
+        ("race_end turn+1", lambda: active_client.race_end(current_turn=t + 1)),
+        ("race_end+out turn", lambda: (active_client.race_end(current_turn=t), active_client.race_out(current_turn=t))),
+        ("race_start+end+out turn", lambda: (
+            active_client.race_start(is_short=1, current_turn=t),
+            active_client.race_end(current_turn=t),
+            active_client.race_out(current_turn=t),
+        )),
+        ("race_start+end+out turn+1", lambda: (
+            active_client.race_start(is_short=1, current_turn=t + 1),
+            active_client.race_end(current_turn=t + 1),
+            active_client.race_out(current_turn=t + 1),
+        )),
+        ("rest turn+1", lambda: active_client.exec_command(command_type=7, command_id=701, current_turn=t + 1, current_vital=vital)),
+    ]
+    for label, fn in probes:
+        if probe(label, fn):
+            return {"success": True, "detail": f"unstuck via: {label}", "report": report}
+    return {"success": False, "detail": "still stuck after all probes", "report": report}
+
+
+@app.get("/api/career/live_history")
+async def career_live_history():
+    """Live/current run history for the monitor drawer.
+
+    /api/career/history remains the completed-career archive.  This endpoint is
+    intentionally separate so the monitor can chart the currently running run.
+    """
+    snap = career_runner.snapshot()
+    history = snap.get("action_history") or []
+    return {
+        "success": True,
+        "turns": snap.get("date_history") or [],
+        "scores": snap.get("score_history") or [],
+        "stats": [
+            {"turn": row.get("turn"), "action": row.get("action"), **(row.get("stats") or {})}
+            for row in history
+            if isinstance(row, dict)
+        ],
+        "running": snap.get("running"),
+        "finished": snap.get("finished"),
+    }
+
+
+@app.get("/api/career/crash_trace")
+async def career_crash_trace():
+    trace_path = runtime_output_root(base_dir) / "crash_trace.txt"
+    if not trace_path.exists():
+        return {"success": True, "trace": ""}
+    try:
+        text = trace_path.read_text(encoding="utf-8", errors="replace")
+        return {"success": True, "trace": text[-8000:]}
+    except Exception as e:
+        return {"success": False, "detail": str(e)}
+
+
+@app.get("/api/metrics")
+async def bot_metrics():
+    snap = career_runner.snapshot()
+    return {"success": True, "metrics": snap.get("lifetime", {}), "runner": snap}
+
 @app.get("/api/career/runner")
 async def career_runner_status():
-    return {"success": True, "runner": career_runner.snapshot()}
+    snap = career_runner.snapshot()
+    record_completed_career_from_snapshot(snap)
+    extra = {}
+    loop_active = bool(backend_loop_thread and backend_loop_thread.is_alive())
+    snap["loop_active"] = loop_active
+    if snap.get("finished") and not snap.get("running") and not snap.get("last_error") and not loop_active:
+        extra = _clear_finished_career_setup_state(clear_selection=True)
+    return {"success": True, "runner": snap, **extra}
+
+
+@app.get("/api/career/history")
+async def career_history():
+    """Current-process completed career history.
+
+    This is deliberately not persisted. Restarting python main.py clears it.
+    """
+    return {
+        "success": True,
+        "count": len(COMPLETED_CAREER_HISTORY),
+        "careers": list(COMPLETED_CAREER_HISTORY),
+        "session_only": True,
+    }
 
 
 @app.post("/api/career/runner/stop")
@@ -1919,7 +6534,27 @@ async def stop_career_runner():
     global backend_loop_stop
     backend_loop_stop = True
     career_runner.stop()
-    return {"success": True, "runner": career_runner.snapshot()}
+    snap = career_runner.snapshot()
+    extra = {}
+    if snap.get("finished") and not snap.get("running"):
+        extra = _clear_finished_career_setup_state(clear_selection=True)
+    return {"success": True, "runner": snap, **extra}
+
+
+@app.post("/api/career/runner/pause")
+async def pause_career_runner():
+    career_runner.pause()
+    snap = career_runner.snapshot()
+    snap["loop_active"] = bool(backend_loop_thread and backend_loop_thread.is_alive())
+    return {"success": True, "runner": snap}
+
+
+@app.post("/api/career/runner/resume")
+async def resume_career_runner():
+    career_runner.resume()
+    snap = career_runner.snapshot()
+    snap["loop_active"] = bool(backend_loop_thread and backend_loop_thread.is_alive())
+    return {"success": True, "runner": snap}
 
 
 class BurnClocksRequest(BaseModel):
@@ -1948,6 +6583,11 @@ async def get_friend_list(req: FriendListRequest):
             "friends": active_dashboard_data["friends"],
             "exclude_viewer_ids": active_dashboard_data.get("friendExcludeIds", []),
             "source": "cache",
+            "debug": {
+                "cache_hit": True,
+                "force_refresh": bool(req.force_refresh),
+                "guest_count": len(active_dashboard_data.get("guestParents", [])),
+            },
         }
 
     try:
@@ -1966,6 +6606,139 @@ async def get_friend_list(req: FriendListRequest):
             "friends": friends,
             "exclude_viewer_ids": exclude_viewer_ids,
             "source": source,
+        }
+    except Exception as e:
+        return {"success": False, "detail": str(e)}
+
+
+
+@app.get("/api/career/guest_parents/raw")
+async def guest_parents_raw_dump():
+    """Deep diagnostic for an empty GUEST PARENTS section.
+
+    Calls pre_single_mode and reports EVERY array found at any nesting level of
+    the response: its path, length, and the keys of its first element (no values,
+    to avoid leaking account data). Also reports what the normalizer extracted and
+    writes the full report to data/guest_parents_raw_dump.json for easy sharing.
+
+    Interpreting the result:
+      * arrays whose path contains follow/guest/rental/succession/parent are the
+        candidates the normalizer targets;
+      * if NONE exist, the game simply is not returning borrowable parents for
+        this account/state (expected if no followed trainers have trained
+        characters available, or while a career is active);
+      * if one exists but guest_count is 0, send me its `sample_keys` and I will
+        extend the normalizer to that shape.
+    """
+    global active_client
+    if not active_client:
+        return {"success": False, "detail": "Not logged in"}
+    try:
+        result = active_client.pre_single_mode([])
+        data = result.get("data", {}) or {}
+
+        arrays = []
+        for path, arr in _iter_nested_arrays(data):
+            # Only report arrays of objects (skip arrays of scalars / ids).
+            first = arr[0] if arr else None
+            if isinstance(first, dict):
+                arrays.append({
+                    "path": path,
+                    "len": len(arr),
+                    "sample_keys": sorted(first.keys())[:30],
+                    "looks_guest_like": _guest_parent_like(first, path),
+                })
+        # Sort the most promising candidates first.
+        arrays.sort(key=lambda a: (a["looks_guest_like"], a["len"]), reverse=True)
+
+        guest_parents = normalize_guest_parents(data)
+        guest_sources = discover_guest_parent_sources(data)
+        report = {
+            "success": True,
+            "top_level_keys": sorted(data.keys()),
+            "object_array_count": len(arrays),
+            "object_arrays": arrays[:80],
+            "guest_like_paths": [a["path"] for a in arrays if a["looks_guest_like"]],
+            "normalizer_extracted": len(guest_parents),
+            "discovered_sources": [
+                {"path": s.get("path"), "score": s.get("score"), "count": s.get("count")}
+                for s in (guest_sources or [])[:20]
+            ],
+        }
+        try:
+            out = Path(DIR) / "data" / "guest_parents_raw_dump.json"
+            out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+            report["saved_to"] = str(out)
+        except Exception:
+            pass
+        return report
+    except Exception as e:
+        return {"success": False, "detail": str(e)}
+
+
+@app.post("/api/career/guest_parents")
+async def get_guest_parent_list(req: FriendListRequest):
+    global active_client, active_dashboard_data
+    if not active_client:
+        return {"success": False, "detail": "Not logged in"}
+
+    if (
+        not req.force_refresh
+        and not req.exclude_viewer_ids
+        and active_dashboard_data is not None
+        and active_dashboard_data.get("guestParentsLoaded")
+    ):
+        return {
+            "success": True,
+            "guestParents": active_dashboard_data.get("guestParents", []),
+            "exclude_viewer_ids": active_dashboard_data.get("guestParentExcludeIds", []),
+            "source": "cache",
+        }
+
+    try:
+        # For manual Refresh, send the current exclude list only if available. Passing
+        # stale/empty values previously made the UI look like the button did nothing.
+        result = active_client.pre_single_mode(req.exclude_viewer_ids or [])
+        data = result.get("data", {})
+        update_start_state(data)
+        guest_parents = normalize_guest_parents(data)
+        guest_sources = discover_guest_parent_sources(data)
+        friends, exclude_viewer_ids, source = normalize_friend_cards(data)
+
+        # Fallback: some builds nest rental parents under friend/support payloads
+        # loaded during login. Try the dashboard cache if the fresh payload had none.
+        if not guest_parents and active_dashboard_data:
+            guest_parents = normalize_guest_parents(active_dashboard_data)
+            guest_sources = discover_guest_parent_sources(active_dashboard_data)
+
+        # Do not fall back to friend support cards. Guest Parents must be real
+        # rental/succession trained characters, not support-card summaries.
+        if not guest_parents:
+            guest_parents = []
+
+        if active_dashboard_data is not None:
+            active_dashboard_data["guestParents"] = guest_parents
+            active_dashboard_data["guestParentExcludeIds"] = exclude_viewer_ids
+            active_dashboard_data["guestParentsLoaded"] = True
+            # Keep friend cache in sync if the same call refreshed it.
+            active_dashboard_data["friends"] = friends
+            active_dashboard_data["friendExcludeIds"] = exclude_viewer_ids
+            active_dashboard_data["friendsLoaded"] = True
+
+        return {
+            "success": True,
+            "guestParents": guest_parents,
+            "exclude_viewer_ids": exclude_viewer_ids,
+            "source": source,
+            "debug": {
+                "top_level_keys": sorted(list(data.keys()))[:80],
+                "guest_count": len(guest_parents),
+                "friend_count": len(friends),
+                "guest_sources": [{"path": s.get("path"), "score": s.get("score"), "count": s.get("count")} for s in (guest_sources or [])[:20]],
+                "guest_paths_used": sorted(list({g.get("path") or g.get("source") for g in guest_parents if g.get("path") or g.get("source")}))[:20],
+                "cache_hit": False,
+                "force_refresh": bool(req.force_refresh),
+            },
         }
     except Exception as e:
         return {"success": False, "detail": str(e)}
@@ -2043,6 +6816,18 @@ async def get_raw_load():
     return {"error": "raw load/index response storage disabled"}
 
 
+def safe_public_path(subdir: str, file_name: str):
+    """Resolve a file inside public/<subdir>, refusing path traversal."""
+    base = (base_dir / "public" / subdir).resolve()
+    try:
+        path = (base / file_name).resolve()
+    except (OSError, ValueError):
+        return None
+    if base != path and base not in path.parents:
+        return None
+    return path if path.is_file() else None
+
+
 @app.get("/api/images/{image_name}")
 async def get_image(image_name: str):
     name_no_ext = image_name.split("?")[0].replace(".png", "")
@@ -2107,18 +6892,34 @@ async def broom_png():
 
 @app.get("/assets/data/{file_name}")
 async def get_asset_data(file_name: str):
-    path = base_dir / "public" / "assets" / "data" / file_name
-    if path.exists():
+    path = safe_public_path("assets/data", file_name)
+    if path:
         return FileResponse(path, headers={"Cache-Control": "no-cache"})
     raise HTTPException(status_code=404, detail="File not found")
 
 
 @app.get("/races/{file_name}")
 async def get_race_image(file_name: str):
-    path = base_dir / "public" / "races" / file_name
-    if path.exists():
+    path = safe_public_path("races", file_name)
+    if path:
         return FileResponse(path, headers={"Cache-Control": "max-age=31536000"})
     raise HTTPException(status_code=404, detail="Race image not found")
+
+
+@app.get("/css/{file_name}")
+async def get_css_file(file_name: str):
+    path = safe_public_path("css", file_name)
+    if path:
+        return FileResponse(path, media_type="text/css", headers={"Cache-Control": "no-cache"})
+    raise HTTPException(status_code=404, detail="CSS file not found")
+
+
+@app.get("/js/{file_name}")
+async def get_js_file(file_name: str):
+    path = safe_public_path("js", file_name)
+    if path:
+        return FileResponse(path, media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+    raise HTTPException(status_code=404, detail="JavaScript file not found")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -2156,15 +6957,105 @@ def kill_process_by_name(name):
         pass
 
 
-def kill_listeners_on_port(port):
-    if os.name != "nt":
-        return
+
+def _truthy_env(name):
+    return str(os.environ.get(name, "")).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _port_listener_rows(port):
+    """Return netstat rows for LISTENING sockets on the requested local port."""
+    rows = []
     try:
-        proc = subprocess.run(
-            ["netstat", "-ano"], capture_output=True, text=True, timeout=5
-        )
+        output = subprocess.check_output(["netstat", "-ano"], text=True, errors="ignore")
     except Exception:
-        return
+        return rows
+
+    target_suffix = f":{int(port)}"
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) < 5:
+            continue
+        proto, local_addr, foreign_addr, state, pid = parts[:5]
+        if state.upper() != "LISTENING":
+            continue
+        if not local_addr.endswith(target_suffix):
+            continue
+        if not pid.isdigit():
+            continue
+        rows.append({"pid": int(pid), "proto": proto, "local_addr": local_addr})
+    return rows
+
+
+def _process_command(pid):
+    try:
+        output = subprocess.check_output(
+            ["wmic", "process", "where", f"ProcessId={int(pid)}", "get", "CommandLine,Name", "/format:list"],
+            text=True,
+            errors="ignore",
+        )
+        result = {}
+        for line in output.splitlines():
+            if "=" in line:
+                key, value = line.split("=", 1)
+                result[key.strip()] = value.strip()
+        return result
+    except Exception:
+        return {}
+
+
+def kill_listeners_on_port(port):
+    """Compatibility wrapper.
+
+    Historically this function force-killed anything listening on the dashboard port.
+    That is dangerous for multi-account setups, so it now only kills when explicitly
+    enabled with UMA_KILL_PORT_LISTENER=1.
+    """
+    return ensure_port_available(port)
+
+
+def ensure_port_available(port):
+    listeners = _port_listener_rows(port)
+    if not listeners:
+        return {"success": True, "port": int(port), "listeners": []}
+
+    allow_kill = _truthy_env("UMA_KILL_PORT_LISTENER")
+    listener_summaries = []
+    for listener in listeners:
+        info = _process_command(listener["pid"])
+        listener_summaries.append({
+            "pid": listener["pid"],
+            "local_addr": listener["local_addr"],
+            "name": info.get("Name", ""),
+            "command": info.get("CommandLine", ""),
+        })
+
+    if allow_kill:
+        killed = []
+        failed = []
+        for item in listener_summaries:
+            try:
+                subprocess.run(["taskkill", "/PID", str(item["pid"]), "/F"], check=True, capture_output=True, text=True)
+                killed.append(item)
+            except Exception as exc:
+                failed.append({"listener": item, "error": str(exc)})
+        if failed:
+            raise RuntimeError(f"Port {port} is in use and cleanup failed: {failed}")
+        print(f"[startup] Cleared {len(killed)} listener(s) from port {port} because UMA_KILL_PORT_LISTENER=1", flush=True)
+        return {"success": True, "port": int(port), "listeners": listener_summaries, "killed": killed}
+
+    detail_lines = [
+        f"Port {port} is already in use.",
+        "Automatic process killing is disabled for safety.",
+        "Close the process, choose another account port, or run with UMA_KILL_PORT_LISTENER=1 to force cleanup.",
+        "Listeners:",
+    ]
+    for item in listener_summaries:
+        label = item.get("name") or "unknown process"
+        command = item.get("command") or ""
+        detail_lines.append(f"  PID {item['pid']} | {label} | {item['local_addr']} | {command}")
+
+    raise RuntimeError("\n".join(detail_lines))
+
 
     current_pid = os.getpid()
     pids = set()
@@ -2226,9 +7117,38 @@ def has_fresh_auth_config(cfg):
 
 
 def check_saved_auth():
-    auth_config_path = os.path.join(RUNTIME_DIR, "auth_config.json")
+    # v6.7.18: prefer the userdata copy of auth_config.json so the
+    # headless bypass survives version upgrades.  RUNTIME_DIR lives
+    # inside the build folder and is wiped on upgrade; the userdata copy
+    # is authoritative.  Fall back to RUNTIME_DIR when userdata has none
+    # yet, and migrate it into userdata so the NEXT upgrade is covered.
+    runtime_auth_path = os.path.join(RUNTIME_DIR, "auth_config.json")
+    try:
+        user_auth_path = _user_auth_config_path(PROFILE_NAME)
+    except Exception:
+        user_auth_path = None
 
-    if os.path.exists(auth_config_path):
+    auth_config_path = None
+    if user_auth_path is not None and user_auth_path.exists():
+        auth_config_path = str(user_auth_path)
+        print(f"[+] Using saved auth from userdata for {PROFILE_NAME}.", flush=True)
+    elif os.path.exists(runtime_auth_path):
+        auth_config_path = runtime_auth_path
+        # Migrate the runtime copy into userdata for future upgrades.
+        if user_auth_path is not None:
+            try:
+                user_auth_path.write_text(
+                    Path(runtime_auth_path).read_text(encoding="utf-8"),
+                    encoding="utf-8",
+                )
+                print(
+                    f"[+] Migrated auth_config.json into userdata for {PROFILE_NAME}.",
+                    flush=True,
+                )
+            except Exception as exc:
+                print(f"[-] auth_config userdata migration failed: {exc}", flush=True)
+
+    if auth_config_path and os.path.exists(auth_config_path):
         try:
             with open(auth_config_path, "r") as f:
                 saved_cfg = json.load(f)
@@ -2300,8 +7220,7 @@ def check_saved_auth():
                                 save_cfg["steam_password_seed"]
                             )
 
-                        with open(auth_config_path, "w") as f:
-                            json.dump(save_cfg, f, indent=4)
+                        _save_auth_config_both(save_cfg, PROFILE_NAME)
                         return saved_cfg
                     else:
                         print("[-] Headless bypass with new ticket failed.", flush=True)
@@ -2407,7 +7326,12 @@ if __name__ == "__main__":
     import uvicorn
 
     set_console_topmost()
-    kill_listeners_on_port(PORT)
+    ensure_port_available(PORT)
+    refresh_status = maybe_start_profile_refresh(DIR, force=False)
+    if refresh_status.get("started"):
+        print(f"[profile-refresh] background refresh started: {refresh_status.get('reason')}", flush=True)
+    else:
+        print(f"[profile-refresh] skipped: {refresh_status.get('reason')}", flush=True)
     if not refresh_auth_before_serving():
         raise SystemExit(1)
 

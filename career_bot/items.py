@@ -1,3 +1,9 @@
+import json
+
+from pathlib import Path
+
+from career_bot.trackblazer_guide import load_guide, is_pre_summer, is_summer_turn
+from career_bot import trackblazer_rules as tb_rules
 
 ITEM_NAMES = {
     1001: "Speed Notepad",
@@ -102,6 +108,26 @@ AILMENT_CURE_ALL = "Miracle Cure"
 
 CURE_ITEMS = set(AILMENT_CURE_MAP.values()) | {AILMENT_CURE_ALL}
 
+# v5 smart-shop guardrails inspired by the Android bot: buy toward usefulness,
+# not toward a museum shelf. Most items cap at 5, one-shot cures cap lower.
+DEFAULT_INVENTORY_CAP = 5
+ITEM_INVENTORY_CAPS = {
+    "Fluffy Pillow": 1,
+    "Pocket Planner": 1,
+    "Smart Scale": 1,
+    "Aroma Diffuser": 1,
+    "Practice Drills DVD": 1,
+    "Pretty Mirror": 1,
+    "Reporter's Binoculars": 1,
+    "Master Practice Guide": 1,
+    "Scholar's Hat": 1,
+    "Good-Luck Charm": 5,
+    "Reset Whistle": 5,
+    "Coaching Megaphone": 5,
+    "Motivating Megaphone": 5,
+    "Empowering Megaphone": 5,
+}
+
 INSTANT_USE_ITEMS = [
     "Grilled Carrots",
     "Yummy Cat Food",
@@ -148,6 +174,19 @@ TRAINING_TYPE_ANKLET = {
     604: "Guts Ankle Weights",
 }
 
+TRAINING_COMMAND_MAIN_TARGET = {
+    101: 1,
+    601: 1,
+    105: 2,
+    602: 2,
+    102: 3,
+    603: 3,
+    103: 4,
+    604: 4,
+    106: 5,
+    605: 5,
+}
+
 TRAINING_ITEM_DECK_TYPE_INDEX = {
     "Speed Ankle Weights": 0,
     "Stamina Ankle Weights": 1,
@@ -160,65 +199,43 @@ TRAINING_ITEM_DECK_TYPE_INDEX = {
     "Wit Training Application": 4,
 }
 
-DEFAULT_ITEM_TIERS = {
-    "speed_notepad": 1,
-    "speed_manual": 1,
-    "speed_scroll": 1,
-    "stamina_notepad": 1,
-    "stamina_manual": 1,
-    "stamina_scroll": 1,
-    "power_notepad": 1,
-    "power_manual": 1,
-    "power_scroll": 1,
-    "guts_notepad": 1,
-    "guts_manual": 1,
-    "guts_scroll": 1,
-    "wit_notepad": 1,
-    "wit_manual": 1,
-    "wit_scroll": 1,
-    "vita_20": 3,
-    "vita_40": 2,
-    "vita_65": 2,
-    "royal_kale_juice": 3,
-    "energy_drink_max": 6,
-    "energy_drink_max_ex": 7,
-    "plain_cupcake": 3,
-    "berry_sweet_cupcake": 4,
-    "yummy_cat_food": 7,
-    "grilled_carrots": 4,
-    "pretty_mirror": 7,
-    "reporters_binoculars": 8,
-    "master_practice_guide": 7,
-    "scholars_hat": 8,
-    "fluffy_pillow": 7,
-    "pocket_planner": 7,
-    "rich_hand_cream": 5,
-    "smart_scale": 7,
-    "aroma_diffuser": 7,
-    "practice_drills_dvd": 8,
-    "miracle_cure": 5,
-    "speed_training_application": 7,
-    "stamina_training_application": 7,
-    "power_training_application": 7,
-    "guts_training_application": 7,
-    "wit_training_application": 7,
-    "reset_whistle": 1,
-    "coaching_megaphone": 999,
-    "motivating_megaphone": 3,
-    "empowering_megaphone": 3,
-    "speed_ankle_weights": 7,
-    "stamina_ankle_weights": 7,
-    "power_ankle_weights": 7,
-    "guts_ankle_weights": 7,
-    "good-luck_charm": 3,
-    "artisan_cleat_hammer": 1,
-    "master_cleat_hammer": 1,
-    "glow_sticks": 8,
-}
+DEFAULT_ITEM_TIERS = dict(tb_rules.TRACKBLAZER_SHOP_TIERS)
 
 
 def display_to_slug(name):
     return str(name or "").lower().replace("'", "").replace(" ", "_")
+
+
+MASTER_SHOP_CACHE = {}
+
+
+def load_master_shop_core(base_dir):
+    """Load master.mdb-derived MANT shop data exported by career_bot.master_data."""
+    if not base_dir:
+        return {}
+    key = str(Path(base_dir))
+    if key in MASTER_SHOP_CACHE:
+        return MASTER_SHOP_CACHE[key]
+    path = Path(base_dir) / "data" / "mant_shop_core.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except Exception:
+        data = {}
+    by_id = {}
+    by_name = {}
+    for row in data.get("items", []) if isinstance(data, dict) else []:
+        try:
+            item_id = int(row.get("item_id") or 0)
+        except Exception:
+            continue
+        name = row.get("name") or ITEM_NAMES.get(item_id) or str(item_id)
+        if item_id:
+            by_id[item_id] = row
+        if name:
+            by_name[str(name)] = row
+    result = {"raw": data, "by_id": by_id, "by_name": by_name}
+    MASTER_SHOP_CACHE[key] = result
+    return result
 
 
 class MantItemManager:
@@ -227,7 +244,9 @@ class MantItemManager:
         self.failed_exchange_this_snapshot = set()
         self.failed_use_this_turn = set()
         self.current_turn = None
+        self.used_whistle_turn = None
         self.shop_snapshot_key = None
+        self.last_shop_check_turn = None
         self.recover_after_exchange_error = False
         self.recover_after_use_error = False
         self.last_buy_options = []
@@ -243,12 +262,25 @@ class MantItemManager:
         self.last_pre_race_use_result = {}
         self.buy_attempt_events = []
         self.use_attempt_events = []
+        self.guide_cache = None
+        self.trackblazer_race_catalog_cache = {}
+
+    def _guide(self, preset=None):
+        base_dir = (preset or {}).get("_base_dir") or (preset or {}).get("base_dir")
+        if not base_dir:
+            base_dir = Path(__file__).resolve().parents[1]
+        try:
+            return load_guide(str(base_dir))
+        except Exception:
+            return load_guide(str(Path(__file__).resolve().parents[1]))
 
     def reset_scoped_failures(self):
         self.failed_exchange_this_snapshot = set()
         self.failed_use_this_turn = set()
         self.current_turn = None
+        self.used_whistle_turn = None
         self.shop_snapshot_key = None
+        self.last_shop_check_turn = None
         self.last_buy_options = []
         self.last_buy_selected = []
         self.last_buy_attempt = []
@@ -285,7 +317,7 @@ class MantItemManager:
     def handle(self, client, state, preset, best_command=None, status=None, race_planner=None):
         current = state
         self.recover_after_exchange_error = False
-        current, bought = self.buy_shop_items(client, current, preset, race_planner)
+        current, bought = self.buy_shop_items(client, current, preset, race_planner, status)
 
         self.recover_after_use_error = False
         current, used = self.use_items(client, current, preset, best_command, status, race_planner)
@@ -294,7 +326,7 @@ class MantItemManager:
 
     def handle_pre_race(self, client, state, preset, payload, status=None, race_planner=None):
         self.recover_after_exchange_error = False
-        current, bought = self.buy_shop_items(client, state, preset, race_planner)
+        current, bought = self.buy_shop_items(client, state, preset, race_planner, status)
 
         self.recover_after_use_error = False
         current, instant_used = self.use_items(client, current, preset, None, status, race_planner)
@@ -315,21 +347,12 @@ class MantItemManager:
             return current, instant_used
 
         targets = []
-        SUMMER_CAMP_2_START = 60
-        CLIMAX_RACE_TURNS = [74, 76, 78]
 
         vital = int(chara.get("vital") or 0)
         if owned.get("Energy Drink MAX", 0) > 0 and vital <= 1:
             targets.append(("Energy Drink MAX", 1))
 
-        cleat_choice = self._old_ui_cleat_before_race(owned, turn, program_id, race_planner)
-        is_climax_race = turn in CLIMAX_RACE_TURNS
-        is_g1 = self._is_g1_program(program_id, race_planner)
-        use_gear = cleat_choice is not None or is_climax_race or is_g1 or turn > SUMMER_CAMP_2_START
-        if use_gear and owned.get("Glow Sticks", 0) > 0:
-            targets.append(("Glow Sticks", 1))
-        if cleat_choice:
-            targets.append((cleat_choice, 1))
+        targets.extend(self._trackblazer_race_item_targets(owned, turn, program_id, preset, race_planner))
 
         targets = self._merge_targets(targets, owned)
         self.last_pre_race_use_selected = [{"name": name, "item_id": DISPLAY_TO_ID.get(name), "use_num": count} for name, count in targets]
@@ -374,7 +397,48 @@ class MantItemManager:
 
         return current, instant_used
 
-    def buy_shop_items(self, client, state, preset, race_planner=None):
+    def _should_check_shop(self, current_turn, preset, data=None, status=None, race_planner=None):
+        cfg = self._mant_cfg(preset)
+        freq = int(cfg.get("trackblazer_shop_check_frequency") or 1)
+        if freq <= 1:
+            return True
+        if self.last_shop_check_turn is None:
+            return True
+        if int(current_turn or 0) - int(self.last_shop_check_turn or 0) < freq:
+            return False
+        grades = cfg.get("trackblazer_shop_check_grades") or ["G1", "G2", "G3"]
+        if isinstance(grades, str):
+            grades = [part.strip().upper() for part in grades.split(",") if part.strip()]
+        else:
+            grades = [str(g).strip().upper() for g in grades]
+        if not grades:
+            return True
+        # Best effort: use recent runner history if it includes a program id, otherwise allow.
+        rows = []
+        if isinstance(status, dict):
+            rows = status.get("action_history") or []
+        if not isinstance(rows, list) or not rows:
+            return True
+        latest = None
+        for row in reversed(rows[-10:]):
+            if not isinstance(row, dict):
+                continue
+            if "race" in str(row.get("action") or row.get("type") or "").lower():
+                latest = row
+                break
+        if not latest or not race_planner:
+            return True
+        program_id = latest.get("program_id") or latest.get("race_program_id")
+        if not program_id:
+            return True
+        try:
+            info = race_planner._program_info(program_id)
+            grade = tb_rules.normalize_grade(info.get("grade") or info.get("race_instance_id"))
+            return grade in grades
+        except Exception:
+            return True
+
+    def buy_shop_items(self, client, state, preset, race_planner=None, status=None):
         data = state.get("data") or {}
         free = data.get("free_data_set") or {}
         chara = data.get("chara_info") or {}
@@ -395,6 +459,9 @@ class MantItemManager:
         self.last_buy_attempt = []
         self.last_buy_result = {"mant_coin": budget}
         self.buy_attempt_events = []
+        if not self._should_check_shop(current_turn, preset, data, status, race_planner):
+            self.last_buy_result = {"skip": "shop_frequency_gate", "turn": current_turn, "last_shop_check_turn": self.last_shop_check_turn}
+            return state, 0
         if not pickups:
             self.last_buy_result = {"skip": "no_pickups", "mant_coin": budget}
             return state, 0
@@ -414,7 +481,7 @@ class MantItemManager:
         bbq_shift = non_rainbow_count - bbq_threshold
         charm_owned = owned.get("Good-Luck Charm", 0)
         is_senior_or_later = current_turn > 48
-        charm_stop_qty = 2 if is_senior_or_later else 3
+        charm_stop_qty = self._item_cap("Good-Luck Charm", preset)
         charm_stop = charm_owned >= charm_stop_qty
         cupcake_names = {"Plain Cupcake", "Berry Sweet Cupcake"}
         total_cupcakes = sum(owned.get(n, 0) for n in cupcake_names)
@@ -443,11 +510,14 @@ class MantItemManager:
                 skip_reason = "limit_reached"
             elif self._skip_buy(name, owned, preset, current_turn, start_budget, data, race_planner):
                 skip_reason = "skip_buy"
+            official = (load_master_shop_core((preset or {}).get("_base_dir") or (preset or {}).get("base_dir")).get("by_id") or {}).get(item_id, {})
             self.last_buy_options.append({
                 "name": name,
                 "item_id": item_id,
                 "shop_item_id": shop_item_id,
                 "cost": cost,
+                "official_master": bool(official),
+                "official_effects": official.get("effects", []),
                 "current_num": current_num,
                 "limit": limit,
                 "limit_turn": limit_turn,
@@ -466,6 +536,16 @@ class MantItemManager:
             slug = display_to_slug(name)
             base_t = int(tiers.get(slug) or 999)
             eff_t = base_t
+            guide = self._guide(preset)
+            shop_cfg = guide.get("shop_priorities") or {}
+            immediate_stat_names = set(((shop_cfg.get("immediate_stat_items") or {}).get("names") or []))
+            if name in immediate_stat_names:
+                # Stats are excellent, but the Trackblazer race/item economy kit
+                # still comes first.  Do not let guide data lift them above tier 2.
+                eff_t = min(eff_t, max(2, int((shop_cfg.get("immediate_stat_items") or {}).get("tier") or 2)))
+            fast_cfg = shop_cfg.get("fast_learner") or {}
+            if cfg.get("enable_fast_learner_shop_boost", False) and name == fast_cfg.get("item", "Scholar's Hat") and current_turn <= int(fast_cfg.get("reserve_until_turn") or 64):
+                eff_t = min(eff_t, int(fast_cfg.get("tier") or 1))
             for ailment in active_ailments:
                 specific_cure = AILMENT_CURE_MAP.get(ailment)
                 if specific_cure and name == specific_cure and not has_miracle and owned.get(name, 0) <= 0:
@@ -480,24 +560,20 @@ class MantItemManager:
                 eff_t = 999 if charm_stop else min(eff_t, base_t - charm_owned)
             elif slug in {"plain_cupcake", "berry_sweet_cupcake"}:
                 eff_t = min(eff_t, base_t - cupcake_shift)
-            elif slug in {"artisan_cleat_hammer", "master_cleat_hammer"}:
-                eff_t = 999
+            elif slug in {"artisan_cleat_hammer", "master_cleat_hammer", "glow_sticks"}:
+                eff_t = min(eff_t, base_t)
             effective_rows.append((max(1, eff_t), name, row))
 
         targets = []
         selected_ids = set()
-        cleat_row = self._old_ui_cleat_shop_target(available, owned, budget, current_turn)
-        if cleat_row:
-            cleat_name = ITEM_NAMES.get(int(cleat_row.get("item_id") or 0), "")
-            cleat_cost = int(cleat_row.get("coin_num") or SHOP_ITEM_COSTS.get(cleat_name, 9999))
-            if cleat_cost <= budget:
-                targets.append(cleat_row)
-                selected_ids.add(id(cleat_row))
-                budget -= cleat_cost
 
         for tier in range(1, tier_count + 1):
             tier_rows = [(name, row) for eff_t, name, row in effective_rows if eff_t == tier and id(row) not in selected_ids]
-            tier_rows.sort(key=lambda item: (int(item[1].get("limit_turn") or 99), int(item[1].get("coin_num") or SHOP_ITEM_COSTS.get(item[0], 9999))))
+            tier_rows.sort(key=lambda item: (
+                int(item[1].get("limit_turn") or 99),
+                -self._item_buy_value(item[0], item[1], owned, current_turn, start_budget, data, preset, race_planner),
+                int(item[1].get("coin_num") or SHOP_ITEM_COSTS.get(item[0], 9999)),
+            ))
             for name, row in tier_rows:
                 cost = int(row.get("coin_num") or SHOP_ITEM_COSTS.get(name, 9999))
                 remaining = budget - cost
@@ -609,6 +685,7 @@ class MantItemManager:
         self.buy_attempt_events.append(event)
         try:
             result = client.exchange_items(valid_payload, current_turn)
+            self.last_shop_check_turn = current_turn
             self.last_buy_result = {"result": "ok", "turn": current_turn, "payload": valid_payload}
             event["result"] = self.last_buy_result
             self.failed_exchange_this_snapshot = set()
@@ -629,6 +706,125 @@ class MantItemManager:
         info = (race_planner.program or {}).get(program_id) or {}
         race_inst = str(info.get("race_instance_id") or "")
         return race_inst.startswith("1")
+
+    def _trackblazer_race_item_targets(self, owned, turn, program_id, preset, race_planner):
+        info = self._program_race_info(program_id, race_planner)
+        grade = tb_rules.normalize_grade(info.get("grade") or info.get("race_instance_id"))
+        fans = int(info.get("fans") or 0)
+        cfg = self._mant_cfg(preset)
+        targets = []
+
+        if not grade or grade in {"OP", "PRE-OP", "800", "900"}:
+            return targets
+        if turn < 13:
+            return targets
+
+        hammer = self._hammer_target_for_race(owned, turn, grade, cfg)
+        if hammer:
+            targets.append((hammer, 1))
+
+        if self._should_use_glow_stick(owned, turn, grade, fans, cfg):
+            targets.append(("Glow Sticks", 1))
+        return targets
+
+    def _program_race_info(self, program_id, race_planner):
+        if not race_planner or not program_id:
+            return {}
+        pid = int(program_id or 0)
+        info = {}
+        info.update((race_planner.program or {}).get(pid) or {})
+        info.update((getattr(race_planner, "official_races", {}) or {}).get(pid) or {})
+        name = str(info.get("name") or "").strip()
+        if name and not info.get("fans"):
+            catalog = self._trackblazer_race_catalog(getattr(race_planner, "base_dir", None))
+            rows = catalog.get(self._race_name_key(name), [])
+            turn = int(info.get("turn") or 0)
+            match = None
+            if turn:
+                for row in rows:
+                    if int(row.get("turn") or 0) == turn:
+                        match = row
+                        break
+            if not match and rows:
+                match = rows[0]
+            if match:
+                info.setdefault("fans", int(match.get("fans") or 0))
+                info.setdefault("grade", match.get("grade") or info.get("grade"))
+                info.setdefault("distance", match.get("distance") or info.get("distance"))
+                info.setdefault("surface", match.get("surface") or info.get("terrain"))
+        return info
+
+    def _trackblazer_race_catalog(self, base_dir):
+        key = str(base_dir or "")
+        if key in self.trackblazer_race_catalog_cache:
+            return self.trackblazer_race_catalog_cache[key]
+        result = {}
+        if base_dir:
+            path = Path(base_dir) / "data" / "trackblazer" / "races.json"
+            try:
+                rows = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+            except Exception:
+                rows = []
+            for row in rows if isinstance(rows, list) else []:
+                name = self._race_name_key(row.get("name"))
+                if name:
+                    result.setdefault(name, []).append(row)
+        self.trackblazer_race_catalog_cache[key] = result
+        return result
+
+    def _race_name_key(self, name):
+        return "".join(ch.lower() for ch in str(name or "") if ch.isalnum())
+
+    def _hammer_target_for_race(self, owned, turn, grade, cfg):
+        master_qty = int(owned.get("Master Cleat Hammer", 0) or 0)
+        artisan_qty = int(owned.get("Artisan Cleat Hammer", 0) or 0)
+        if master_qty + artisan_qty <= 0:
+            return None
+
+        is_finale = turn in tb_rules.TRACKBLAZER_FINALE_RACE_TURNS
+        is_final_race = turn >= tb_rules.TRACKBLAZER_FINAL_RACE_TURN
+        conservation = turn >= tb_rules.RACE_ITEM_CONSERVATION_START_TURN
+
+        if grade == "G1":
+            if master_qty > 0:
+                if not conservation or is_final_race:
+                    return "Master Cleat Hammer"
+                reserve = int(cfg.get("trackblazer_master_hammer_finale_reserve") or tb_rules.DEFAULT_MASTER_HAMMER_FINALE_RESERVE)
+                if not is_finale or master_qty >= reserve:
+                    return "Master Cleat Hammer"
+            if artisan_qty > 0:
+                return "Artisan Cleat Hammer" if (not conservation or is_final_race or artisan_qty >= 2) else None
+            return None
+
+        if grade not in {"G2", "G3"}:
+            return None
+        if artisan_qty <= 0:
+            return None
+        if not conservation or is_final_race:
+            return "Artisan Cleat Hammer"
+        floor_key = "trackblazer_artisan_hammer_min_stock_for_g2" if grade == "G2" else "trackblazer_artisan_hammer_min_stock_for_g3"
+        default_floor = tb_rules.DEFAULT_ARTISAN_HAMMER_MIN_STOCK_FOR_G2 if grade == "G2" else tb_rules.DEFAULT_ARTISAN_HAMMER_MIN_STOCK_FOR_G3
+        return "Artisan Cleat Hammer" if artisan_qty >= int(cfg.get(floor_key) or default_floor) else None
+
+    def _should_use_glow_stick(self, owned, turn, grade, fans, cfg):
+        qty = int(owned.get("Glow Sticks", 0) or 0)
+        if qty <= 0 or grade != "G1":
+            return False
+        is_finale = turn in tb_rules.TRACKBLAZER_FINALE_RACE_TURNS
+        is_final_race = turn >= tb_rules.TRACKBLAZER_FINAL_RACE_TURN
+        min_fans = int(cfg.get("trackblazer_glow_stick_min_fans") or tb_rules.DEFAULT_GLOW_STICK_MIN_FANS)
+        # If fan data is unavailable for a known finale race, use the item. The
+        # finale is exactly what the reserve exists for.
+        if fans and fans < min_fans and not is_finale:
+            return False
+        if turn < tb_rules.RACE_ITEM_CONSERVATION_START_TURN:
+            return (fans == 0) or fans >= min_fans
+        if is_final_race:
+            return True
+        if not is_finale and fans >= tb_rules.TOP_TIER_G1_GLOW_FAN_FLOOR:
+            return True
+        reserve = int(cfg.get("trackblazer_glow_stick_final_reserve") or tb_rules.DEFAULT_GLOW_STICK_FINAL_RESERVE)
+        return qty > reserve
 
     def _old_ui_cleat_before_race(self, owned, turn, program_id, race_planner):
         SUMMER_CAMP_2_START = 60
@@ -754,19 +950,30 @@ class MantItemManager:
 
                 targets.append((name, qty))
 
-        targets.extend(self._energy_targets(chara, owned, preset))
-        targets.extend(self._ailment_cure_targets(data, owned))
-        mood_target = self._mood_target(chara, owned)
-        if mood_target:
-            targets.append(mood_target)
-
         whistle = self._whistle_target(best_command, owned, preset, status, current_turn)
         if whistle:
             targets = [whistle]
         else:
             charm = self._charm_target(best_command, owned, preset, status)
+            save_energy_under_charm = bool((preset or {}).get("save_energy_under_charm", True))
+
+            if not (charm and save_energy_under_charm):
+                targets.extend(self._energy_targets(chara, owned, preset, best_command, status))
+            targets.extend(self._ailment_cure_targets(data, owned))
+
+            kale_queued = any(name == "Royal Kale Juice" for name, _ in targets)
+            mood_target = self._mood_target(chara, owned, preset, kale_queued)
+            if mood_target:
+                targets.append(mood_target)
+
             if charm:
                 targets.append(charm)
+                # A Good-Luck Charm guarantees the training succeeds regardless of
+                # energy, so energy items spent this same turn are wasted on a turn
+                # that was already safe. Drop them so they can be saved for an
+                # unprotected low-energy turn. Opt out with save_energy_under_charm=false.
+                if save_energy_under_charm:
+                    targets = [t for t in targets if t[0] not in ENERGY_ITEMS]
             mega = self._megaphone_target(state, best_command, owned, preset, status, current_turn, race_planner)
             if mega:
                 targets.append(mega)
@@ -835,6 +1042,8 @@ class MantItemManager:
         try:
             res = client.use_items(payload, current_turn)
             self.failed_use_this_turn = set()
+            if any(name == "Reset Whistle" for name, _ in valid_targets):
+                self.used_whistle_turn = current_turn
             for name, _ in valid_targets:
                 if name in ONE_TIME_BUFF_ITEMS:
                     self.used_buffs.add(name)
@@ -942,15 +1151,44 @@ class MantItemManager:
 
     def _mant_cfg(self, preset):
         cfg = dict((preset or {}).get("mant_config") or {})
-        cfg.setdefault("item_tiers", DEFAULT_ITEM_TIERS)
+        base_dir = (preset or {}).get("_base_dir") or (preset or {}).get("base_dir")
+        master_shop = load_master_shop_core(base_dir)
+        official_tiers = dict(DEFAULT_ITEM_TIERS)
+        for name, row in (master_shop.get("by_name") or {}).items():
+            slug = display_to_slug(name)
+            if not slug:
+                continue
+            # Lower cost and direct-use items are generally higher priority.
+            cost = int(row.get("coin_num") or SHOP_ITEM_COSTS.get(name, 999))
+            use_flag = int(row.get("use_flag") or 0)
+            effect_priority = int(row.get("effect_priority") or 0)
+            tier = 8 if use_flag else 5
+            if cost <= 20:
+                tier = min(tier, 3)
+            if effect_priority:
+                tier = min(tier, max(1, 8 - effect_priority))
+            official_tiers.setdefault(slug, tier)
+            if cost > 0 and name not in SHOP_ITEM_COSTS:
+                SHOP_ITEM_COSTS[name] = cost
+        cfg.setdefault("item_tiers", official_tiers)
         cfg.setdefault("tier_count", 8)
         cfg.setdefault("tier_thresholds", {"3": 31, "7": 100, "8": 99999999999})
-        cfg.setdefault("charm_failure_rate", 15)
+        cfg.setdefault("charm_failure_rate", tb_rules.DEFAULT_CHARM_FAILURE_THRESHOLD)
         cfg.setdefault("mega_small_threshold", 11)
         cfg.setdefault("mega_medium_threshold", 21)
         cfg.setdefault("mega_large_threshold", 35)
         cfg.setdefault("mega_late_buy_buffer", 5)
         cfg.setdefault("training_weights_threshold", 40)
+        cfg.setdefault("energy_recovery_threshold", tb_rules.DEFAULT_ENERGY_RECOVERY_THRESHOLD)
+        cfg.setdefault("trackblazer_energy_item_reserve", tb_rules.DEFAULT_ENERGY_ITEM_RESERVE)
+        cfg.setdefault("trackblazer_cupcake_reserve", tb_rules.DEFAULT_CUPCAKE_RESERVE)
+        cfg.setdefault("charm_min_main_gain", tb_rules.DEFAULT_CHARM_MIN_MAIN_GAIN)
+        cfg.setdefault("trackblazer_skip_bad_mood_items_below_gain", tb_rules.DEFAULT_LOW_MOOD_ITEM_GAIN_FLOOR)
+        cfg.setdefault("trackblazer_master_hammer_finale_reserve", tb_rules.DEFAULT_MASTER_HAMMER_FINALE_RESERVE)
+        cfg.setdefault("trackblazer_artisan_hammer_min_stock_for_g3", tb_rules.DEFAULT_ARTISAN_HAMMER_MIN_STOCK_FOR_G3)
+        cfg.setdefault("trackblazer_artisan_hammer_min_stock_for_g2", tb_rules.DEFAULT_ARTISAN_HAMMER_MIN_STOCK_FOR_G2)
+        cfg.setdefault("trackblazer_glow_stick_final_reserve", tb_rules.DEFAULT_GLOW_STICK_FINAL_RESERVE)
+        cfg.setdefault("trackblazer_glow_stick_min_fans", tb_rules.DEFAULT_GLOW_STICK_MIN_FANS)
         return cfg
 
     def _owned_map(self, free):
@@ -1004,63 +1242,145 @@ class MantItemManager:
             result.append((AILMENT_CURE_ALL, 1))
         return result
 
-    def _energy_targets(self, chara, owned, preset):
-        result = []
+    def _energy_targets(self, chara, owned, preset, best_command=None, status=None):
+        """Choose recovery items using Trackblazer conservation rules.
+
+        Native SweepyCL payloads already tell us vitality and inventory, so this
+        is the Android policy without OCR: reserve one low-tier Vita, avoid
+        over-healing past ~110%, and treat Royal Kale Juice as a guarded full
+        restore because it costs motivation.
+        """
         hp = int(chara.get("vital") or 0)
-        max_hp = int(chara.get("max_vital") or 100)
+        max_hp = max(1, int(chara.get("max_vital") or 100))
         gap = max_hp - hp
         if gap < 20:
-            return result
+            return []
+
         cfg = self._mant_cfg(preset)
-        threshold = int(cfg.get("energy_recovery_threshold") or 30)
+        threshold = int(cfg.get("energy_recovery_threshold") or tb_rules.DEFAULT_ENERGY_RECOVERY_THRESHOLD)
+        turn = int(chara.get("turn") or 0)
+        if turn in (35, 59):
+            threshold = max(threshold, int(cfg.get("pre_camp_energy_threshold") or 65))
         if hp > threshold:
-            return result
+            return []
 
-        candidates = []
-        for name, value in ENERGY_ITEMS.items():
-            qty = owned.get(name, 0)
-            if qty > 0:
-                candidates.append({"name": name, "value": value, "qty": qty})
+        # Charm turns should not spend recovery items; failure is already zero and
+        # vitality is deducted after the training resolves.
+        if (preset or {}).get("save_energy_under_charm", True) and self._charm_target(best_command, owned, preset, status):
+            return []
 
-        candidates.sort(key=lambda x: x["value"], reverse=True)
-
-        remaining_gap = gap
-        for c in candidates:
-            if remaining_gap <= 5: break
-            num_to_use = min(c["qty"], (remaining_gap + 5) // c["value"])
-            if num_to_use > 0:
-                result.append((c["name"], num_to_use))
-                remaining_gap -= num_to_use * c["value"]
-
-        return result
-
-    def _mood_target(self, chara, owned):
         motivation = int(chara.get("motivation") or 3)
-        if motivation >= 5:
-            return None
+        reserve = max(0, int(cfg.get("trackblazer_energy_item_reserve") or tb_rules.DEFAULT_ENERGY_ITEM_RESERVE))
+        cupcake_reserve = max(0, int(cfg.get("trackblazer_cupcake_reserve") or tb_rules.DEFAULT_CUPCAKE_RESERVE))
+        has_cupcake = self._available_cupcake(owned, reserve=cupcake_reserve, allow_reserved=True) is not None
 
-        needed = 5 - motivation
+        # Royal Kale is a full refill with a mood bite. Use it as the panic lever
+        # at critical HP, or when a cupcake can patch the mood loss immediately.
+        if owned.get("Royal Kale Juice", 0) > 0:
+            critical = hp <= int(cfg.get("kale_critical_threshold") or tb_rules.ENERGY_CRITICAL_KALE_THRESHOLD)
+            safe_mood = has_cupcake or motivation <= 1
+            if critical or safe_mood:
+                return [("Royal Kale Juice", 1)]
 
-        if owned.get("Berry Sweet Cupcake", 0) > 0:
-            return ("Berry Sweet Cupcake", 1)
+        usable_vitas = self._usable_vita_counts(owned, reserve)
+        if not usable_vitas:
+            return []
+        target_cap = int(max_hp * float(cfg.get("energy_overshoot_cap_ratio") or tb_rules.ENERGY_OVERSHOOT_CAP_RATIO))
+        picked = []
+        total = hp
+        # Greedy descending: the policy wants useful top-ups, not a tiny-item drip.
+        for name, gain in sorted(tb_rules.VITA_GAINS.items(), key=lambda item: item[1], reverse=True):
+            for _ in range(int(usable_vitas.get(name, 0) or 0)):
+                if total + gain <= target_cap:
+                    picked.append((name, 1))
+                    total += gain
+                if total >= max_hp:
+                    return self._merge_targets(picked, owned)
+        return self._merge_targets(picked, owned)
 
-        if owned.get("Plain Cupcake", 0) > 0:
-            use_num = min(owned.get("Plain Cupcake"), needed)
-            return ("Plain Cupcake", use_num)
+    def _usable_vita_counts(self, owned, reserve):
+        counts = {name: int(owned.get(name, 0) or 0) for name in tb_rules.VITA_GAINS}
+        if reserve <= 0:
+            return counts
+        for name in tb_rules.ENERGY_CONSERVATION_ORDER:
+            if counts.get(name, 0) > 0:
+                counts[name] = max(0, counts[name] - reserve)
+                break
+        return counts
 
+    def _available_cupcake(self, owned, reserve=0, allow_reserved=False):
+        for name in tb_rules.CUPCAKE_ORDER:
+            qty = int(owned.get(name, 0) or 0)
+            if qty <= 0:
+                continue
+            if not allow_reserved and qty <= int(reserve or 0):
+                continue
+            return name
         return None
+
+    def _mood_target(self, chara, owned, preset=None, kale_queued=False):
+        motivation = int(chara.get("motivation") or 3)
+        hp = int(chara.get("vital") or 0)
+        cfg = self._mant_cfg(preset)
+        reserve = max(0, int(cfg.get("trackblazer_cupcake_reserve") or tb_rules.DEFAULT_CUPCAKE_RESERVE))
+        threshold = int(cfg.get("cupcake_energy_threshold") or 70)
+
+        if not kale_queued:
+            if motivation >= 5:
+                return None
+            # Keep cupcakes for low-energy training recovery / Kale offsets. If
+            # energy is already comfortable, mood can usually wait.
+            if hp >= threshold:
+                return None
+            cupcake = self._available_cupcake(owned, reserve=reserve, allow_reserved=False)
+        else:
+            # Kale just lowered mood; spend the reserved cupcake if necessary so
+            # the full restore does not sabotage the training turn.
+            cupcake = self._available_cupcake(owned, reserve=reserve, allow_reserved=True)
+
+        if not cupcake:
+            return None
+        if cupcake == "Plain Cupcake" and not kale_queued:
+            needed = max(1, 5 - motivation)
+            return ("Plain Cupcake", min(int(owned.get(cupcake) or 0), needed))
+        return (cupcake, 1)
 
     def _whistle_target(self, best_command, owned, preset, status, turn):
         if owned.get("Reset Whistle", 0) <= 0:
             return None
+        if int(turn or 0) < int(((preset or {}).get("mant_config") or {}).get("whistle_min_turn") or tb_rules.DEFAULT_WHISTLE_MIN_TURN):
+            return None
+        if self.used_whistle_turn == int(turn or 0):
+            return None
         if not best_command or int(best_command.get("command_type") or 0) != 1:
             return None
+        if best_command.get("_irregular_training") or str(best_command.get("_decision_reason") or "").lower().startswith("irregular training"):
+            return None
 
-        score = self._command_stat_gain(best_command)
         cfg = self._mant_cfg(preset)
-        threshold = int(cfg.get("whistle_score_threshold") or 35)
-        if score < threshold and turn <= 72:
-             return ("Reset Whistle", 1)
+        current_chara = None
+        if isinstance(status, dict):
+            current_chara = status.get("current_chara") or status.get("chara_info")
+        current_chara = current_chara or {}
+        vitality = int(current_chara.get("vital") or current_chara.get("current_vital") or 0)
+        motivation = int(current_chara.get("motivation") or 3)
+        # If the problem is obviously HP or mood, a reshuffle does not solve it.
+        if vitality and vitality <= int(cfg.get("energy_recovery_threshold") or tb_rules.DEFAULT_ENERGY_RECOVERY_THRESHOLD):
+            return None
+        if motivation <= int(cfg.get("whistle_motivation_floor") or 2):
+            return None
+
+        total_gain = self._command_stat_gain(best_command, sp_weight=0.5)
+        main_gain = self._command_main_stat_gain(best_command)
+        failure = int(best_command.get("failure_rate") or 0)
+        threshold = int(cfg.get("whistle_score_threshold") or tb_rules.DEFAULT_WHISTLE_SCORE_THRESHOLD)
+        max_failure = int(cfg.get("whistle_max_failure") or tb_rules.DEFAULT_WHISTLE_MAX_FAILURE)
+        # Genuine dead-turn definition: low total gain, low main gain, or an
+        # unsafe failure rate without enough reward to justify Charm support.
+        poor_gain = total_gain < threshold or main_gain < int(cfg.get("whistle_min_main_gain") or tb_rules.DEFAULT_LOW_MOOD_ITEM_GAIN_FLOOR)
+        unsafe_failure = failure > max_failure and total_gain < int(cfg.get("whistle_force_safe_score") or tb_rules.DEFAULT_WHISTLE_FORCE_SAFE_SCORE)
+        if int(turn or 0) <= 72 and (poor_gain or (unsafe_failure and cfg.get("whistle_forces_training", True))):
+            return ("Reset Whistle", 1)
         return None
 
     def _charm_target(self, best_command, owned, preset, status):
@@ -1070,10 +1390,21 @@ class MantItemManager:
             return None
         fail_rate = int(best_command.get("failure_rate") or 0)
         cfg = self._mant_cfg(preset)
-        threshold = int(cfg.get("charm_failure_rate") or 15)
-        if fail_rate >= threshold:
-            return ("Good-Luck Charm", 1)
-        return None
+        threshold = int(cfg.get("charm_failure_rate") or tb_rules.DEFAULT_CHARM_FAILURE_THRESHOLD)
+        if fail_rate < threshold:
+            return None
+
+        main_gain = self._command_main_stat_gain(best_command)
+        min_gain = int(cfg.get("charm_min_main_gain") or tb_rules.DEFAULT_CHARM_MIN_MAIN_GAIN)
+        if main_gain < min_gain:
+            return None
+
+        low_mood_floor = int(cfg.get("trackblazer_skip_bad_mood_items_below_gain") or tb_rules.DEFAULT_LOW_MOOD_ITEM_GAIN_FLOOR)
+        current_chara = (status or {}).get("current_chara") if isinstance(status, dict) else {}
+        motivation = int((current_chara or {}).get("motivation") or 3)
+        if motivation <= 2 and main_gain < low_mood_floor:
+            return None
+        return ("Good-Luck Charm", 1)
 
     def _megaphone_target(self, state, best_command, owned, preset, status, turn, race_planner):
         if not best_command or int(best_command.get("command_type") or 0) != 1:
@@ -1089,6 +1420,14 @@ class MantItemManager:
         small_threshold = float(cfg.get("mega_small_threshold") or 11)
         medium_threshold = float(cfg.get("mega_medium_threshold") or 21)
         large_threshold = float(cfg.get("mega_large_threshold") or 35)
+        if turn in {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}:
+            small_threshold *= 0.82
+            medium_threshold *= 0.82
+            large_threshold *= 0.82
+        elif turn >= 49:
+            small_threshold *= 0.88
+            medium_threshold *= 0.88
+            large_threshold *= 0.88
         dump_mode = self._megaphone_dump_mode(data, owned, turn, race_planner, preset)
         slots_left = self._remaining_megaphone_slots(data, turn, race_planner, preset)
         owned_count = self._owned_megaphone_count(owned)
@@ -1230,6 +1569,11 @@ class MantItemManager:
 
         score = self._command_stat_gain(best_command, sp_weight=0.5)
         threshold = 30 * (1 - (0.2 * self._active_megaphone_tier(state)))
+        turn = int(((state.get("data") or {}).get("chara_info") or {}).get("turn") or 0)
+        if turn in {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}:
+            threshold *= 0.80
+        elif turn >= 49:
+            threshold *= 0.88
         if score > threshold:
             return (anklet, 1)
         return None
@@ -1242,6 +1586,22 @@ class MantItemManager:
             elif item_id == 8002: current_mega_tier = max(current_mega_tier, 2)
             elif item_id == 8003: current_mega_tier = max(current_mega_tier, 3)
         return current_mega_tier
+
+    def _command_main_stat_gain(self, cmd):
+        if not cmd:
+            return 0
+        main_target = TRAINING_COMMAND_MAIN_TARGET.get(int(cmd.get("command_id") or 0))
+        if main_target:
+            for item in cmd.get("params_inc_dec_info_array") or []:
+                if int(item.get("target_type") or 0) == main_target:
+                    return int(item.get("value") or 0)
+        # Fallback for payloads that expose direct stat fields but not the
+        # params_inc_dec_info_array shape.
+        field_by_target = {1: "speed", 2: "stamina", 3: "power", 4: "guts", 5: "wiz"}
+        field = field_by_target.get(main_target)
+        if field:
+            return int(cmd.get(field) or 0)
+        return int(self._command_stat_gain(cmd))
 
     def _command_stat_gain(self, cmd, sp_weight=0):
         if not cmd: return 0
@@ -1270,11 +1630,118 @@ class MantItemManager:
                 result.append((name, actual))
         return result
 
+    def _item_cap(self, name, preset=None):
+        caps = ((preset or {}).get("mant_config") or {}).get("item_caps") or {}
+        if name in caps:
+            try:
+                return max(0, int(caps[name]))
+            except Exception:
+                pass
+        return int(ITEM_INVENTORY_CAPS.get(name, DEFAULT_INVENTORY_CAP))
+
+    def _item_buy_value(self, name, row, owned, turn, budget, data, preset, race_planner):
+        """Relative usefulness inside the same tier. Higher is better.
+
+        This keeps the existing tier system intact, but gives the shop a little
+        judgment: sales, urgency, active ailments, late-run dump pressure, and
+        planned training/racing windows all move the needle.
+        """
+        cost = int(row.get("coin_num") or SHOP_ITEM_COSTS.get(name, 9999))
+        original = int(row.get("original_coin_num") or cost)
+        limit_turn = int(row.get("limit_turn") or 0)
+        turns_left = (limit_turn - int(turn or 0)) if limit_turn > 0 else 99
+        qty = int(owned.get(name) or 0)
+        value = 100.0
+        if original > cost:
+            value += min(60.0, (original - cost) * 2.0)
+        if turns_left <= 2:
+            value += 45.0
+        elif turns_left <= 6:
+            value += 18.0
+        if name in CURE_ITEMS and self._active_bad_statuses(data or {}):
+            value += 120.0
+        if name in ENERGY_ITEMS:
+            hp = int(((data or {}).get("chara_info") or {}).get("vital") or 0)
+            if hp <= 35:
+                value += 70.0
+            elif hp <= 55:
+                value += 25.0
+        if name in {"Plain Cupcake", "Berry Sweet Cupcake"}:
+            motivation = int(((data or {}).get("chara_info") or {}).get("motivation") or 3)
+            if motivation < 4:
+                value += 70.0
+            elif motivation >= 5:
+                value -= 60.0
+        if name in MEGAPHONE_TIERS:
+            slots = self._remaining_megaphone_slots(data or {}, turn, race_planner, preset)
+            if turn >= 49 or slots <= self._owned_megaphone_count(owned) + 3:
+                value += 40.0
+            value -= qty * 18.0
+        if name in TRAINING_ITEM_DECK_TYPE_INDEX:
+            counts = (preset or {}).get("_deck_type_counts") or []
+            idx = TRAINING_ITEM_DECK_TYPE_INDEX.get(name)
+            deck_count = int(counts[idx] or 0) if idx is not None and len(counts) > idx else 0
+            value += deck_count * 18.0
+            value -= qty * 12.0
+        guide = self._guide(preset)
+        shop_cfg = guide.get("shop_priorities") or {}
+        immediate_cfg = shop_cfg.get("immediate_stat_items") or {}
+        if name in set(immediate_cfg.get("names") or []):
+            value += float(immediate_cfg.get("value_bonus") or 55)
+            # Early stat scrolls/manuals stabilize first-place race wins, which protects the shop-coin economy.
+            if turn <= 24:
+                value += 35.0
+        fast_cfg = shop_cfg.get("fast_learner") or {}
+        if (preset or {}).get("mant_config", {}).get("enable_fast_learner_shop_boost", False) and name == fast_cfg.get("item", "Scholar's Hat"):
+            value += float(fast_cfg.get("value_bonus") or 180)
+            if turn > int(fast_cfg.get("reserve_until_turn") or 64):
+                value -= 80.0
+        if name in set((shop_cfg.get("training_boost_items") or {}).get("names") or []):
+            if is_pre_summer(turn):
+                value += 45.0
+            elif is_summer_turn(turn, guide):
+                value += 70.0
+        if name.endswith("Training Application"):
+            if turn > int((shop_cfg.get("applications") or {}).get("avoid_late_after_turn") or 64):
+                value -= 95.0
+            if is_pre_summer(turn):
+                value += 35.0
+        if self._is_instant_stat_item(name):
+            value += 20.0 if turn >= 46 else 0.0
+        value -= cost * 0.35
+        return value
+
     def _skip_buy(self, name, owned, preset=None, turn=0, budget=0, data=None, race_planner=None):
+        cfg = ((preset or {}).get("mant_config") or {})
+        excluded = cfg.get("exclude_shop_items") or []
+        if isinstance(excluded, str):
+            excluded = [part.strip() for part in excluded.split(",") if part.strip()]
+        excluded_slugs = {display_to_slug(item) for item in excluded}
+        if display_to_slug(name) in excluded_slugs:
+            return True
+        if int(owned.get(name, 0) or 0) >= self._item_cap(name, preset):
+            return True
         if name in MEGAPHONE_TIERS and self._megaphone_buy_surplus(data or {}, owned, turn, race_planner, preset):
             return True
         if name in CURE_ITEMS:
+            # Rich Hand Cream and Miracle Cure are Trackblazer-critical race/run
+            # insurance and may be stocked up to their normal cap. Other specific
+            # cures are one-copy safety valves, and are skipped if Miracle Cure
+            # already covers the same emergency.
+            if name in {"Rich Hand Cream", AILMENT_CURE_ALL}:
+                return False
             if owned.get(name, 0) > 0 or (name != AILMENT_CURE_ALL and owned.get(AILMENT_CURE_ALL, 0) > 0):
+                return True
+        guide = self._guide(preset)
+        fast_cfg = ((guide.get("shop_priorities") or {}).get("fast_learner") or {})
+        if name == fast_cfg.get("item", "Scholar's Hat"):
+            min_coin = int(fast_cfg.get("min_coin_before_buy") or 280)
+            if int(budget or 0) < min_coin:
+                return True
+        # Preserve coins before summer unless the item is a high-impact guide priority.
+        reserve = int(((guide.get("summer_strategy") or {}).get("pre_summer_reserve_coin") or 0))
+        if is_pre_summer(turn) and budget < reserve and name not in set(((guide.get("shop_priorities") or {}).get("training_boost_items") or {}).get("names") or []):
+            if name not in set(((guide.get("shop_priorities") or {}).get("immediate_stat_items") or {}).get("names") or []):
                 return True
         type_idx = TRAINING_ITEM_DECK_TYPE_INDEX.get(name)
         if type_idx is not None:
