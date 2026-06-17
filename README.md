@@ -1,4 +1,35 @@
-# # Instructions.
+# Ver 2.0.0 is now available
+
+This update is a major step forward for the project, bringing a redesigned experience and powerful new automation features while still keeping full user control where it matters.
+
+ What’s new in v2.0
+
+- New & improved Web UI — faster, cleaner, and easier to use,
+- Full Auto Careers — set it up once and let it run hands-free,
+- Smart Race Solver — intelligently selects optimal races while avoiding high-risk outcomes,
+- You stay in control — customize running styles, skill tiers, event choices, support decks, and more,
+- Adaptive assistance system — optional, safety-locked AI that only activates when enabled and trusted,
+
+# Full customization, your way Sweepy 2.0 gives you deeper control than ever before:
+
+- Running styles (per-distance support),
+- Burn Clock management,
+- Skill priority tiers,
+- Event handling (AUTO / FORCED choices),
+- Skip rules (green / red / unique skills),
+- Recommended support setups for each trainee,
+- Can now use borrowed parents for your careers,
+
+Thank you very much to our @Bot Developer / Contributor for your continued hard work and dedication, and shout out to @🆂🅻🅸🅲🅺 for this major contribution. 
+
+The work we do here is to create a solid foundation which will serve as a base for current and future scenarios, we are committed to creating the best possible tool to help the community at large. 
+
+If you would like to join our team or contribute in any way, please feel free to reach out.
+
+Thank you for your continued support, and enjoy Sweepy 2.0
+
+Continued.
+-------------
 
 # Capable of 200M+ fans per day/ 5min MANT runs, all previous restrictions removed, multiple accounts can be run simultaneously.
 <img width="1216" height="106" alt="image" src="https://github.com/user-attachments/assets/6b0a2c0b-4268-4b2d-8fee-69f0b3160cea" />
