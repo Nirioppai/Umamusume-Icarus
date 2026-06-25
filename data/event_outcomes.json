@@ -3427,12 +3427,12 @@
         }
       }
     },
-    "observations": 285,
+    "observations": 286,
     "outcomes": {
       "1": "known outcome"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-21T01:07:12"
+    "updated_at": "2026-06-25T12:41:06"
   },
   "400000031": {
     "event_name": "",
@@ -3513,12 +3513,12 @@
         }
       }
     },
-    "observations": 608,
+    "observations": 609,
     "outcomes": {
       "1": "SP +2"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-21T01:08:56"
+    "updated_at": "2026-06-25T12:41:24"
   },
   "501006500": {
     "event_name": "",
@@ -3725,12 +3725,12 @@
         }
       }
     },
-    "observations": 87,
+    "observations": 88,
     "outcomes": {
       "1": "speed +3, power +3, wiz +3, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T17:32:44"
+    "updated_at": "2026-06-25T12:42:00"
   },
   "830028001": {
     "event_name": "",
@@ -9279,8 +9279,8 @@
     "confidence": "observed_live",
     "details": {
       "1": {
-        "stamina": 5,
-        "guts": 5,
+        "stamina": 6,
+        "guts": 6,
         "motivation": 1,
         "playing_state": -4
       }
@@ -9288,19 +9288,19 @@
     "choice_slots": {
       "0": {
         "1": {
-          "stamina": 5,
-          "guts": 5,
+          "stamina": 6,
+          "guts": 6,
           "motivation": 1,
           "playing_state": -4
         }
       }
     },
-    "observations": 10,
+    "observations": 11,
     "outcomes": {
-      "1": "stamina +5, guts +5, motivation +1"
+      "1": "stamina +6, guts +6, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T22:33:16"
+    "updated_at": "2026-06-25T12:41:45"
   },
   "830096001": {
     "event_name": "",
@@ -12346,5 +12346,59 @@
     },
     "choice_count": 1,
     "updated_at": "2026-06-20T21:58:06"
+  },
+  "820037001": {
+    "event_name": "",
+    "story_id": "820037001",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "power": 5,
+        "vital": 15,
+        "skill_point": 10
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 5,
+          "vital": 15,
+          "skill_point": 10
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "power +5, SP +10, energy +15"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-25T12:41:25"
+  },
+  "501015701": {
+    "event_name": "",
+    "story_id": "501015701",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "vital": 56,
+        "playing_state": -4
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 56,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "energy +56"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-25T12:41:56"
   }
 }

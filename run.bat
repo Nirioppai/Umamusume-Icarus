@@ -29,6 +29,5 @@ if errorlevel 1 (
 )
 
 echo Starting Icarus...
-start "" /b "%VENV%\Scripts\python" "%ROOT%_open_browser.py"
 "%VENV%\Scripts\python" "%ROOT%main.py"
 pause

@@ -2244,7 +2244,7 @@ class CareerRunner:
                 err_str = str(exc)
                 errors.append(err_str)
                 if attempt < max_retries - 1:
-                    dna_sleep(10, 10)
+                    dna_sleep(8, 12)
         if hasattr(client, "hard_reset"):
             return client.hard_reset()
         raise RuntimeError("career recovery failed: " + " | ".join(errors[-2:]))

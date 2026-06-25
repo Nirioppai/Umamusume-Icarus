@@ -7782,4 +7782,6 @@ if __name__ == "__main__":
             pending_game_auth_config = backup_cfg
 
     print(f"Access the Web UI at: http://127.0.0.1:{PORT}", flush=True)
+    import webbrowser as _wb
+    _wb.open(f"http://127.0.0.1:{PORT}")
     uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="error")
