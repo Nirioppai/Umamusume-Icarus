@@ -18,7 +18,7 @@ from career_bot.items import MantItemManager, ITEM_NAMES, SHOP_ITEM_COSTS, DISPL
 
 
 from career_bot.report import new_report, add_event, add_api_call, add_decision, finish_report, write_report, set_error
-from career_bot.delay import dna_sleep, dna_gauss
+from career_bot.delay import dna_sleep, dna_gauss, dna_uniform
 from career_bot.discord_logger import DiscordCareerLogger
 from career_bot.race_intelligence import record_race_outcome
 from career_bot.running_style import resolve_running_style_for_race
@@ -85,6 +85,7 @@ class CareerRunner:
         # goal-aware scorer). main.py sets this from settings before each start;
         # default OFF so nothing changes unless the user opts in.
         self.goal_lookahead = False
+        self.pace_scalar = dna_uniform(0.8, 1.3)
         self.status = {
             "running": False,
             "paused": False,
@@ -111,6 +112,12 @@ class CareerRunner:
             "decision_trace": {},
             "last_style_adaptation": {},
         }
+
+    def _pace(self, lo, hi, mean=None, std=None):
+        if mean is not None:
+            dna_sleep(lo, hi, mean * self.pace_scalar, std)
+        else:
+            dna_sleep(lo * self.pace_scalar, hi * self.pace_scalar)
 
     def _metrics_path(self):
         root = runtime_output_root(self.base_dir)
@@ -537,6 +544,7 @@ class CareerRunner:
                 raise RuntimeError(f"No runner for scenario {scenario_id}")
             self.stop_requested = False
             self.pause_requested = False
+            self.pace_scalar = dna_uniform(0.8, 1.3)
             self.burn_clocks = burn_clocks
             self.carats_enabled = bool(carats_enabled)
             self.max_clocks_per_career = int(max_clocks_per_career or 0)
@@ -870,9 +878,10 @@ class CareerRunner:
                 
                 self._debug_turn(state, preset)
                 self._inject_runner_context(state)
+                self._pace(0.4, 2.0, 0.9, 0.35)
                 decision = strategy.next_decision(state, preset)
 
-                
+
                 if self.report:
                     add_decision(self.report, state, decision)
                 self._record_decision_trace(strategy, state, preset, decision)
@@ -897,6 +906,7 @@ class CareerRunner:
                     self._mark(turn=chara["turn"])
                     self._update_analytics(chara)
                     self._inject_runner_context(state)
+                    self._pace(0.4, 2.0, 0.9, 0.35)
                     decision = strategy.next_decision(state, preset)
 
                     if self.report:
@@ -1066,6 +1076,9 @@ class CareerRunner:
                     state = self._buy_skills(client, state, preset, False)
                 
                 self._advance(decision.action)
+                dna_sleep(0.1, 1.5, 0.6, 0.2)
+                if random.random() < 0.03:
+                    dna_sleep(5, 30)
         except Exception as exc:
             import traceback
             trace_str = traceback.format_exc()
@@ -2293,6 +2306,7 @@ class CareerRunner:
                 raise
             if self.native_event_capture and choice is not None:
                 self._capture_event_outcome(event, choice, before_chara, current)
+            self._pace(0.3, 1.5, 0.7, 0.25)
 
         data = current.get("data") or {}
         events = data.get("unchecked_event_array") or []
@@ -3278,6 +3292,7 @@ class CareerRunner:
                 self._log("change_running_style_failed", current_turn, str(exc))
 
         is_short = 1
+        dna_sleep(0.3, 1.2, 0.6, 0.15)
         try:
             res = client.race_start(is_short=is_short, current_turn=current_turn)
             self._log("race_start", current_turn, f"short {is_short}")
@@ -3356,6 +3371,7 @@ class CareerRunner:
                 "continue_type": int(continue_type),
                 "policy": dict(retry_policy),
             }
+            self._pace(0.8, 3.0, 1.5, 0.5)
             try:
                 cont_res = client.race_continue(current_turn=current_turn, continue_type=continue_type)
                 
@@ -3639,6 +3655,7 @@ class CareerRunner:
                     self._log("race_out_recover", current_turn, str(e))
                     return self._recover_with_backoff(client, None, e)
                 raise
+        dna_sleep(0.3, 1.2, 0.6, 0.15)
         try:
             client.race_start(is_short=1, current_turn=current_turn)
             self._log("race_start", current_turn, "resume")
@@ -3676,6 +3693,7 @@ class CareerRunner:
             raise
 
     def _buy_skills(self, client, state, preset, force):
+        self._pace(0.5, 2.5, 1.2, 0.4)
         self.skill_buyer.recover_after_error = False
         state, bought = self.skill_buyer.buy(client, state, preset, force)
         for event in self.skill_buyer.attempt_events:
@@ -3729,6 +3747,7 @@ class CareerRunner:
     def _handle_items(self, client, state, preset, best_command, decision=None):
         if int((preset or {}).get("scenario_id") or (preset or {}).get("scenario") or 4) != 4:
             return state
+        self._pace(0.5, 2.5, 1.2, 0.4)
         self.item_manager.recover_after_exchange_error = False
         self.item_manager.recover_after_use_error = False
         item_status = dict(self.status or {})

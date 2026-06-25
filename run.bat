@@ -6,8 +6,11 @@ set "VENV=%ROOT%.venv"
 
 if not exist "%VENV%\Scripts\python.exe" (
     echo Creating virtual environment...
-    python -m venv "%VENV%"
+    uv venv "%VENV%" --python 3.13 2>nul
     if errorlevel 1 (
+        python -m venv "%VENV%"
+    )
+    if not exist "%VENV%\Scripts\python.exe" (
         echo.
         echo Failed to create virtual environment.
         echo Make sure Python is installed and added to PATH.
@@ -18,7 +21,7 @@ if not exist "%VENV%\Scripts\python.exe" (
 )
 
 echo Installing dependencies...
-"%VENV%\Scripts\pip" install -r "%ROOT%requirements.txt" --prefer-binary --quiet
+uv pip install -r "%ROOT%requirements.txt" --python "%VENV%\Scripts\python.exe" --quiet
 if errorlevel 1 (
     echo Failed to install dependencies.
     pause
@@ -26,5 +29,6 @@ if errorlevel 1 (
 )
 
 echo Starting Icarus...
+start "" /b "%VENV%\Scripts\python" "%ROOT%_open_browser.py"
 "%VENV%\Scripts\python" "%ROOT%main.py"
 pause

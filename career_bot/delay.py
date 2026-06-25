@@ -10,15 +10,23 @@ _BASE_DELAYS = {
     'load_career': (0.62, 7.64, 2.56),
     'pre_single_mode': (1.61, 11.13, 4.06),
     'start_career': (1.39, 1.78, 1.58),
+    'start_session': (0.62, 4.55, 1.06),
+    'pre_signup': (0.62, 4.55, 1.06),
+    'signup': (0.62, 4.55, 1.06),
     'check_event': (0.77, 3.49, 1.86),
     'continue': (0.85, 4.77, 2.74),
     'exec_command': (2.06, 16.56, 4.91),
     'finish_career': (2.73, 15.78, 6.22),
     'gain_skills': (5.81, 91.83, 48.48),
+    'read_info': (1.16, 14.69, 5.26),
+    'recovery_trainer_point': (0.62, 4.55, 1.06),
     'multi_item_exchange': (1.67, 12.40, 7.22),
     'multi_item_use': (2.05, 8.89, 5.13),
+    'minigame_end': (0.77, 3.49, 1.86),
     'race_end': (1.60, 3.52, 1.94),
     'race_entry': (0.62, 4.55, 1.06),
+    'change_running_style': (0.62, 4.55, 1.06),
+    'reserve_race': (1.48, 8.95, 3.63),
     'race_out': (1.48, 8.95, 3.63),
     'race_start': (1.51, 9.38, 3.28),
 }
@@ -43,7 +51,7 @@ TURN_DELAY_MIN = 2.5
 TURN_DELAY_MAX = 5.0
 TURN_DELAY_RESTORE_MIN = 2.5
 TURN_DELAY_RESTORE_MAX = 5.0
-GLOBAL_DELAYS_DISABLED = False
+GLOBAL_DELAYS_DISABLED = False  # hardwired — do not expose as a runtime toggle
 
 _ENDPOINT_SHIFTS = {}
 for ep in _BASE_DELAYS:
@@ -150,9 +158,13 @@ class GateKeeper:
                         ep = args[0]
                         path_map = {
                             'load/index': 'load_index',
+                            'tool/start_session': 'start_session',
+                            'tool/pre_signup': 'pre_signup',
+                            'tool/signup': 'signup',
+                            'user/recovery_trainer_point': 'recovery_trainer_point',
                             'single_mode_free/start': 'start_career',
                             'single_mode_free/exec_command': 'exec_command',
-                            'single_mode_free/read_info': 'load_index',
+                            'single_mode_free/read_info': 'read_info',
                             'single_mode_free/pre': 'pre_single_mode',
                             'single_mode_free/race_continue': 'continue',
                             'single_mode_free/gain_skills': 'gain_skills',
@@ -163,7 +175,10 @@ class GateKeeper:
                             'single_mode_free/race_out': 'race_out',
                             'single_mode_free/race_start': 'race_start',
                             'single_mode_free/load': 'load_career',
-                            'single_mode_free/finish': 'finish_career'
+                            'single_mode_free/finish': 'finish_career',
+                            'single_mode_free/minigame_end': 'minigame_end',
+                            'single_mode_free/change_running_style': 'change_running_style',
+                            'single_mode_free/reserve_race': 'reserve_race',
                         }
                         ep_name = path_map.get(ep, ep.split('/')[-1])
                     
@@ -171,7 +186,6 @@ class GateKeeper:
                         'exchange_items': 'multi_item_exchange',
                         'use_items': 'multi_item_use',
                         'race_continue': 'continue',
-                        'read_info': 'load_index'
                     }
                     pacing_name = method_map.get(ep_name, ep_name)
                     

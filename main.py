@@ -645,6 +645,23 @@ turn_delay_max_sec = 5.0
 turn_delay_restore_min_sec = 2.5
 turn_delay_restore_max_sec = 5.0
 turn_delay_disabled = False
+_settings_path = Path("settings.json")
+if _settings_path.exists():
+    try:
+        _s = json.loads(_settings_path.read_text())
+        _td = _s.get("turn_delay", {})
+        if isinstance(_td.get("min"), (int, float)):
+            turn_delay_min_sec = float(_td["min"])
+        if isinstance(_td.get("max"), (int, float)):
+            turn_delay_max_sec = float(_td["max"])
+        if isinstance(_td.get("restore_min"), (int, float)):
+            turn_delay_restore_min_sec = float(_td["restore_min"])
+        if isinstance(_td.get("restore_max"), (int, float)):
+            turn_delay_restore_max_sec = float(_td["restore_max"])
+        if isinstance(_td.get("disabled"), bool):
+            turn_delay_disabled = _td["disabled"]
+    except Exception:
+        pass
 # Speed dropdown (replaces the old Tempt-Fate on/off toggle). Each level maps to
 # the inter-turn pacing (disabled?), the client's raw min-call-spacing floor, AND
 # an api_scale that multiplies the per-call API delay budget (the dominant pacing

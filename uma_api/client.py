@@ -598,7 +598,7 @@ class UmaClient:
         if not hasattr(self, '_last_raw_call_ts'):
             self._last_raw_call_ts = 0
 
-        floor = MIN_CALL_SPACING
+        floor = max(0.14, MIN_CALL_SPACING)
         if floor > 0:
             el = time.time() - self._last_raw_call_ts
             if el < floor:
