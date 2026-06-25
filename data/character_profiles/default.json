@@ -46,5 +46,6 @@
   "forced_epithets": [],
   "preferred_distances": [],
   "scenarios": {},
-  "adapt_targets_to_inheritance": true
+  "adapt_targets_to_inheritance": true,
+  "auto_pick_epithets": true
 }
