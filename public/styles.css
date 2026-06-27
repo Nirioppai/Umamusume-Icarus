@@ -5594,6 +5594,10 @@ body > .sparks-tooltip[data-guest-index] {
 .settings-target-row { display:grid; grid-template-columns:82px repeat(5, 1fr); gap:6px; align-items:center; }
 .settings-target-row input { width:100%; min-width:0; }
 .settings-shop-list { max-height:260px; overflow:auto; display:grid; gap:6px; }
+.settings-autobuy-row { display:flex; align-items:center; gap:6px; }
+.settings-autobuy-cap { width:44px!important; min-width:44px; padding:2px 4px; border:1px solid rgba(255,255,255,.15); border-radius:4px; background:rgba(255,255,255,.06); color:#fff; font-size:.82rem; text-align:center; margin-left:auto; }
+.settings-autobuy-cap:disabled { opacity:.25; }
+.settings-conflict { opacity:.4; }
 .settings-reset-btn { width:100%; border-color:rgba(255,80,120,.65)!important; color:#ff7898!important; background:rgba(255,80,120,.08)!important; }
 @media (max-width: 760px) {
   .bot-settings-grid { grid-template-columns: 1fr; }

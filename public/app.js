@@ -4359,7 +4359,17 @@ const els = {
             if (!current) return;
             const c = mantCfg(current);
             const excluded = c.exclude_shop_items || [];
-            const shopList = `<div class="settings-shop-list">${SETTINGS_SHOP_ITEMS.map(name => `<label class="settings-muted"><input type="checkbox" class="settings-control" data-control="shop-exclude" data-item="${escapeAttr(name)}" ${excluded.includes(name) ? 'checked' : ''}> ${escapeHtml(name)}</label>`).join('')}</div>`;
+            const autoBuy = c.auto_buy_items || {};
+            const shopList = `<div class="settings-shop-list">${SETTINGS_SHOP_ITEMS.map(name => {
+                const isAutoBuy = name in autoBuy;
+                return `<label class="settings-muted${isAutoBuy ? ' settings-conflict' : ''}"><input type="checkbox" class="settings-control" data-control="shop-exclude" data-item="${escapeAttr(name)}" ${excluded.includes(name) ? 'checked' : ''} ${isAutoBuy ? 'disabled' : ''}> ${escapeHtml(name)}</label>`;
+            }).join('')}</div>`;
+            const autoBuyList = `<div class="settings-shop-list">${SETTINGS_SHOP_ITEMS.map(name => {
+                const isAutoBuy = name in autoBuy;
+                const isExcluded = excluded.includes(name);
+                const cap = isAutoBuy ? autoBuy[name] : 3;
+                return `<label class="settings-muted settings-autobuy-row${isExcluded ? ' settings-conflict' : ''}"><input type="checkbox" class="settings-control" data-control="shop-autobuy" data-item="${escapeAttr(name)}" ${isAutoBuy ? 'checked' : ''} ${isExcluded ? 'disabled' : ''}> ${escapeHtml(name)}<input type="number" class="settings-control settings-autobuy-cap" data-control="autobuy-cap" data-item="${escapeAttr(name)}" min="0" max="9" value="${cap}" ${isAutoBuy ? '' : 'disabled'}></label>`;
+            }).join('')}</div>`;
             const body = document.getElementById('scenario-settings-body');
             if (!body) return;
             body.innerHTML = `
@@ -4383,6 +4393,7 @@ const els = {
                     ${sliderSetting('Shop Check Frequency', '1 = every shop opportunity, 2 = every other eligible opportunity, etc.', 'trackblazer_shop_check_frequency', getSetting(current,'mant','trackblazer_shop_check_frequency',1), 1, 4, 1)}
                     ${chipsSetting('Race Grades to check Shop Afterwards', 'Eligible race grades for shop-check frequency logic.', 'trackblazer_shop_check_grades', c.trackblazer_shop_check_grades || ['G1','G2','G3'], SETTINGS_GRADE_VALUES, 'checkbox', 'mant')}
                     ${rowShell('Items to Exclude from Shop', 'Checked items will never be purchased by the shop logic.', shopList)}
+                    ${rowShell('Items to Auto Buy', 'Checked items will always be purchased until inventory reaches the cap. Overrides all shop policy except budget safety.', autoBuyList)}
                 </section>
                 <section class="settings-card"><h3>Item Conservation</h3>
                     ${sliderSetting('Energy Item Emergency Reserve', 'Lowest-tier Vita copies reserved for emergency race recovery.', 'trackblazer_energy_item_reserve', getSetting(current,'mant','trackblazer_energy_item_reserve',1), 0, 3, 1)}
@@ -4437,7 +4448,64 @@ const els = {
                         const item = control.dataset.item;
                         const arr = Array.isArray(c.exclude_shop_items) ? [...c.exclude_shop_items] : [];
                         c.exclude_shop_items = control.checked ? Array.from(new Set([...arr, item])) : arr.filter(v => v !== item);
+                        if (control.checked && c.auto_buy_items) {
+                            delete c.auto_buy_items[item];
+                        }
+                        const abCb = root.querySelector(`.settings-control[data-control="shop-autobuy"][data-item="${CSS.escape(item)}"]`);
+                        if (abCb) {
+                            const abLabel = abCb.closest('label');
+                            const abCap = abLabel && abLabel.querySelector('.settings-autobuy-cap');
+                            if (control.checked) {
+                                abCb.checked = false;
+                                abCb.disabled = true;
+                                if (abLabel) abLabel.classList.add('settings-conflict');
+                                if (abCap) abCap.disabled = true;
+                            } else {
+                                abCb.disabled = false;
+                                if (abLabel) abLabel.classList.remove('settings-conflict');
+                            }
+                        }
                         await saveSettingsPreset(current);
+                    });
+                } else if (type === 'shop-autobuy') {
+                    control.addEventListener('change', async () => {
+                        const c = mantCfg(current);
+                        const item = control.dataset.item;
+                        const ab = c.auto_buy_items ? {...c.auto_buy_items} : {};
+                        const capEl = control.closest('label').querySelector('.settings-autobuy-cap');
+                        if (control.checked) {
+                            ab[item] = Number((capEl && capEl.value) || 3);
+                            const arr = Array.isArray(c.exclude_shop_items) ? [...c.exclude_shop_items] : [];
+                            c.exclude_shop_items = arr.filter(v => v !== item);
+                        } else {
+                            delete ab[item];
+                        }
+                        c.auto_buy_items = ab;
+                        if (capEl) capEl.disabled = !control.checked;
+                        const exCb = root.querySelector(`.settings-control[data-control="shop-exclude"][data-item="${CSS.escape(item)}"]`);
+                        if (exCb) {
+                            const exLabel = exCb.closest('label');
+                            if (control.checked) {
+                                exCb.checked = false;
+                                exCb.disabled = true;
+                                if (exLabel) exLabel.classList.add('settings-conflict');
+                            } else {
+                                exCb.disabled = false;
+                                if (exLabel) exLabel.classList.remove('settings-conflict');
+                            }
+                        }
+                        await saveSettingsPreset(current);
+                    });
+                } else if (type === 'autobuy-cap') {
+                    control.addEventListener('change', async () => {
+                        const c = mantCfg(current);
+                        const item = control.dataset.item;
+                        const ab = c.auto_buy_items ? {...c.auto_buy_items} : {};
+                        if (item in ab) {
+                            ab[item] = Math.max(0, Math.min(9, Number(control.value) || 0));
+                            c.auto_buy_items = ab;
+                            await saveSettingsPreset(current);
+                        }
                     });
                 } else if (type === 'target-grid') {
                     control.addEventListener('change', async () => {

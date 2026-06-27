@@ -7783,5 +7783,8 @@ if __name__ == "__main__":
 
     print(f"Access the Web UI at: http://127.0.0.1:{PORT}", flush=True)
     import webbrowser as _wb
+    _log_viewer = os.path.join(DIR, "log_viewer.html")
+    if os.path.isfile(_log_viewer):
+        _wb.open(f"file:///{_log_viewer.replace(os.sep, '/')}")
     _wb.open(f"http://127.0.0.1:{PORT}")
     uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="error")

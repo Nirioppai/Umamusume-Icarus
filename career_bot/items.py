@@ -1765,7 +1765,14 @@ class MantItemManager:
         return result
 
     def _item_cap(self, name, preset=None):
-        caps = ((preset or {}).get("mant_config") or {}).get("item_caps") or {}
+        cfg = (preset or {}).get("mant_config") or {}
+        auto_buy = cfg.get("auto_buy_items") or {}
+        if name in auto_buy:
+            try:
+                return max(0, int(auto_buy[name]))
+            except Exception:
+                pass
+        caps = cfg.get("item_caps") or {}
         if name in caps:
             try:
                 return max(0, int(caps[name]))
@@ -1854,6 +1861,10 @@ class MantItemManager:
 
     def _skip_buy(self, name, owned, preset=None, turn=0, budget=0, data=None, race_planner=None):
         cfg = ((preset or {}).get("mant_config") or {})
+        auto_buy = cfg.get("auto_buy_items") or {}
+        if name in auto_buy:
+            cap = max(0, int(auto_buy[name]))
+            return int(owned.get(name, 0) or 0) >= cap
         excluded = cfg.get("exclude_shop_items") or []
         if isinstance(excluded, str):
             excluded = [part.strip() for part in excluded.split(",") if part.strip()]
