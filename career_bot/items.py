@@ -1532,9 +1532,9 @@ class MantItemManager:
 
         score = self._command_stat_gain(best_command, sp_weight=0.5)
         cfg = self._mant_cfg(preset)
-        small_threshold = float(cfg.get("mega_small_threshold") or 11)
-        medium_threshold = float(cfg.get("mega_medium_threshold") or 21)
-        large_threshold = float(cfg.get("mega_large_threshold") or 35)
+        small_threshold = float(cfg.get("mega_small_threshold") or 21)
+        medium_threshold = float(cfg.get("mega_medium_threshold") or 31)
+        large_threshold = float(cfg.get("mega_large_threshold") or 45)
         if turn in {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}:
             small_threshold *= 0.82
             medium_threshold *= 0.82
@@ -1702,7 +1702,7 @@ class MantItemManager:
                 return None
 
         score = self._command_stat_gain(best_command, sp_weight=0.5)
-        threshold = 30 * (1 - (0.2 * self._active_megaphone_tier(state)))
+        threshold = 40 * (1 - (0.2 * self._active_megaphone_tier(state)))
         turn = int(((state.get("data") or {}).get("chara_info") or {}).get("turn") or 0)
         if turn in {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}:
             threshold *= 0.80
