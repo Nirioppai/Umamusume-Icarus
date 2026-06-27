@@ -1167,39 +1167,7 @@ function renderItemsTab(){
     }
   }
 
-  // Summary cards
-  let html=`<div class="metric-cards">
-    <div class="metric-card"><div class="mc-val" style="color:var(--yellow)">${purchaseLog.length}</div><div class="mc-lbl">Items Purchased</div></div>
-    <div class="metric-card"><div class="mc-val" style="color:var(--blue)">${useLog.reduce((s,u)=>s+u.useNum,0)}</div><div class="mc-lbl">Items Used</div></div>
-    <div class="metric-card"><div class="mc-val" style="color:var(--yellow)">🪙${totalSpent}</div><div class="mc-lbl">Total Spent</div></div>
-    <div class="metric-card"><div class="mc-val" style="color:var(--text2)">${Object.keys(itemBuyTotals).length}</div><div class="mc-lbl">Unique Items</div></div>
-  </div>`;
-
-  // Purchase summary table
-  const buyItems=Object.entries(itemBuyTotals).sort((a,b)=>b[1].count-a[1].count);
-  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Purchase Summary — What was bought, how many times, and on which turns</h3><div class="s-arrow">▾</div></div><div class="section-body">
-    <table class="tbl"><thead><tr>
-    <th class="sortable" onclick="sortTable(this)">Item</th>
-    <th class="r sortable" onclick="sortTable(this)">Times Bought</th>
-    <th class="r sortable" onclick="sortTable(this)">Total Cost</th>
-    <th>Turns Purchased</th>
-    </tr></thead><tbody>
-    ${buyItems.map(([nm,d])=>`<tr><td>${esc(nm)}</td><td class="r" style="color:var(--yellow);font-weight:600">${d.count}×</td><td class="r cost-cell">🪙${d.cost}</td><td style="color:var(--text3);font-size:11px">${d.turns.join(', ')}</td></tr>`).join('')}
-    </tbody></table></div></div>`;
-
-  // Usage summary table
-  const useItems=Object.entries(itemUseTotals).sort((a,b)=>b[1].count-a[1].count);
-  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Usage Summary — What was consumed and when</h3><div class="s-arrow">▾</div></div><div class="section-body">
-    <table class="tbl"><thead><tr>
-    <th class="sortable" onclick="sortTable(this)">Item</th>
-    <th class="r sortable" onclick="sortTable(this)">Times Used</th>
-    <th>Turns Used</th>
-    </tr></thead><tbody>
-    ${useItems.map(([nm,d])=>`<tr><td>${esc(nm)}</td><td class="r" style="color:var(--blue);font-weight:600">${d.count}×</td><td style="color:var(--text3);font-size:11px">${d.turns.join(', ')}</td></tr>`).join('')}
-    </tbody></table></div></div>`;
-
-  // Skip analysis — why items were NOT bought
-  const skipLog=[];
+  // Build skip data
   const skipByReason={};
   const skipByItem={};
   for(const t of turns){
@@ -1207,7 +1175,6 @@ function renderItemsTab(){
       if(row.skip_reason){
         const nm=row.name||ITEM[row.item_id]||'id:'+row.item_id;
         const r=row.skip_reason;
-        skipLog.push({turn:t.turn,name:nm,itemId:row.item_id,reason:r,cost:row.cost||0,coins:row.mant_coin||0,affordable:row.affordable});
         skipByReason[r]=(skipByReason[r]||0)+1;
         if(!skipByItem[nm])skipByItem[nm]={reasons:{},total:0};
         skipByItem[nm].total++;
@@ -1215,32 +1182,59 @@ function renderItemsTab(){
       }
     }
   }
-  if(skipLog.length){
-    const totalSkips=skipLog.length;
-    html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Skip Analysis — Why items were NOT bought (${totalSkips} skips)</h3><div class="s-arrow">▾</div></div><div class="section-body">`;
+  const totalSkips=Object.values(skipByReason).reduce((a,b)=>a+b,0);
 
-    // Reason breakdown summary
-    html+=`<div style="padding:10px 10px 0"><div class="metric-cards">`;
+  // Build unified per-item data
+  const allItemNames=new Set([...Object.keys(itemBuyTotals),...Object.keys(itemUseTotals),...Object.keys(skipByItem)]);
+  const unified=[];
+  for(const nm of allItemNames){
+    const buy=itemBuyTotals[nm]||{count:0,cost:0,turns:[]};
+    const use=itemUseTotals[nm]||{count:0,turns:[]};
+    const skip=skipByItem[nm]||{total:0,reasons:{}};
+    const remaining=buy.count-use.count;
+    unified.push({name:nm,bought:buy.count,cost:buy.cost,buyTurns:buy.turns,used:use.count,useTurns:use.turns,remaining,skipped:skip.total,reasons:skip.reasons});
+  }
+  unified.sort((a,b)=>b.bought-a.bought||b.used-a.used||b.skipped-a.skipped||a.name.localeCompare(b.name));
+
+  // Summary cards
+  const totalUsed=useLog.reduce((s,u)=>s+u.useNum,0);
+  const totalRemaining=unified.reduce((s,it)=>s+Math.max(0,it.remaining),0);
+  let html=`<div class="metric-cards">
+    <div class="metric-card"><div class="mc-val" style="color:var(--yellow)">${purchaseLog.length}</div><div class="mc-lbl">Items Purchased</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--blue)">${totalUsed}</div><div class="mc-lbl">Items Used</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--text3)">${totalRemaining}</div><div class="mc-lbl">Left Over</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--yellow)">🪙${totalSpent}</div><div class="mc-lbl">Total Spent</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--text2)">${allItemNames.size}</div><div class="mc-lbl">Unique Items</div></div>
+  </div>`;
+
+  // Skip reason breakdown cards
+  if(totalSkips){
+    html+=`<div class="metric-cards" style="margin-top:4px">`;
     for(const [reason,count] of Object.entries(skipByReason).sort((a,b)=>b[1]-a[1])){
       const pct=Math.round(count/totalSkips*100);
       const color=reason==='limit_reached'?'var(--green)':reason==='skip_buy'?'var(--yellow)':reason==='rule_rejected'?'var(--orange)':'var(--red)';
       html+=`<div class="metric-card"><div class="mc-val" style="color:${color}">${count}</div><div class="mc-lbl">${esc(friendlySkipReason(reason))}</div><div class="mc-sub">${pct}% of skips</div></div>`;
     }
-    html+=`</div></div>`;
+    html+=`</div>`;
+  }
 
-    // Per-item skip breakdown
-    const skipItems=Object.entries(skipByItem).sort((a,b)=>b[1].total-a[1].total);
-    html+=`<table class="tbl"><thead><tr>
+  // Unified item table
+  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>All Items — Bought, Used, Skipped (${unified.length} items)</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr>
     <th class="sortable" onclick="sortTable(this)">Item</th>
-    <th class="r sortable" onclick="sortTable(this)">Times Skipped</th>
-    <th>Reasons</th>
+    <th class="r sortable" onclick="sortTable(this)">Bought</th>
+    <th class="r sortable" onclick="sortTable(this)">Used</th>
+    <th class="r sortable" onclick="sortTable(this)">Left</th>
+    <th class="r sortable" onclick="sortTable(this)">Cost</th>
+    <th class="r sortable" onclick="sortTable(this)">Skipped</th>
+    <th>Skip Reasons</th>
     </tr></thead><tbody>
-    ${skipItems.map(([nm,d])=>{
-      const tags=Object.entries(d.reasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag" title="${esc(r)}">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
-      return`<tr><td>${esc(nm)}</td><td class="r" style="font-weight:600;color:var(--text2)">${d.total}</td><td><div class="reason-tags">${tags}</div></td></tr>`;
+    ${unified.map(it=>{
+      const leftColor=it.remaining>0?'var(--orange)':'var(--green)';
+      const tags=Object.entries(it.reasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag" title="${esc(r)}">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
+      return`<tr><td>${esc(it.name)}</td><td class="r" style="color:var(--yellow);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:var(--blue);font-weight:600">${it.used||'—'}</td><td class="r" style="color:${leftColor};font-weight:600">${it.remaining>0?it.remaining:'—'}</td><td class="r cost-cell">${it.cost?'🪙'+it.cost:'—'}</td><td class="r" style="font-weight:600;color:var(--text2)">${it.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
     }).join('')}
     </tbody></table></div></div>`;
-  }
 
   // Full chronological timeline
   const timeline=[...purchaseLog.map(p=>({...p,type:'buy'})),...useLog.map(u=>({...u,type:'use'}))].sort((a,b)=>a.turn-b.turn);
@@ -1580,7 +1574,27 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function smTag(cls,val,prev,title){if(val==null)return'';const d=(prev!=null&&val!==prev)?val-prev:null;const delta=d!==null?`<span class="dp ${d>=0?'pos':'neg'}">${d>=0?'+':''}${d}</span>`:'';return`<span class="sm ${cls}" title="${title}">${val}${delta}</span>`}
 function itemGroup(id){if(id===11002)return 0;if(id===11001)return 1;if(id>=8001&&id<=8003)return 2;if(id>=1201&&id<=1205)return 3;if(id>=1101&&id<=1105)return 4;return 5}
 function friendlySkipReason(r){
-  const map={skip_buy:'Low priority (policy)',rule_rejected:'Not selected (rules)',unaffordable:'Not enough coins',limit_reached:'Already owned max',expired:'Offer expired',rejected:'Rejected',failed_snapshot:'Snapshot failed'};
+  const map={
+    skip_buy:'Low priority (policy)',
+    rule_rejected:'Not selected (rules)',
+    unaffordable:'Not enough coins',
+    limit_reached:'Already owned max',
+    expired:'Offer expired',
+    rejected:'Rejected',
+    failed_snapshot:'Snapshot failed',
+    auto_buy_cap:'Auto-buy cap reached',
+    user_excluded:'Excluded by user',
+    skip_wasteful:'Wasteful consumable',
+    skip_notepad:'Notepad excluded',
+    skip_inv_cap:'Inventory cap',
+    skip_mega_surplus:'Megaphone surplus',
+    skip_anklet_cap:'Anklet stock cap',
+    skip_cure_redundant:'Cure redundant',
+    skip_budget:'Budget too low',
+    skip_pre_summer:'Pre-summer reserve',
+    skip_low_deck:'Low deck support',
+    skip_buff_used:'Buff already used'
+  };
   return map[r]||r;
 }
 

@@ -550,8 +550,8 @@ class MantItemManager:
                 skip_reason = "expired"
             elif current_num >= limit:
                 skip_reason = "limit_reached"
-            elif self._skip_buy(name, owned, preset, current_turn, start_budget, data, race_planner):
-                skip_reason = "skip_buy"
+            else:
+                skip_reason = self._skip_buy(name, owned, preset, current_turn, start_budget, data, race_planner) or None
             official = (load_master_shop_core((preset or {}).get("_base_dir") or (preset or {}).get("base_dir")).get("by_id") or {}).get(item_id, {})
             self.last_buy_options.append({
                 "name": name,
@@ -1860,65 +1860,58 @@ class MantItemManager:
         return value
 
     def _skip_buy(self, name, owned, preset=None, turn=0, budget=0, data=None, race_planner=None):
+        """Return a skip-reason string if the item should not be bought, or
+        None/empty-string if it should be bought.  Granular reasons let the log
+        viewer distinguish user-configured policies from built-in defaults."""
         cfg = ((preset or {}).get("mant_config") or {})
         auto_buy = cfg.get("auto_buy_items") or {}
         if name in auto_buy:
             cap = max(0, int(auto_buy[name]))
-            return int(owned.get(name, 0) or 0) >= cap
+            if int(owned.get(name, 0) or 0) >= cap:
+                return "auto_buy_cap"
+            return None
         excluded = cfg.get("exclude_shop_items") or []
         if isinstance(excluded, str):
             excluded = [part.strip() for part in excluded.split(",") if part.strip()]
         excluded_slugs = {display_to_slug(item) for item in excluded}
         if display_to_slug(name) in excluded_slugs:
-            return True
-        # Hard exclusions: wasteful pre-race auto-consumed items (see
-        # ALWAYS_EXCLUDE_SLUGS).  Never bought unless explicitly re-enabled.
+            return "user_excluded"
         if (display_to_slug(name) in ALWAYS_EXCLUDE_SLUGS
                 and not cfg.get("allow_wasteful_consumables", False)):
-            return True
-        # P3: small +3 stat notepads (ids 1001-1005) are skip-by-default -- their
-        # tiny stat gain isn't worth the coins.  Medium Manual (+7) / Large Scroll
-        # (+15) are unaffected (different slug suffixes).  Opt back in via config.
+            return "skip_wasteful"
         if display_to_slug(name).endswith("_notepad") and not cfg.get("trackblazer_buy_notepads", False):
-            return True
+            return "skip_notepad"
         if int(owned.get(name, 0) or 0) >= self._item_cap(name, preset):
-            return True
+            return "skip_inv_cap"
         if name in MEGAPHONE_TIERS and self._megaphone_buy_surplus(data or {}, owned, turn, race_planner, preset):
-            return True
-        # P1: anklet over-buy guard.  Keep only ~2 anklets in stock total (main +
-        # sub); once we hold that many across all types, stop buying more.
+            return "skip_mega_surplus"
         if name in set(TRAINING_TYPE_ANKLET.values()):
             anklet_max = _cfg_num(cfg, "trackblazer_anklet_max_stock", 2)
             total_anklets = sum(int(owned.get(a, 0) or 0) for a in set(TRAINING_TYPE_ANKLET.values()))
             if total_anklets >= anklet_max:
-                return True
+                return "skip_anklet_cap"
         if name in CURE_ITEMS:
-            # Rich Hand Cream and Miracle Cure are Trackblazer-critical race/run
-            # insurance and may be stocked up to their normal cap. Other specific
-            # cures are one-copy safety valves, and are skipped if Miracle Cure
-            # already covers the same emergency.
             if name in {"Rich Hand Cream", AILMENT_CURE_ALL}:
-                return False
+                return None
             if owned.get(name, 0) > 0 or (name != AILMENT_CURE_ALL and owned.get(AILMENT_CURE_ALL, 0) > 0):
-                return True
+                return "skip_cure_redundant"
         guide = self._guide(preset)
         fast_cfg = ((guide.get("shop_priorities") or {}).get("fast_learner") or {})
         if name == fast_cfg.get("item", "Scholar's Hat"):
             min_coin = int(fast_cfg.get("min_coin_before_buy") or 280)
             if int(budget or 0) < min_coin:
-                return True
-        # Preserve coins before summer unless the item is a high-impact guide priority.
+                return "skip_budget"
         reserve = int(((guide.get("summer_strategy") or {}).get("pre_summer_reserve_coin") or 0))
         if is_pre_summer(turn) and budget < reserve and name not in set(((guide.get("shop_priorities") or {}).get("training_boost_items") or {}).get("names") or []):
             if name not in set(((guide.get("shop_priorities") or {}).get("immediate_stat_items") or {}).get("names") or []):
-                return True
+                return "skip_pre_summer"
         type_idx = TRAINING_ITEM_DECK_TYPE_INDEX.get(name)
         if type_idx is not None:
             counts = (preset or {}).get("_deck_type_counts") or []
             count = int(counts[type_idx] or 0) if len(counts) > type_idx else 0
             if count < 2:
-                return True
-            return False
+                return "skip_low_deck"
+            return None
         if name in ONE_TIME_BUFF_ITEMS and name in self.used_buffs:
-            return True
-        return False
+            return "skip_buff_used"
+        return None
