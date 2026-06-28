@@ -1008,6 +1008,8 @@
               slider('nr-sht', 'Skill Hoard Threshold', 500, 2000, 1000, 50, '', 'Buy skills immediately above this SP.', 'mant.nirio_skill_hoard_threshold'),
               slider('nr-mrt', 'Mood Repair Turn', 30, 70, 50, 1, '', 'Use cupcakes aggressively after this turn when mood ≤ floor.', 'mant.nirio_mood_repair_turn'),
               slider('nr-mfl', 'Mood Floor', 1, 4, 2, 1, '', 'Trigger mood repair when motivation ≤ this.', 'mant.nirio_mood_floor'),
+              slider('nr-mct', 'Mood Critical Turn', 50, 73, 68, 1, '', 'Hard-block optional race chains when mood ≤ floor after this turn.', 'mant.nirio_mood_critical_turn'),
+              slider('nr-cmf', 'Chain Mood Floor', 1, 4, 2, 1, '', 'Block race chains when motivation ≤ this (after critical turn).', 'mant.nirio_chain_mood_floor'),
               slider('nr-cdt', 'Charm Dump Turn', 40, 72, 60, 1, '', 'Lower Good-Luck Charm thresholds after this turn.', 'mant.nirio_charm_dump_turn'),
               slider('nr-cdg', 'Charm Dump Min Gain', 1, 20, 8, 1, '', 'Minimum stat gain for charm in dump window.', 'mant.nirio_charm_dump_min_gain'),
               slider('nr-cdf', 'Charm Dump Failure Rate', 1, 30, 10, 1, '', 'Min failure rate to trigger charm in dump window.', 'mant.nirio_charm_dump_failure_rate'),
