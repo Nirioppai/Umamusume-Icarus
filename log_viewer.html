@@ -48,6 +48,9 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 header h1{font-size:16px;font-weight:700;color:var(--accent2);white-space:nowrap}
 .open-btn{background:var(--accent);border:none;color:#fff;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}
 .open-btn:hover{background:var(--accent2)}
+.copy-ai-btn{background:var(--green);border:none;color:#000;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .2s}
+.copy-ai-btn:hover{background:var(--accent2);color:#fff}
+.copy-ai-btn.copied{background:var(--accent);color:#fff}
 .header-hint{font-size:11px;color:var(--text3);margin-left:auto}
 
 /* ── File pills ── */
@@ -433,6 +436,7 @@ function renderSummary(d){
     rs.clocks_used?badge('Clocks',rs.clocks_used):'',
     rs.skills_bought?badge('Skills',rs.skills_bought):'',
     rs.items_bought!=null?badge('Items Bought',rs.items_bought):'',
+    '<button id="copyAIBtn" class="copy-ai-btn" onclick="copyAISummary()">📋 Copy AI Summary</button>',
   ].filter(Boolean).join('');
 }
 function badge(l,v){return`<div class="s-badge"><span>${l}</span><b>${esc(String(v))}</b></div>`}
@@ -1666,6 +1670,272 @@ function friendlySkipReason(r){
     skip_buff_used:'Buff already used'
   };
   return map[r]||r;
+}
+
+/* ═══════════════════════════════════════
+   AI SUMMARY EXPORT
+   ═══════════════════════════════════════ */
+function copyAISummary(){
+  const text=generateAISummary();
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.getElementById('copyAIBtn');
+    btn.textContent='✓ Copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='📋 Copy AI Summary';btn.classList.remove('copied')},2000);
+  }).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)});
+}
+
+function generateAISummary(){
+  if(!logData)return'No log loaded.';
+  const d=logData,turns=d.turns||[],rs=d.runner_status||{};
+  let last=turns.length?turns[turns.length-1]:{};
+  if(!last.stats||!last.stats.speed){for(let i=turns.length-1;i>=0;i--){if(turns[i].stats&&turns[i].stats.speed){last=turns[i];break}}}
+  const ls=last.stats||{};
+  const totalStats=(ls.speed||0)+(ls.stamina||0)+(ls.power||0)+(ls.guts||0)+(ls.wit||0);
+  const sc=SCENARIO[d.scenario_id]||'Scenario '+d.scenario_id;
+  const dur=d.started_at&&d.ended_at?fmtDur(new Date(d.ended_at)-new Date(d.started_at)):'—';
+
+  let o='';
+  o+='=== ICARUS TRACKBLAZER RUN REPORT ===\n';
+  o+='Generated: '+new Date().toLocaleString()+'\n';
+  o+='File: '+((allLogs[activeLogIndex]||{}).filename||'—')+'\n\n';
+
+  // Career info
+  o+='--- CAREER INFO ---\n';
+  o+='Preset: '+(d.preset_name||'—')+'\n';
+  o+='Scenario: '+sc+'\n';
+  o+='Status: '+(d.status||'—')+'\n';
+  o+='Duration: '+dur+'\n';
+  o+='Decision Mode: '+((d.runtime_settings||{}).decision_mode||'—')+'\n';
+  o+='Total Turns: '+turns.length+'/'+(d.final_turn||'—')+'\n';
+  o+='Run: '+(rs.loop_index||'—')+' / '+(rs.loop_target||'—')+'\n\n';
+
+  // Final stats
+  o+='--- FINAL STATS ---\n';
+  o+='Speed: '+(ls.speed||0)+' | Stamina: '+(ls.stamina||0)+' | Power: '+(ls.power||0)+' | Guts: '+(ls.guts||0)+' | Wit: '+(ls.wit||0)+'\n';
+  o+='Total: '+totalStats+'\n';
+  o+='SP Remaining: '+(ls.skill_point||0)+'\n';
+  o+='Final HP: '+(ls.hp||'?')+'/'+(ls.max_hp||100)+'\n';
+  o+='Final Coins: '+(last.mant_coin!=null?last.mant_coin:'—')+'\n\n';
+
+  // Race economy
+  const rr=buildRaceResults(d);
+  const rWins=rr.filter(r=>r.finalRank===1).length;
+  const rClocks=rr.filter(r=>r.usedClock).length;
+  const rWinPct=rr.length?(rWins/rr.length*100).toFixed(1):'0';
+
+  o+='--- RACE ECONOMY ---\n';
+  o+='Total Races: '+rr.length+'\n';
+  o+='Wins (1st): '+rWins+' ('+rWinPct+'%)\n';
+  o+='Clock Retries: '+rClocks+'\n';
+  o+='Fans Gained: '+(rs.fans_gained?fmtNum(rs.fans_gained):'—')+'\n\n';
+
+  // By grade
+  const byG={};
+  for(const r of rr){if(!byG[r.grade])byG[r.grade]={t:0,w:0,c:0};byG[r.grade].t++;if(r.finalRank===1)byG[r.grade].w++;if(r.usedClock)byG[r.grade].c++}
+  const gOrd=['G1','G2','G3','900','OP','Pre-OP'];
+  o+='By Grade:\n';
+  for(const[g,gd]of Object.entries(byG).sort((a,b)=>(gOrd.indexOf(a[0])===-1?99:gOrd.indexOf(a[0]))-(gOrd.indexOf(b[0])===-1?99:gOrd.indexOf(b[0])))){
+    o+='  '+g+': '+gd.w+'/'+gd.t+' wins ('+Math.round(gd.w/gd.t*100)+'%)'+(gd.c?' ['+gd.c+' clocks]':'')+'\n';
+  }
+  o+='\n';
+
+  // Race log
+  o+='Race Log:\n';
+  for(const r of rr){
+    o+='  T'+String(r.turn).padStart(2,'0')+': '+r.name+' ('+r.grade+') → #'+(r.finalRank||'?')+(r.usedClock?' 🕐':'')+(r.itemsUsed.length?' ['+r.itemsUsed.join(', ')+']':'')+'\n';
+  }
+  o+='\n';
+
+  // Consecutive race chains
+  const chains=aiRaceChains(turns);
+  if(chains.length){
+    o+='Consecutive Race Chains:\n';
+    for(const c of chains){
+      const flag=c.length>=4?' ⚠⚠ HEAVY FLAG':c.length>=3?' ⚠ FLAG':'';
+      o+='  T'+c[0]+'-T'+c[c.length-1]+': '+c.length+' consecutive races'+flag+'\n';
+    }
+    o+='\n';
+  }
+
+  // Item economy
+  o+='--- ITEM ECONOMY ---\n';
+  const ie=aiItemSummary(turns);
+  const leftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  o+='Total Items Bought: '+ie.boughtCount+'\n';
+  o+='Total Items Used: '+ie.usedCount+'\n';
+  o+='Items Left Over: '+leftover+'\n';
+  o+='Total Coins Spent: '+ie.spent+'\n\n';
+
+  const allNames=new Set([...Object.keys(ie.bought),...Object.keys(ie.used)]);
+  const itemRows=[...allNames].map(nm=>({name:nm,b:ie.bought[nm]||0,u:ie.used[nm]||0,l:(ie.bought[nm]||0)-(ie.used[nm]||0)})).sort((a,b)=>b.b-a.b||b.u-a.u);
+  o+='Per Item (bought / used / left):\n';
+  for(const it of itemRows){o+='  '+fmtItem(it.name)+': '+it.b+' / '+it.u+' / '+Math.max(0,it.l)+(it.l>0?' ⚠':'')+'\n'}
+  o+='\n';
+
+  // Skip reasons
+  const skipR={};
+  for(const t of turns)for(const row of(t.shop_rows_enriched||[]))if(row.skip_reason){const r=friendlySkipReason(row.skip_reason);skipR[r]=(skipR[r]||0)+1}
+  if(Object.keys(skipR).length){
+    o+='Skip Reason Summary:\n';
+    for(const[r,c]of Object.entries(skipR).sort((a,b)=>b[1]-a[1]))o+='  '+r+': '+c+'\n';
+    o+='\n';
+  }
+
+  // Summer bootcamp
+  o+='--- SUMMER BOOTCAMP ---\n';
+  o+=aiSummerSnap(turns,37,40,'Classic Summer (T37-40)');
+  o+=aiSummerSnap(turns,61,64,'Senior Summer (T61-64)');
+  o+='\n';
+
+  // T73 / Climax
+  o+='--- TURN 73 / CLIMAX PREP ---\n';
+  o+=aiT73Summary(turns,rr);
+  o+='\n';
+
+  // Mood & HP
+  o+='--- MOOD & HP ---\n';
+  o+=aiMoodSummary(turns);
+  o+='\n';
+
+  // Skills
+  o+='--- SKILLS ---\n';
+  o+=aiSkillSummary(turns);
+  o+='\n';
+
+  // Final inventory
+  const fInv=last.inventory||[];
+  if(fInv.length){
+    o+='--- FINAL INVENTORY ---\n';
+    for(const it of fInv){const nm=it.name||ITEM[it.item_id]||'id:'+it.item_id;o+='  '+fmtItem(nm)+' ×'+(it.current_num||it.num||1)+'\n'}
+    o+='\n';
+  }
+
+  // Condensed turn log
+  o+='--- TURN LOG (CONDENSED) ---\n';
+  o+=aiTurnLog(turns);
+
+  return o;
+}
+
+function aiRaceChains(turns){
+  const chains=[];let cur=[];
+  for(const t of turns){if(categorize(t)==='race'){cur.push(t.turn)}else{if(cur.length>=2)chains.push([...cur]);cur=[]}}
+  if(cur.length>=2)chains.push([...cur]);
+  return chains;
+}
+
+function aiItemSummary(turns){
+  const bought={},used={};let boughtCount=0,usedCount=0,spent=0;
+  for(const t of turns){
+    for(const b of(t.bot_shop_selected||[])){boughtCount++;spent+=(b.cost||0);const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;bought[nm]=(bought[nm]||0)+1}
+    const prn=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const u of(t.bot_item_use_selected||[]).filter(i=>!prn.has(i.name))){usedCount++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;used[nm]=(used[nm]||0)+(u.use_num||1)}
+    for(const u of(t.bot_pre_race_use_selected||[])){usedCount++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;used[nm]=(used[nm]||0)+(u.use_num||1)}
+  }
+  return{bought,used,boughtCount,usedCount,spent};
+}
+
+function aiSummerSnap(turns,ss,se,label){
+  const pre=[...turns].reverse().find(t=>t.turn<ss);
+  const sum=turns.filter(t=>t.turn>=ss&&t.turn<=se);
+  let o=label+':\n';
+  if(pre){
+    o+='  Coins entering: '+(pre.mant_coin!=null?pre.mant_coin:'—')+'\n';
+    o+='  HP: '+((pre.stats||{}).hp||'?')+' | Mood: '+(pre.motivation||(pre.stats||{}).motivation||'?')+'/5\n';
+    const inv=pre.inventory||[];
+    if(inv.length)o+='  Inventory: '+inv.map(i=>fmtItem(i.name||ITEM[i.item_id]||'?')+'×'+(i.current_num||i.num||1)).join(', ')+'\n';
+  }
+  o+='  Turns:\n';
+  for(const t of sum){
+    const{label:al}=parseAction(t);
+    const b=(t.bot_shop_selected||[]).map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    const prn=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    const u=[...(t.bot_item_use_selected||[]).filter(i=>!prn.has(i.name)),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    let ln='    T'+t.turn+': '+al;
+    if(b.length)ln+=' | bought: '+b.join(', ');
+    if(u.length)ln+=' | used: '+u.join(', ');
+    const st=t.stats||{};
+    ln+=' | SPD:'+(st.speed||0)+' STA:'+(st.stamina||0)+' POW:'+(st.power||0)+' GUT:'+(st.guts||0)+' WIT:'+(st.wit||0);
+    o+=ln+'\n';
+  }
+  if(!sum.length)o+='    (no turns in range)\n';
+  return o;
+}
+
+function aiT73Summary(turns,rr){
+  const TID=11002;
+  const t73=[...turns].reverse().find(t=>t.turn<=73);
+  let o='';
+  if(t73){
+    const invE=(t73.inventory||[]).find(i=>i.item_id===TID);
+    const ic=invE?(invE.current_num||invE.num||1):0;
+    const sc2=(t73.shop_rows_enriched||[]).filter(r=>r.item_id===TID&&!r.selected&&!r.limit_reached&&!r.expired).length;
+    const tot=ic+sc2;
+    o+='MCH in inventory: '+ic+'\n';
+    o+='MCH in shop (unbought): '+sc2+'\n';
+    o+='MCH total available: '+tot+'\n';
+    o+='MCH Check: '+(tot>=3?'PASS ✓':tot>=2?'RISKY ⚠':'FAIL ✗')+'\n';
+    o+='Coins at T'+t73.turn+': '+(t73.mant_coin!=null?t73.mant_coin:'—')+'\n';
+    const inv=t73.inventory||[];
+    if(inv.length)o+='Inventory at T'+t73.turn+': '+inv.map(i=>fmtItem(i.name||ITEM[i.item_id]||'?')+'×'+(i.current_num||i.num||1)).join(', ')+'\n';
+  }else o+='No turn data at or before T73.\n';
+  const climax=rr.filter(r=>r.turn>=74);
+  if(climax.length){
+    o+='\nFinal Climax Races:\n';
+    for(const r of climax)o+='  T'+r.turn+': '+r.name+' ('+r.grade+') → #'+(r.finalRank||'?')+(r.usedClock?' 🕐':'')+(r.itemsUsed.length?' ['+r.itemsUsed.join(', ')+']':'')+'\n';
+  }
+  return o;
+}
+
+function aiMoodSummary(turns){
+  const mc={1:0,2:0,3:0,4:0,5:0};let mt=0,mn=0,rc=0,lhp=0;
+  for(const t of turns){
+    const m=t.motivation||(t.stats||{}).motivation||0;
+    if(m>=1&&m<=5){mc[m]++;mt+=m;mn++}
+    if(categorize(t)==='rest')rc++;
+    if((t.stats||{}).hp<20)lhp++;
+  }
+  let o='';
+  o+='Average Mood: '+(mn?(mt/mn).toFixed(1):'—')+'/5\n';
+  o+='Distribution: Best='+mc[5]+'('+(mn?Math.round(mc[5]/mn*100):0)+'%) Good='+mc[4]+'('+(mn?Math.round(mc[4]/mn*100):0)+'%) Normal='+mc[3]+'('+(mn?Math.round(mc[3]/mn*100):0)+'%) Bad='+mc[2]+'('+(mn?Math.round(mc[2]/mn*100):0)+'%) Worst='+mc[1]+'('+(mn?Math.round(mc[1]/mn*100):0)+'%)\n';
+  o+='Rest Count: '+rc+'\n';
+  o+='Low HP Turns (<20): '+lhp+'\n';
+  return o;
+}
+
+function aiSkillSummary(turns){
+  const last=turns.length?turns[turns.length-1]:{};
+  const owned=last.owned_skills||[];
+  const log=[];let spent=0;
+  for(const t of turns)for(const sk of(t.bot_skill_selected||[])){log.push({turn:t.turn,name:sk.name||'id:'+sk.skill_id,cost:sk.cost||0});spent+=(sk.cost||0)}
+  let o='';
+  o+='Skills Owned: '+owned.length+'\n';
+  o+='SP Spent: '+spent+'\n';
+  o+='SP Remaining: '+((last.stats||{}).skill_point||0)+'\n';
+  if(log.length){o+='Acquisition Timeline:\n';for(const sk of log)o+='  T'+String(sk.turn).padStart(2,'0')+': '+sk.name+' ('+sk.cost+' SP)\n'}
+  return o;
+}
+
+function aiTurnLog(turns){
+  let o='';
+  for(const t of turns){
+    const s=t.stats||{};
+    const{label:al}=parseAction(t);
+    const motiv=t.motivation||s.motivation||'?';
+    const coin=t.mant_coin!=null?t.mant_coin:'?';
+    const b=(t.bot_shop_selected||[]).map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    const prn=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    const u=(t.bot_item_use_selected||[]).filter(i=>!prn.has(i.name)).map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    const pr=(t.bot_pre_race_use_selected||[]).map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    const sk=(t.bot_skill_selected||[]).map(i=>i.name||'?');
+    let ln='T'+String(t.turn).padStart(2,'0')+': '+al+' | HP:'+(s.hp||'?')+' SPD:'+(s.speed||0)+' STA:'+(s.stamina||0)+' POW:'+(s.power||0)+' GUT:'+(s.guts||0)+' WIT:'+(s.wit||0)+' SP:'+(s.skill_point||0)+' | coins:'+coin+' mood:'+motiv;
+    if(b.length)ln+=' | bought:['+b.join(',')+']';
+    if(u.length)ln+=' | used:['+u.join(',')+']';
+    if(pr.length)ln+=' | pre-race:['+pr.join(',')+']';
+    if(sk.length)ln+=' | skills:['+sk.join(',')+']';
+    o+=ln+'\n';
+  }
+  return o;
 }
 
 function sortTable(th){
