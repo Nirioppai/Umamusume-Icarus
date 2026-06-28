@@ -58,7 +58,8 @@
   function visible() {
     const q = ($('ev-search').value || '').toLowerCase();
     return events.filter((e) => inTab(e) &&
-      (!q || evName(e).toLowerCase().includes(q) || String(e.story_id).toLowerCase().includes(q)));
+      (!q || evName(e).toLowerCase().includes(q) || String(e.story_id).toLowerCase().includes(q)
+        || String(e.source_name || '').toLowerCase().includes(q)));
   }
 
   function renderList() {

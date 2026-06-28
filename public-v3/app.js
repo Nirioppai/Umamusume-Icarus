@@ -613,7 +613,10 @@
     const sel = (sess && sess.selection) || {};
     const account = sess && sess.account;
     const active = !!(account && account.career && account.career.active);
-    const runCount = state.devToggles.loop ? 0 : 1;       // LOOP ∞ → 0 (loop until stopped)
+    // BUG #6: LOOP is a run-count now (0 = ∞). Fall back to the legacy bool.
+    const runCount = (state.devToggles.loopCount != null)
+      ? Number(state.devToggles.loopCount)
+      : (state.devToggles.loop ? 0 : 1);
     const rp = await racePayload();   // persisted race mode + manual picks from the active preset
     let body;
     if (active) {
@@ -678,7 +681,6 @@
     if (window.Icarus && Icarus.devToggles) state.devToggles = Icarus.devToggles;
     const devMap = {
       'dev-burn': ['burn', (on) => 'BURN:' + (on ? 'ON' : 'OFF')],
-      'dev-loop': ['loop', (on) => 'LOOP:' + (on ? '∞' : '1')],
       'dev-finish': ['finish', (on) => 'FINISH:' + (on ? 'ON' : 'OFF')],
     };
     const applyToggleLabel = (id, key, label) => {
@@ -703,7 +705,14 @@
       // Restore the persisted label on load (HTML defaults to OFF).
       applyToggleLabel(id, key, label);
     });
+    // BUG #6: LOOP cycles a run-count (1/2/3/5/10/∞) via the shared core helper.
+    { const lb = $('dev-loop'); if (lb && window.Icarus && Icarus.loopLabel) {
+        const syncLoop = () => { lb.textContent = Icarus.loopLabel(state.devToggles.loopCount); lb.classList.toggle('on', Number(state.devToggles.loopCount) !== 1); };
+        lb.addEventListener('click', () => { Icarus.nextLoopCount(); syncLoop(); });
+        syncLoop();
+      } }
     { const f = $('finish-run-btn'); if (f) f.addEventListener('click', () => $('dev-finish').click()); }
+
 
     // not-yet-built tabs: gentle notice (these become real pages next)
     document.querySelectorAll('.tab[data-soon]').forEach((a) => {

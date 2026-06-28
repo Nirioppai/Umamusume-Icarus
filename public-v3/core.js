@@ -71,11 +71,24 @@ window.Icarus = (() => {
   // Single source of truth for the navbar dev toggles, persisted to localStorage
   // so they survive navigation across the multi-page v3 app (each page reloads
   // core.js fresh). app.js shares THIS object; both call persistToggles() on change.
-  const devToggles = { tempt: false, burn: false, loop: false, finish: false };
+  const devToggles = { tempt: false, burn: false, loop: false, finish: false, loopCount: 1 };
+  // BUG #6: LOOP is a run-COUNT, not just on/off. Clicking cycles through these
+  // (0 = infinite). run_count flows to /api/career/run. Persisted with devToggles.
+  const LOOP_SEQ = [1, 2, 3, 5, 10, 0];
+  const loopLabel = (n) => 'LOOP:' + (Number(n) === 0 ? '∞' : Number(n));
+  function nextLoopCount() {
+    const i = LOOP_SEQ.indexOf(Number(devToggles.loopCount));
+    devToggles.loopCount = LOOP_SEQ[(i + 1) % LOOP_SEQ.length];
+    devToggles.loop = devToggles.loopCount !== 1;   // keep legacy bool in sync
+    persistToggles();
+    return devToggles.loopCount;
+  }
   try {
     const saved = JSON.parse(localStorage.getItem('icarus_dev_toggles') || '{}');
     if (saved && typeof saved === 'object') Object.assign(devToggles, saved);
   } catch (e) { /* corrupt value → keep defaults */ }
+  // Migrate the legacy boolean loop (∞/1) to the new run-count.
+  if (devToggles.loopCount == null) devToggles.loopCount = devToggles.loop ? 0 : 1;
   function persistToggles() {
     try { localStorage.setItem('icarus_dev_toggles', JSON.stringify(devToggles)); } catch (e) { /* ignore */ }
   }
@@ -146,6 +159,15 @@ window.Icarus = (() => {
     tempt:   { speed: 'safe', min: 2.5, max: 5 },
     retries: { carats: false, maxClocks: 2, g1DebutOnly: false, maxPerRace: -1 },
   };
+  // BUG #7: persist the retries popover config so it survives menu switches and
+  // reloads (it is NOT part of devToggles, so it was resetting every navigation).
+  try {
+    const _r = JSON.parse(localStorage.getItem('icarus_dev_retries') || '{}');
+    if (_r && typeof _r === 'object') Object.assign(devConfig.retries, _r);
+  } catch (e) { /* ignore */ }
+  function persistRetries() {
+    try { localStorage.setItem('icarus_dev_retries', JSON.stringify(devConfig.retries)); } catch (e) { /* ignore */ }
+  }
   const SPEEDS = [
     ['safe', 'Safe', 'full delay (your custom range)'],
     ['fast', 'Fast', 'no turn delay'],
@@ -250,16 +272,17 @@ window.Icarus = (() => {
         <input class="pop-num" id="pop-mpr" type="number" min="0" step="1" placeholder="default" value="${c.maxPerRace >= 0 ? c.maxPerRace : ''}">
       </div>`);
     const cb = pop.querySelector('#pop-carats');
-    cb.addEventListener('change', () => { c.carats = cb.checked; reflectRetries(btn); });
+    cb.addEventListener('change', () => { c.carats = cb.checked; persistRetries(); reflectRetries(btn); });
     const mc = pop.querySelector('#pop-maxc');
-    mc.addEventListener('change', () => { c.maxClocks = parseInt(mc.value, 10) || 0; reflectRetries(btn); });
+    mc.addEventListener('change', () => { c.maxClocks = parseInt(mc.value, 10) || 0; persistRetries(); reflectRetries(btn); });
     const g1 = pop.querySelector('#pop-g1');
-    g1.addEventListener('change', () => { c.g1DebutOnly = g1.checked; reflectRetries(btn); });
+    g1.addEventListener('change', () => { c.g1DebutOnly = g1.checked; persistRetries(); reflectRetries(btn); });
     const mpr = pop.querySelector('#pop-mpr');
     // blank = use preset/default (-1); 0 = no retries; N = cap
     mpr.addEventListener('change', () => {
       const v = mpr.value.trim();
       c.maxPerRace = (v === '') ? -1 : (parseInt(v, 10) || 0);
+      persistRetries();
       reflectRetries(btn);
     });
   }
@@ -268,7 +291,6 @@ window.Icarus = (() => {
     // simple on/off toggles
     const map = {
       'dev-burn': ['burn', (on) => 'BURN:' + (on ? 'ON' : 'OFF')],
-      'dev-loop': ['loop', (on) => 'LOOP:' + (on ? '\u221e' : '1')],
       'dev-finish': ['finish', (on) => 'FINISH:' + (on ? 'ON' : 'OFF')],
     };
     Object.entries(map).forEach(([id, [key, label]]) => {
@@ -284,6 +306,14 @@ window.Icarus = (() => {
       b.textContent = label(devToggles[key]);
       b.classList.toggle('on', devToggles[key]);
     });
+
+    // BUG #6: LOOP cycles a run-count (1/2/3/5/10/\u221e) instead of a boolean.
+    const lb = document.getElementById('dev-loop');
+    if (lb) {
+      const syncLoop = () => { lb.textContent = loopLabel(devToggles.loopCount); lb.classList.toggle('on', Number(devToggles.loopCount) !== 1); };
+      lb.addEventListener('click', () => { nextLoopCount(); syncLoop(); });
+      syncLoop();
+    }
 
     bindDevExtras();
   }
@@ -931,6 +961,8 @@ window.Icarus = (() => {
     devConfig,   // exposed so the dashboard run payload can read the RETRIES popover config
     devToggles,        // shared single source of truth for the navbar dev toggles
     persistToggles,    // app.js calls this after flipping a shared toggle
+    persistRetries,    // app.js / popovers persist the retries config (BUG #7)
+    loopLabel, nextLoopCount,   // LOOP run-count cycle, shared with the dashboard (BUG #6)
     setMonitor,        // feed the bottom MONITOR dock real rows from a live snapshot
     renderLifetime,    // bordered lifetime metrics in the navbar (fed the raw runner)
     applyTraineeTheme, clearTraineeTheme,   // recolour the accent to the active trainee

@@ -481,7 +481,8 @@ class UmaClient:
                 self.on_api_log(direction, ep, data, req_id)
             except Exception:
                 pass
-        
+
+
         if self.trace_file:
             try:
                 def _json_default(obj):

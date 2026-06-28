@@ -148,8 +148,12 @@ class TrackblazerP0ItemTests(unittest.TestCase):
         reserved = mgr._trackblazer_race_item_targets(
             {"Master Cleat Hammer": 1, "Glow Sticks": 1}, 74, 100, {"mant_config": {}}, planner
         )
+        # Master Cleat Hammer still reserves for the final climax (turn 78).
         self.assertNotIn(("Master Cleat Hammer", 1), reserved)
-        self.assertNotIn(("Glow Sticks", 1), reserved)
+        # Glow Stick now DUMPS in the finale window (turn 74 is a finale turn):
+        # per the item-strategy doctrine it is spent on the big finale race rather
+        # than trapped by the final-reserve (fixes "not used if bought after 72").
+        self.assertIn(("Glow Sticks", 1), reserved)
 
         final = mgr._trackblazer_race_item_targets(
             {"Master Cleat Hammer": 1, "Glow Sticks": 1}, 78, 100, {"mant_config": {}}, planner

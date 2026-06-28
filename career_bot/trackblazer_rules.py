@@ -102,6 +102,9 @@ CUPCAKE_ORDER = ("Berry Sweet Cupcake", "Plain Cupcake")
 
 DEFAULT_CHARM_FAILURE_THRESHOLD = 20
 DEFAULT_CHARM_MIN_MAIN_GAIN = 20
+# Above this failure rate, fire the Good-Luck Charm even on a modest-gain
+# training (a wasted-turn failure is worse than the saved charm).
+DEFAULT_CHARM_FAILURE_RATE_HIGH = 40
 DEFAULT_LOW_MOOD_ITEM_GAIN_FLOOR = 15
 
 # P0: conservation must engage much earlier (was 65).  At 65 the bot burned

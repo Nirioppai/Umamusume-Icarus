@@ -716,6 +716,22 @@ api_delay_scale = 1.0
 preset_store = ConfigStore(DIR, userdata_dir=USERDATA_DIR)
 career_runner = CareerRunner(DIR)
 
+# DEV-ONLY raw game-endpoint debug route (POST /api/debug/call). Exposes the
+# generic UmaClient.call() so a sniffer-discovered endpoint is callable without a
+# wrapper. EXCLUDED from public/beta builds -> when career_bot/raw_api.py is
+# absent this import fails and the route simply doesn't exist (404), same as the
+# skill-buy intercept. Guards (logged-in, not-mid-career, secret-masking) live in
+# raw_api.raw_call. active_client/career_runner are read lazily at request time.
+try:
+    from career_bot import raw_api as _raw_api
+    _raw_api.register(
+        app,
+        lambda: active_client,
+        lambda: bool(career_runner.snapshot().get("running")),
+    )
+except Exception:
+    pass
+
 base_dir = Path(__file__).parent.absolute()
 # master.mdb-derived data tables are (re)generated in _lifespan at startup, not
 # at import time, so importing this module stays cheap and side-effect-free
@@ -3008,13 +3024,37 @@ def _scraped_row_for(sid, event_name):
     return by_name.get(nm) if nm else {}
 
 
+def _event_source_name(source_url):
+    """BUG #4a: derive a searchable character / support-card name from a gametora
+    source_url like .../supports/10017-gold-city or .../characters/100101-special-week
+    -> 'Gold City'. Lets Event Choices be searched by the character the card is
+    attached to (no rescrape needed; the slug is already in event_effects.json)."""
+    try:
+        m = re.search(r"/(?:supports|characters)/\d+-([a-z0-9-]+)", str(source_url or ""))
+        return m.group(1).replace("-", " ").title() if m else ""
+    except Exception:
+        return ""
+
+
+def _running_preset_name():
+    """BUG 4b: the preset name of the CURRENTLY-RUNNING career (or None when idle),
+    so forced event overrides land on the preset the runner is actually using
+    rather than whatever preset is merely 'active' in the UI."""
+    try:
+        snap = career_runner.snapshot()
+        return snap.get("preset") if snap.get("running") else None
+    except Exception:
+        return None
+
+
 @app.get("/api/events")
 async def get_event_choices(cards: str = ""):
     seen_path, overrides_path = _event_choice_paths()
     seen = _read_json_file(seen_path)
-    # Per-preset event choices live on the active preset; merge the legacy global
-    # file underneath for display so pre-migration overrides still show.
-    overrides = {**(_read_json_file(overrides_path) or {}), **preset_store.read_event_overrides()}
+    # Per-preset event choices live on the running preset (when a career is
+    # running) else the active preset; merge the legacy global file underneath for
+    # display so pre-migration overrides still show. (BUG 4b: show what will apply.)
+    overrides = {**(_read_json_file(overrides_path) or {}), **preset_store.read_event_overrides(_running_preset_name())}
     support_filter = {int(x) for x in re.split(r"[,\s]+", str(cards or "")) if x.strip().isdigit()}
 
     merged = {}
@@ -3052,6 +3092,7 @@ async def get_event_choices(cards: str = ""):
             "count": int(seen_row.get("count") or 0),
             "override": int(overrides[sid]) if sid in overrides else None,
             "outcomes": outcomes if isinstance(outcomes, dict) else {},
+            "source_name": _event_source_name((scraped_row or {}).get("source_url")),
         }
     # Also list every catalog event so the panel is populated even before a career
     # has run (events_seen.json may be empty). The event slug is used as the row's
@@ -3078,6 +3119,7 @@ async def get_event_choices(cards: str = ""):
             "count": 0,
             "override": int(overrides[slug]) if slug in overrides else None,
             "outcomes": g_outcomes,
+            "source_name": _event_source_name(row.get("source_url")),
         }
     # Sort by category first (Story before Support Card) so each tab renders a
     # stable, grouped list; catalog support-card rows have support_card_id 0, so the
@@ -3086,11 +3128,12 @@ async def get_event_choices(cards: str = ""):
     return {"success": True, "events": events}
 
 
-def _migrate_legacy_event_overrides():
+def _migrate_legacy_event_overrides(name=None):
     """Fold any entries from the legacy global event_overrides.json into the
-    active preset's per-preset event_overrides, then empty the global file so it
-    no longer wins over the preset in the runner. Returns the merged dict."""
-    overrides = preset_store.read_event_overrides()
+    target preset's per-preset event_overrides (running preset when given, else
+    active), then empty the global file so it no longer wins over the preset in
+    the runner. Returns the merged dict."""
+    overrides = preset_store.read_event_overrides(name)
     _, overrides_path = _event_choice_paths()
     legacy = _read_json_file(overrides_path) or {}
     if legacy:
@@ -3105,23 +3148,26 @@ async def set_event_choice_override(req: EventOverrideRequest):
     sid = str(req.story_id or "").strip()
     if not sid:
         return {"success": False, "detail": "story_id required"}
-    # Event choices are now per-preset: stored on the active preset (read by the
-    # runner via preset.event_overrides), not the shared global file.
-    overrides = _migrate_legacy_event_overrides()
+    # Event choices are per-preset: store on the RUNNING preset when a career is
+    # running (so the forced choice actually applies this career — BUG 4b), else
+    # the active preset. Read by the runner via preset.event_overrides.
+    target = _running_preset_name()
+    overrides = _migrate_legacy_event_overrides(target)
     if int(req.choice) < 0:
         overrides.pop(sid, None)
     else:
         overrides[sid] = int(req.choice)
-    saved = preset_store.save_event_overrides(overrides)
+    saved = preset_store.save_event_overrides(overrides, name=target)
     return {"success": True, "story_id": sid, "override": saved.get(sid)}
 
 
 # v6.7.25 — bulk reset: wipes every saved override so all events fall back to Auto.
 @app.post("/api/events/overrides/clear")
 async def clear_all_event_choice_overrides():
-    overrides = _migrate_legacy_event_overrides()
+    target = _running_preset_name()
+    overrides = _migrate_legacy_event_overrides(target)
     cleared = len(overrides)
-    preset_store.save_event_overrides({})
+    preset_store.save_event_overrides({}, name=target)
     return {"success": True, "cleared": cleared}
 
 
@@ -4483,6 +4529,11 @@ def api_trackblazer_races():
             seen.add((pid, turn))
             out.append({
                 "id": pid,
+                # BUG #1: per-occurrence id (year_key*100000 + program_id) so the
+                # picker can select a recurring race in ONE year only. The engine's
+                # wanted_programs turn-scopes occurrence ids (meta[occ].turn) while
+                # bare program_ids stay turn-blind, so this is backward compatible.
+                "occ": int(r.get("occurrence_id") or 0),
                 "turn": turn,
                 "date": r.get("date") or "",
                 "name": r.get("name") or "",
@@ -4846,6 +4897,15 @@ async def login(req: LoginRequest):
         if not res:
             raise HTTPException(status_code=401, detail="Game login failed")
         active_client = c
+
+        # BUG #5: login wiped active_selection (line ~4789); restore the persisted
+        # picker selection from disk so the chosen trainee / parents / guest /
+        # deck / friend survive a `python main.py` restart. The Setup UI reads it
+        # back via /api/session -> data["selection"]. `global active_selection`
+        # is declared at the top of this handler, so this targets the module global.
+        _persisted_sel = _load_active_selection()
+        if _persisted_sel:
+            active_selection = _persisted_sel
 
         d = res.get("data", {})
         career_data = None

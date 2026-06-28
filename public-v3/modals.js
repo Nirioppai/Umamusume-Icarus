@@ -37,6 +37,10 @@
     row(label, help, `<select class="self"${k ? ` data-k="${k}" data-type="str"` : ''}>${opts.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(activeVal) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`);
   const numf = (label, val, help = '', k = '') =>
     row(label, help, `<input class="numf" type="number" value="${val}"${k ? ` data-k="${k}" data-type="num"` : ''}>`);
+  // Per-distance running-style select. collectPreset/applyPreset round-trip the
+  // four of these into mant_config.race_strategy_by_distance via the data-rsbd key.
+  const dsel = (label, bucket, help = '') =>
+    row(label, help, `<select class="self rsbd" data-rsbd="${bucket}">${STYLE_OPTS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select>`);
   // priority registry: id -> { label, items (current), def (default) }
   const PRIO = {};
   const prioChipsHtml = (items) => items.map((n, i) => `<span class="prio-chip"><span class="n">${i + 1}</span>${esc(n)}</span>`).join('');
@@ -139,14 +143,8 @@
   //  mant_config (target 'mant'); the whole preset is POSTed back.
   // ============================================================
   const SETTINGS_PRIO = { 'tr-main': 'training_stat_priority', 'tr-event': 'event_choice_stat_priority', 'tr-summer': 'summer_stat_priority' };
-  function presetGet(p, t, k) {
-    if (t === 'dist') { return ((p.mant_config || {}).race_strategy_by_distance || {})[k]; }
-    const o = t === 'mant' ? (p.mant_config || {}) : p; return o ? o[k] : undefined;
-  }
-  function presetSet(p, t, k, v) {
-    if (t === 'dist') { p.mant_config = p.mant_config || {}; p.mant_config.race_strategy_by_distance = p.mant_config.race_strategy_by_distance || {}; p.mant_config.race_strategy_by_distance[k] = v; return; }
-    if (t === 'mant') { p.mant_config = p.mant_config || {}; p.mant_config[k] = v; } else { p[k] = v; }
-  }
+  function presetGet(p, t, k) { const o = t === 'mant' ? (p.mant_config || {}) : p; return o ? o[k] : undefined; }
+  function presetSet(p, t, k, v) { if (t === 'mant') { p.mant_config = p.mant_config || {}; p.mant_config[k] = v; } else { p[k] = v; } }
   async function loadActivePreset() {
     try {
       const all = await api('/api/settings-presets');
@@ -164,7 +162,7 @@
       if (type === 'bool') el.classList.toggle('on', !!v);
       else if (type === 'num') { el.value = v; const out = document.getElementById(el.dataset.val); if (out) out.textContent = v + (el.dataset.suffix || ''); }
       else if (type === 'str') el.value = String(v);
-      else if (type === 'chips') { const arr = Array.isArray(v) ? v.map((s) => String(s).toLowerCase()) : []; el.querySelectorAll('.chiptog').forEach((c) => c.classList.toggle('on', arr.includes(c.dataset.chip.toLowerCase()))); }
+      else if (type === 'chips') { const arr = Array.isArray(v) ? v.map(String) : []; el.querySelectorAll('.chiptog').forEach((c) => c.classList.toggle('on', arr.includes(c.dataset.chip))); }
     });
     // Stat-target grids (arrays — not simple data-k scalar types)
     const _stbd = (p.mant_config || {}).stat_targets_by_distance || {};
@@ -175,6 +173,20 @@
     });
     const _gst = (p.mant_config || {}).global_stat_target;
     if (Array.isArray(_gst)) o.querySelectorAll('.gstg-input').forEach((el, i) => { if (_gst[i] !== undefined && _gst[i] !== null) el.value = _gst[i]; });
+    // BUG #3: per-distance running styles + per-race style overrides.
+    const _rsbd = (p.mant_config || {}).race_strategy_by_distance || {};
+    o.querySelectorAll('.rsbd[data-rsbd]').forEach((el) => { const v = _rsbd[el.dataset.rsbd]; if (v) el.value = v; });
+    const _ovr = (p.mant_config || {}).per_race_style_overrides;
+    if (Array.isArray(_ovr) && _ovr.length) {
+      const byMatch = {};
+      _ovr.forEach((r) => { if (r && r.match) byMatch[String(r.match).toLowerCase()] = r; });
+      o.querySelectorAll('.rovr').forEach((el) => {
+        const r = byMatch[String(el.dataset.race || '').toLowerCase()];
+        if (!r) return;
+        const styleSel = el.querySelector('.rovr-style'); if (styleSel && r.style) styleSel.value = r.style;
+        const stam = el.querySelector('.rovr-stam-input'); if (stam && r.stamina_below != null) stam.value = r.stamina_below;
+      });
+    }
     Object.entries(SETTINGS_PRIO).forEach(([id, key]) => {
       const v = presetGet(p, 'preset', key);
       // Stored lowercase (engine format); Title-case for the chip display so the
@@ -192,7 +204,7 @@
       if (type === 'bool') v = el.classList.contains('on');
       else if (type === 'num') v = parseFloat(el.value);
       else if (type === 'str') v = el.value;
-      else if (type === 'chips') { v = [...el.querySelectorAll('.chiptog.on')].map((c) => c.dataset.chip); if (['training_blacklist', 'preferred_distances', 'preferred_surfaces'].includes(k)) v = v.map((s) => s.toLowerCase()); }
+      else if (type === 'chips') v = [...el.querySelectorAll('.chiptog.on')].map((c) => c.dataset.chip);
       else return;
       presetSet(p, t, k, v);
     });
@@ -207,20 +219,28 @@
     if (Object.keys(_stbd).length) presetSet(p, 'mant', 'stat_targets_by_distance', _stbd);
     const _gin = o.querySelectorAll('.gstg-input');
     if (_gin.length === 5) presetSet(p, 'mant', 'global_stat_target', [..._gin].map((el) => Math.max(1, parseInt(el.value, 10) || 0)));
+    // BUG #3: per-distance running styles -> mant_config.race_strategy_by_distance
+    // (only non-'auto' entries; engine reads it via running_style.py).
+    if (o.querySelector('.rsbd')) {
+      const _rsbd = {};
+      o.querySelectorAll('.rsbd[data-rsbd]').forEach((el) => { if (el.value && el.value !== 'auto') _rsbd[el.dataset.rsbd] = el.value; });
+      presetSet(p, 'mant', 'race_strategy_by_distance', _rsbd);
+    }
+    // BUG #3: per-race style overrides -> mant_config.per_race_style_overrides
+    // ({match, style, stamina_below?}) so they persist and the engine applies them
+    // (runner.py:_per_race_style_override). Empty when none selected.
     if (o.querySelector('.rovr')) {
-      const rules = [];
-      o.querySelectorAll('.rovr').forEach((row) => {
-        const name = (row.querySelector('strong') || {}).textContent || '';
-        const sel = row.querySelector('select.self');
-        const stam = row.querySelector('input.numf');
-        const style = sel ? sel.value : '';
-        if (!style || style === 'No override') return;
-        const rule = { match: name.toLowerCase(), style: style.toLowerCase().replace(/\s+/g, ' ') };
-        const sv = stam ? stam.value.trim() : '';
-        if (sv) rule.stamina_below = parseInt(sv, 10);
-        rules.push(rule);
+      const ovr = [];
+      o.querySelectorAll('.rovr').forEach((el) => {
+        const styleSel = el.querySelector('.rovr-style');
+        const style = styleSel ? styleSel.value : '';
+        if (!style) return;
+        const stam = el.querySelector('.rovr-stam-input');
+        const rule = { match: el.dataset.race, style };
+        if (stam && stam.value !== '') rule.stamina_below = Math.max(0, parseInt(stam.value, 10) || 0);
+        ovr.push(rule);
       });
-      presetSet(p, 'mant', 'per_race_style_overrides', rules);
+      presetSet(p, 'mant', 'per_race_style_overrides', ovr);
     }
     // Priority-order arrays: persist the user's reorder. Written LOWERCASE to match
     // the engine's stat-name format (config_store defaults + items.py lower-cases).
@@ -235,25 +255,11 @@
     });
     return p;
   }
-  const STYLE_NAME_MAP = { 'front runner': 'Front Runner', 'front': 'Front Runner', 'pace chaser': 'Pace Chaser', 'pace': 'Pace Chaser', 'late surger': 'Late Surger', 'late': 'Late Surger', 'end closer': 'End Closer', 'end': 'End Closer' };
   async function initSettingsModal(o) {
     const p = await loadActivePreset();
     if (!p) return;
     o._preset = p;
     applyPreset(o, p);
-    const rovrs = o.querySelectorAll('.rovr');
-    if (rovrs.length) {
-      const rules = ((p.mant_config || {}).per_race_style_overrides || []);
-      rovrs.forEach((row) => {
-        const name = ((row.querySelector('strong') || {}).textContent || '').toLowerCase();
-        const rule = rules.find((r) => r && String(r.match || '').toLowerCase() === name);
-        if (!rule) return;
-        const sel = row.querySelector('select.self');
-        const stam = row.querySelector('input.numf');
-        if (sel) { const label = STYLE_NAME_MAP[String(rule.style || '').toLowerCase()]; if (label) sel.value = label; }
-        if (stam && rule.stamina_below != null) stam.value = rule.stamina_below;
-      });
-    }
   }
   SAVE_COLLECTORS['/api/settings-presets'] = (o) => (o && o._preset) ? { preset: collectPreset(o, o._preset) } : null;
 
@@ -469,7 +475,21 @@
       if (es) { const k = es.dataset.epsearch, q = es.value.toLowerCase(); o.querySelectorAll(`[data-ep="${k}"]`).forEach((c) => { c.style.display = (!q || c.textContent.toLowerCase().includes(q)) ? '' : 'none'; }); }
     });
     // Pull the full character roster from the backend and repopulate the list.
-    loadSolverRoster().then((changed) => { if (changed) { setName(); reChars((o.querySelector('#solver-char-search') || {}).value); } });
+    loadSolverRoster().then(async (changed) => {
+      if (changed) { setName(); reChars((o.querySelector('#solver-char-search') || {}).value); }
+      // BUG #13: the Character Preset must follow the trainee selected in Setup,
+      // not default to Air Shakur (100021). Resolve the active trainee's card id
+      // (same id space as the roster) and select it so the solver uses ITS
+      // aptitudes. Only switches when the trainee is a known roster character.
+      try {
+        const a = (window.Icarus && Icarus.api) ? await Icarus.api('/api/character-profile/active') : null;
+        const cid = a && +(a.card_id || a.id || (a.trainee && (a.trainee.card_id || a.trainee.id)) || 0);
+        if (cid && SOLVER_CHAR_MAP[cid] && cid !== SV.charId) {
+          SV.charId = cid; SV.manual = {};
+          setName(); reApt(); reChars((o.querySelector('#solver-char-search') || {}).value);
+        }
+      } catch (e) { /* keep default on any failure */ }
+    });
   }
 
   // ============================================================
@@ -860,7 +880,7 @@
         title: 'TRAINING SETTINGS', wide: true, foot: saveBtn('/api/settings-presets'),
         body: `
           ${sec('PRIORITIES',
-              chips('Blacklist', STATS.map((s) => [s, false]), 'Stats excluded from training unless the skill-hint override is enabled.', 'mant.training_blacklist'),
+              chips('Blacklist', STATS.map((s) => [s, false]), 'Stats excluded from training unless the skill-hint override is enabled.'),
               prio('tr-main', 'Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Main stat order used by the native training scorer.'),
               prio('tr-event', 'Event Choice Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Stat order used when scoring event choices.'),
               prio('tr-summer', 'Summer Training Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Stat order used during Summer Training.'))}
@@ -933,25 +953,27 @@
               toggle('Per-Distance Strategy', false, 'Use separate running styles by race distance.', 'mant.enable_per_distance_strategy'),
               sel('Junior Year Strategy', STYLE_OPTS, 'auto', 'Running style used during Junior Year races.', 'mant.junior_running_style'),
               sel('Original Strategy', STYLE_OPTS, 'end', 'Default running style for Year 2+ and fallback races.', 'mant.original_running_style'),
-              sel('Sprint Strategy', STYLE_OPTS, 'auto', 'Running style to use for sprint races when per-distance strategy is enabled.', 'dist.sprint'),
-              sel('Mile Strategy', STYLE_OPTS, 'auto', 'Running style to use for mile races when per-distance strategy is enabled.', 'dist.mile'),
-              sel('Medium Strategy', STYLE_OPTS, 'auto', 'Running style to use for medium races when per-distance strategy is enabled.', 'dist.medium'),
-              sel('Long Strategy', STYLE_OPTS, 'auto', 'Running style to use for long races when per-distance strategy is enabled.', 'dist.long'),
+              dsel('Sprint Strategy', 'sprint', 'Running style to use for sprint races when per-distance strategy is enabled.'),
+              dsel('Mile Strategy', 'mile', 'Running style to use for mile races when per-distance strategy is enabled.'),
+              dsel('Medium Strategy', 'medium', 'Running style to use for medium races when per-distance strategy is enabled.'),
+              dsel('Long Strategy', 'long', 'Running style to use for long races when per-distance strategy is enabled.'),
               row('Per-Race Style Overrides', 'Override the running style for specific races, optionally only when Stamina is below a threshold (blank = always). Applies even in Manual mode and reverts to your main style on the next race. Requires a concrete Original Strategy (not Auto).',
-                `<div class="rovr-list">${RACE_OVR.map((r) => `<div class="rovr"><div class="rovr-race"><strong>${r[0]}</strong><span>${r[1]} \u00b7 ${r[2]}</span></div><div class="rovr-ctrl"><div class="rovr-stam"><label>Stamina &lt;</label><input class="numf" type="number" placeholder="any"></div><select class="self"><option>No override</option>${STYLE_NAMES.map((s) => `<option>${s}</option>`).join('')}</select></div></div>`).join('')}</div>`, true))}
+                `<div class="rovr-list">${RACE_OVR.map((r) => `<div class="rovr" data-race="${esc(r[0])}"><div class="rovr-race"><strong>${esc(r[0])}</strong><span>${r[1]} \u00b7 ${r[2]}</span></div><div class="rovr-ctrl"><div class="rovr-stam"><label>Stamina &lt;</label><input class="numf rovr-stam-input" type="number" placeholder="any"></div><select class="self rovr-style"><option value="">No override</option>${STYLE_OPTS.slice(1).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></div></div>`).join('')}</div>`, true))}
 `,
         onMount: (o) => { wireSave(o); initSettingsModal(o); },
       });
     },
 
     scenario() {
-      const SHOP = ['Vita Drink', 'Royal Kale Juice', 'Cupcake', 'Megaphone', 'Whistle', 'Charm', 'Cleat Hammer', 'Glow Sticks', 'Cure-All', 'BBQ (Grilled Carrots)'];
+      // BUG #9: full Trackblazer shop item set (data/mant_shop_core.json). The
+      // engine slug-matches (display_to_slug) so these display names are correct.
+      const SHOP = ['Speed Notepad', 'Stamina Notepad', 'Power Notepad', 'Guts Notepad', 'Wit Notepad', 'Speed Manual', 'Stamina Manual', 'Power Manual', 'Guts Manual', 'Wit Manual', 'Speed Scroll', 'Stamina Scroll', 'Power Scroll', 'Guts Scroll', 'Wit Scroll', 'Vita 20', 'Vita 40', 'Vita 65', 'Royal Kale Juice', 'Energy Drink MAX', 'Energy Drink MAX EX', 'Plain Cupcake', 'Berry Sweet Cupcake', 'Yummy Cat Food', 'Grilled Carrots', 'Pretty Mirror', "Reporter's Binoculars", 'Master Practice Guide', "Scholar's Hat", 'Fluffy Pillow', 'Pocket Planner', 'Rich Hand Cream', 'Smart Scale', 'Aroma Diffuser', 'Practice Drills DVD', 'Miracle Cure', 'Speed Training Application', 'Stamina Training Application', 'Power Training Application', 'Guts Training Application', 'Wit Training Application', 'Reset Whistle', 'Coaching Megaphone', 'Motivating Megaphone', 'Empowering Megaphone', 'Speed Ankle Weights', 'Stamina Ankle Weights', 'Power Ankle Weights', 'Guts Ankle Weights', 'Good-Luck Charm', 'Artisan Cleat Hammer', 'Master Cleat Hammer', 'Glow Sticks'];
       modal({
         title: 'SCENARIO OVERRIDES', wide: true, foot: `<button class="abtn danger" type="button" data-close>RESET TRACKBLAZER</button>${saveBtn('/api/settings-presets')}`,
         body: `            ${sec('RACING',
               slider('sc-crl', 'Consecutive Races Limit', 3, 30, 3, 1, '', '', 'mant.race_chain_target'),
-              chips('Preferred Track Distances', DISTANCES.map((d) => [d, d === 'Medium' || d === 'Long']), '', 'mant.preferred_distances'),
-              chips('Preferred Track Surfaces', SURFACES.map((s) => [s, s === 'Turf']), '', 'mant.preferred_surfaces'))}
+              chips('Preferred Track Distances', DISTANCES.map((d) => [d, d === 'Medium' || d === 'Long'])),
+              chips('Preferred Track Surfaces', SURFACES.map((s) => [s, s === 'Turf'])))}
             ${sec('ENERGY & RESOURCES',
               slider('sc-ert', 'Energy Threshold to use Energy Items', 0, 100, 40, 1, '', '', 'mant.energy_recovery_threshold'),
               slider('sc-ftf', 'Force-Train Energy Floor', 0, 50, 20, 1, '', '', 'mant.force_train_energy_floor'),
@@ -964,7 +986,7 @@
               toggle('Reset Whistle Forces Training', true, '', 'mant.whistle_forces_training'))}
             ${sec('SHOP & ITEMS',
               slider('sc-scf', 'Shop Check Frequency', 1, 4, 1, 1, '', '1 = every opportunity, 2 = every other, …', 'mant.trackblazer_shop_check_frequency'),
-              chips('Race Grades to Check Shop After', ['G1', 'G2', 'G3'].map((g) => [g, true]), '', 'mant.trackblazer_shop_check_grades'),
+              chips('Race Grades to Check Shop After', ['G1', 'G2', 'G3'].map((g) => [g, true])),
               chips('Items to Exclude from Shop', SHOP.map((n) => [n, false]), '', 'mant.exclude_shop_items'))}
             ${sec('SHOP PURCHASE LOGIC',
               slider('sc-coin', 'Coin Reserve Override', 0, 300, 0, 5, '', '0 = automatic finale-aware reserve curve.', 'mant.mant_coin_reserve'),

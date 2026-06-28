@@ -636,9 +636,8 @@ class MantItemManager:
                 skip_reason = "expired"
             elif current_num >= limit:
                 skip_reason = "limit_reached"
-            else:
-                # FORK: _skip_buy returns granular string reasons for log_viewer.html
-                skip_reason = self._skip_buy(name, owned, preset, current_turn, start_budget, data, race_planner) or None
+            elif self._skip_buy(name, owned, preset, current_turn, start_budget, data, race_planner):
+                skip_reason = "skip_buy"
             official = (load_master_shop_core((preset or {}).get("_base_dir") or (preset or {}).get("base_dir")).get("by_id") or {}).get(item_id, {})
             self.last_buy_options.append({
                 "name": name,
@@ -1041,15 +1040,31 @@ class MantItemManager:
         # wants to re-scale.
         fan_mult = _cfg_num(cfg, "glow_stick_fan_multiplier", 1.0, cast=float)
         eff_fans = int(fans * fan_mult) if fans else 0
-        # If fan data is unavailable for a known finale race, use the item. The
-        # finale is exactly what the reserve exists for.
-        if eff_fans and eff_fans < min_fans and not is_finale:
-            return False
+
+        # LATE/FINALE DUMP (fixes "not used at all if bought after turn 72"): in
+        # the finale or once past the late-dump turn (item-strategy doctrine:
+        # dump items after turn 64, unless save_items_lategame), spend it
+        # regardless of the fan figure or the final-reserve -- a glow stick held
+        # back to the very last turn is pure waste. This deliberately overrides
+        # the reserve, which previously trapped a single late-bought glow stick.
+        dump_late = is_final_race or is_finale or (
+            (not cfg.get("save_items_lategame", tb_rules.DEFAULT_SAVE_ITEMS_LATEGAME))
+            and turn > 64
+        )
+        if dump_late:
+            return True
+
+        # Early phase (before conservation): use on big OR unknown-fan races.
         if turn < tb_rules.RACE_ITEM_CONSERVATION_START_TURN:
             return (eff_fans == 0) or eff_fans >= min_fans
-        if is_final_race:
-            return True
-        if not is_finale and eff_fans >= tb_rules.TOP_TIER_G1_GLOW_FAN_FLOOR:
+
+        # Conservation phase (turns 25-64): require a KNOWN fan figure at/above
+        # the threshold. eff_fans == 0 means the race's fan reward is UNKNOWN ->
+        # do NOT spend (this was the path that mis-fired on an 11k race whose
+        # catalog fan figure read 0, the "used at 11k when set to 20k" bug).
+        if eff_fans < min_fans:
+            return False
+        if eff_fans >= tb_rules.TOP_TIER_G1_GLOW_FAN_FLOOR:
             return True
         reserve = _cfg_num(cfg, "trackblazer_glow_stick_final_reserve", tb_rules.DEFAULT_GLOW_STICK_FINAL_RESERVE)
         return qty > reserve
@@ -1672,6 +1687,12 @@ class MantItemManager:
 
         main_gain = self._command_main_stat_gain(best_command)
         min_gain = 1 if _dump_late else _cfg_num(cfg, "charm_min_main_gain", tb_rules.DEFAULT_CHARM_MIN_MAIN_GAIN)
+        # Aggressiveness (fixes "fails despite high failure rate"): on a HIGH
+        # failure-rate turn, protect even a modest-gain training -- a wasted-turn
+        # failure costs the whole turn, so the gain bar shouldn't block the charm.
+        high_fail = _cfg_num(cfg, "charm_failure_rate_high", tb_rules.DEFAULT_CHARM_FAILURE_RATE_HIGH)
+        if fail_rate >= high_fail:
+            min_gain = 1
         if main_gain < min_gain:
             return None
 
@@ -2158,61 +2179,86 @@ class MantItemManager:
         return value
 
     def _skip_buy(self, name, owned, preset=None, turn=0, budget=0, data=None, race_planner=None):
-        # FORK: returns string reasons instead of booleans for log_viewer.html
-        # All conditions are identical to v3 — only the return values changed.
         cfg = ((preset or {}).get("mant_config") or {})
         excluded = cfg.get("exclude_shop_items") or []
         if isinstance(excluded, str):
             excluded = [part.strip() for part in excluded.split(",") if part.strip()]
         excluded_slugs = {display_to_slug(item) for item in excluded}
         if display_to_slug(name) in excluded_slugs:
-            return "user_excluded"
+            return True
+        # Hard exclusions: wasteful pre-race auto-consumed items (see
+        # ALWAYS_EXCLUDE_SLUGS).  Never bought unless explicitly re-enabled.
         if (display_to_slug(name) in ALWAYS_EXCLUDE_SLUGS
                 and not cfg.get("allow_wasteful_consumables", False)):
-            return "skip_wasteful"
+            return True
+        # P3: small +3 stat notepads (ids 1001-1005) are skip-by-default -- their
+        # tiny stat gain isn't worth the coins.  Medium Manual (+7) / Large Scroll
+        # (+15) are unaffected (different slug suffixes).  Opt back in via config.
         if display_to_slug(name).endswith("_notepad") and not cfg.get("trackblazer_buy_notepads", False):
+            # v2.1: the tiny +3 notepads are normally skipped, BUT when the bot is
+            # flush with coins (otherwise hoarded to career end -- the "~500 coins
+            # left over every run" complaint), a permanent +3 stat beats hoarding.
+            # Buy them once coins exceed the flush threshold so surplus coins convert
+            # into stats instead of being wasted.
             if int(budget or 0) < _cfg_num(cfg, "trackblazer_notepad_flush_coin", 250):
-                return "skip_notepad"
+                return True
         if int(owned.get(name, 0) or 0) >= self._item_cap(name, preset):
-            return "skip_inv_cap"
+            return True
+        # v2.1 R2: during the late-summer window (turns 60-64) lift the
+        # stock-conservation caps so anklets/megaphones are bought freely and the
+        # use logic has stock to spend.  Past turn 64 (R6) conservation is off
+        # entirely, so the gates below also no longer apply from 65 on.
         _late_summer = 60 <= int(turn or 0) <= 64
+        # Late-game dump (after turn 64, unless save_items_lategame): lift the
+        # stock-conservation buy caps so the use logic has megaphones/anklets to
+        # spend, mirroring the 60-64 summer window.
         _dump_late = (not cfg.get("save_items_lategame", tb_rules.DEFAULT_SAVE_ITEMS_LATEGAME)) and int(turn or 0) > 64
         _lift_conservation = _late_summer or _dump_late
         if name in MEGAPHONE_TIERS and not _lift_conservation and self._megaphone_buy_surplus(data or {}, owned, turn, race_planner, preset):
-            return "skip_mega_surplus"
+            return True
+        # v2.0 megaphone buy policy: never buy small (Coaching); buy big
+        # (Empowering) freely; buy medium (Motivating) only if still short on big
+        # megaphones for the upcoming summer.
         if name == "Coaching Megaphone" and not _lift_conservation and not cfg.get("trackblazer_buy_small_megaphone", False):
-            return "skip_mega_surplus"
+            return True
         if name == "Motivating Megaphone" and not _lift_conservation:
             big_target = _cfg_num(cfg, "megaphone_big_summer_target", 2)
             if int(owned.get("Empowering Megaphone", 0) or 0) >= big_target:
-                return "skip_mega_surplus"
+                return True
+        # P1: anklet over-buy guard.  Keep only ~2 anklets in stock total (main +
+        # sub); once we hold that many across all types, stop buying more.
         if name in set(TRAINING_TYPE_ANKLET.values()) and not _lift_conservation:
             anklet_max = _cfg_num(cfg, "trackblazer_anklet_max_stock", 2)
             total_anklets = sum(int(owned.get(a, 0) or 0) for a in set(TRAINING_TYPE_ANKLET.values()))
             if total_anklets >= anklet_max:
-                return "skip_anklet_cap"
+                return True
         if name in CURE_ITEMS:
+            # Rich Hand Cream and Miracle Cure are Trackblazer-critical race/run
+            # insurance and may be stocked up to their normal cap. Other specific
+            # cures are one-copy safety valves, and are skipped if Miracle Cure
+            # already covers the same emergency.
             if name in {"Rich Hand Cream", AILMENT_CURE_ALL}:
-                return None
+                return False
             if owned.get(name, 0) > 0 or (name != AILMENT_CURE_ALL and owned.get(AILMENT_CURE_ALL, 0) > 0):
-                return "skip_cure_redundant"
+                return True
         guide = self._guide(preset)
         fast_cfg = ((guide.get("shop_priorities") or {}).get("fast_learner") or {})
         if name == fast_cfg.get("item", "Scholar's Hat"):
             min_coin = int(fast_cfg.get("min_coin_before_buy") or 280)
             if int(budget or 0) < min_coin:
-                return "skip_budget"
+                return True
+        # Preserve coins before summer unless the item is a high-impact guide priority.
         reserve = int(((guide.get("summer_strategy") or {}).get("pre_summer_reserve_coin") or 0))
         if is_pre_summer(turn) and budget < reserve and name not in set(((guide.get("shop_priorities") or {}).get("training_boost_items") or {}).get("names") or []):
             if name not in set(((guide.get("shop_priorities") or {}).get("immediate_stat_items") or {}).get("names") or []):
-                return "skip_pre_summer"
+                return True
         type_idx = TRAINING_ITEM_DECK_TYPE_INDEX.get(name)
         if type_idx is not None:
             counts = (preset or {}).get("_deck_type_counts") or []
             count = int(counts[type_idx] or 0) if len(counts) > type_idx else 0
             if count < 2:
-                return "skip_low_deck"
-            return None
+                return True
+            return False
         if name in ONE_TIME_BUFF_ITEMS and name in self.used_buffs:
-            return "skip_buff_used"
-        return None
+            return True
+        return False

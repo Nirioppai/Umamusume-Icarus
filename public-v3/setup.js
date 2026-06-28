@@ -276,6 +276,7 @@
           <button class="abtn cyan" type="button" style="font-size:9px;padding:8px" id="setup-sync">SYNC DATA</button>
           <button class="abtn cyan" type="button" style="font-size:9px;padding:8px" id="setup-solve">SOLVE SMART</button>
           <button class="abtn cyan" type="button" style="font-size:9px;padding:8px" id="setup-apply">APPLY SMART</button>
+          <button class="abtn amber" type="button" style="font-size:9px;padding:8px" id="setup-apply-manual">APPLY MANUAL</button>
           <button class="abtn danger" type="button" style="font-size:9px;padding:8px" id="setup-reset">RESET PLAN</button>
         </div>
         <div id="setup-solve-status" style="font:500 9px var(--mono);color:var(--green);background:#0b1611;border:1px solid var(--green-bd);border-radius:4px;padding:8px 10px">Ready. Pick a trainee, then Solve Smart.</div>
@@ -381,6 +382,14 @@
     }
     $('setup-solve').addEventListener('click', () => solvePlan(false));
     $('setup-apply').addEventListener('click', () => solvePlan(true));
+    // BUG #10: explicit APPLY MANUAL — switch to manual mode and persist the
+    // hand-picked schedule (manual already auto-saves on each pick; this gives
+    // the symmetric, deliberate confirm the Smart side has).
+    { const am = $('setup-apply-manual'); if (am) am.addEventListener('click', () => {
+        setRaceMode('manual');
+        saveRaces('manual');
+        const s = $('setup-solve-status'); if (s) s.textContent = `✓ Manual schedule applied — ${selectedRaceIds.size} race(s) saved to this preset.`;
+      }); }
 
     const setStatus = (msg) => { const s = $('setup-solve-status'); if (s) s.textContent = msg; };
     const presetName = () => { const s = $('setup-preset'); return s ? s.value : ''; };
@@ -965,7 +974,14 @@
       (out[p.yearKey][p.mi] = out[p.yearKey][p.mi] || []).push(r);
     });
     const pri = { G1: 4, G2: 3, G3: 2, OP: 1 };
-    Object.values(out).forEach((mo) => Object.values(mo).forEach((arr) => arr.sort((a, b) => (pri[b.grade] || 0) - (pri[a.grade] || 0))));
+    Object.values(out).forEach((mo) => Object.entries(mo).forEach(([mi, arr]) => {
+      arr.sort((a, b) => (pri[b.grade] || 0) - (pri[a.grade] || 0));
+      // BUG #2: a single race recurs under several program_ids at the same turn
+      // (e.g. Late December shows Arima Kinen 4x). Collapse to ONE entry per race
+      // name — keep the highest-graded (already sorted first).
+      const seen = new Set();
+      mo[mi] = arr.filter((r) => { const k = String(r.name || r.id).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+    }));
     return out;
   }
   // Persist the current race selection + mode onto the active preset.
@@ -998,20 +1014,36 @@
   }
   // Selected races for a turn-cell, in pick order (insertion order of the Set):
   // index 0 = MAIN race, 1+ = RIVAL OVERWRITES (run when the rival appears).
+  // A race is selected if its precise per-occurrence id (occ) OR its bare
+  // program_id (legacy presets / smart mode) is in the set. Returned in selection
+  // order (first = MAIN, rest = rival overwrites).
   function cellSelected(yr, mi) {
     const races = (raceByCell[yr] && raceByCell[yr][mi]) || [];
-    const ids = new Set(races.map((r) => r.id));
-    return [...selectedRaceIds].filter((id) => ids.has(id)).map((id) => races.find((r) => r.id === id)).filter(Boolean);
+    const byKey = new Map();
+    races.forEach((r) => { byKey.set(r.occ, r); byKey.set(r.id, r); });
+    const out = [];
+    selectedRaceIds.forEach((k) => { const r = byKey.get(k); if (r && !out.includes(r)) out.push(r); });
+    return out;
   }
   // Toggle a race in a turn-cell. Trackblazer allows MULTIPLE per turn: the first
   // picked is the MAIN race, extras are RIVAL OVERWRITES. Picking by hand flips the
   // schedule to manual mode.
-  function toggleRaceInCell(idStr, key) {
+  function toggleRaceInCell(occStr, key) {
     if (!online) return;
-    const id = Number(idStr);
-    if (!id) return;
-    if (selectedRaceIds.has(id)) selectedRaceIds.delete(id);
-    else selectedRaceIds.add(id);   // append → insertion order = main-first per cell
+    const occ = Number(occStr);
+    if (!occ) return;
+    const parts = String(key).split('|');
+    const cell = (raceByCell[parts[0]] && raceByCell[parts[0]][+parts[1]]) || [];
+    const r = cell.find((x) => x.occ === occ) || cell.find((x) => x.id === occ);
+    if (!r) return;
+    // BUG #1: key by per-occurrence id so picking a recurring race in one year
+    // does NOT toggle the other year. Toggle-off clears occ- AND pid-based keys
+    // (a pid key may be present from an old preset or a smart plan).
+    if (selectedRaceIds.has(r.occ) || selectedRaceIds.has(r.id)) {
+      selectedRaceIds.delete(r.occ); selectedRaceIds.delete(r.id);
+    } else {
+      selectedRaceIds.add(r.occ);   // insertion order = main-first per cell
+    }
     if (raceMode !== 'manual') { raceMode = 'manual'; applyModeButtons(); }
     renderSchedule();
     saveRaces('manual');
@@ -1019,7 +1051,7 @@
   function clearCell(key) {
     const parts = String(key).split('|');
     const cell = (raceByCell[parts[0]] && raceByCell[parts[0]][+parts[1]]) || [];
-    cell.forEach((r) => selectedRaceIds.delete(r.id));
+    cell.forEach((r) => { selectedRaceIds.delete(r.occ); selectedRaceIds.delete(r.id); });
     if (raceMode !== 'manual') { raceMode = 'manual'; applyModeButtons(); }
     renderSchedule();
     saveRaces('manual');
@@ -1037,9 +1069,9 @@
     const monthLbl = MONTHS[mi] || '';
     const fmt = (n) => (I.fmtCompact ? I.fmtCompact(n) : String(n));
     function rowsHtml() {
-      const order = cellSelected(yr, mi).map((r) => r.id);   // main-first
+      const sel = cellSelected(yr, mi);   // race objects, main-first
       return races.map((r) => {
-        const idx = order.indexOf(r.id);
+        const idx = sel.indexOf(r);
         const on = idx >= 0;
         const col = gradeColor[r.grade] || 'cyan';
         const meta = [r.distance, r.fans ? (fmt(r.fans) + ' fans') : ''].filter(Boolean).join(' · ');
@@ -1047,7 +1079,7 @@
           : (idx === 0
             ? '<span style="flex-shrink:0;font:800 8px var(--cond);letter-spacing:.1em;color:#06121a;background:var(--amber);padding:2px 6px;border-radius:3px">MAIN</span>'
             : `<span style="flex-shrink:0;font:800 8px var(--cond);letter-spacing:.08em;color:var(--amber);background:rgba(242,169,0,.16);border:1px solid var(--amber-bd);padding:1px 5px;border-radius:3px">RIVAL OVERWRITE ${idx}</span>`);
-        return `<button type="button" class="race-pick-row" data-pick-id="${r.id}" data-pick-key="${esc(key)}"
+        return `<button type="button" class="race-pick-row" data-pick-occ="${r.occ}" data-pick-key="${esc(key)}"
           style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 12px;border:1px solid ${on ? 'var(--amber)' : 'var(--line-card)'};background:${on ? 'rgba(242,169,0,.14)' : 'var(--card)'};border-radius:6px;margin-bottom:7px;cursor:pointer">
           <img src="/races/${encodeURIComponent(r.name)}.png" alt="" style="flex-shrink:0;width:84px;height:30px;object-fit:cover;border-radius:4px;border:1px solid var(--line-card)" onerror="this.style.display='none'">
           <span style="flex-shrink:0;font:800 9px var(--mono);color:#fff;background:var(--${col});padding:2px 6px;border-radius:4px">${esc(r.grade)}</span>
@@ -1067,7 +1099,7 @@
         if (host) host.addEventListener('click', (e) => {
           const b = e.target.closest('.race-pick-row');
           if (!b) return;
-          toggleRaceInCell(b.dataset.pickId, b.dataset.pickKey);
+          toggleRaceInCell(b.dataset.pickOcc, b.dataset.pickKey);
           host.innerHTML = rowsHtml();   // stay open; refresh badges
         });
         const clr = ov.querySelector('#rp-clear');
@@ -1084,7 +1116,7 @@
     host.innerHTML = RACE_YEARS.map((yr) => {
       const cells = MONTHS.map((m, i) => {
         const all = (raceByCell[yr] && raceByCell[yr][i]) || [];
-        const races = all.filter((r) => showOP || r.grade !== 'OP' || selectedRaceIds.has(r.id));
+        const races = all.filter((r) => showOP || r.grade !== 'OP' || selectedRaceIds.has(r.occ) || selectedRaceIds.has(r.id));
         const key = yr + '|' + i;
         const monthLbl = `<span style="font:700 9px var(--cond);letter-spacing:.08em;color:var(--mut)">${esc(m)}</span>`;
         const sel = cellSelected(yr, i);   // [main, ...rival overwrites]
