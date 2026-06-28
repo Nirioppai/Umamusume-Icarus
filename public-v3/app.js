@@ -406,7 +406,7 @@
         turn: r.turn, act: meta[0], actTone: meta[1],
         target: facLabel(r),
         hp: Number(st.hp ?? 0),
-        mood: st.motivation != null ? moodFromMotivation(st.motivation).value : '—',
+        mood: st.motivation != null ? moodFromMotivation(st.motivation).label : '—',
       };
     });
 
