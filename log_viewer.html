@@ -1722,6 +1722,97 @@ function copyAISummary(){
   }).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)});
 }
 
+function nirioEffectiveness(nirio,turns,last){
+  const ls=last.stats||{};
+  const finalSP=ls.skill_point||0;
+  const finalInv=last.inventory||[];
+  const invCount=(name)=>finalInv.filter(i=>(i.name||ITEM[i.item_id])===name).reduce((s,i)=>s+(i.current_num||i.num||1),0);
+  const finalCoins=last.mant_coin!=null?last.mant_coin:0;
+  // Skill timeline
+  let firstSkillTurn=null,skillCount=0,spSpent=0;
+  for(const t of turns)for(const sk of(t.bot_skill_selected||[])){if(!firstSkillTurn)firstSkillTurn=t.turn;skillCount++;spSpent+=(sk.cost||0)}
+  // Mood analysis
+  const badMoodTurns=[];
+  for(const t of turns){const m=t.motivation||(t.stats||{}).motivation||0;if(m>=1&&m<=2)badMoodTurns.push(t.turn)}
+  const moodAtClimax=turns.filter(t=>t.turn>=73).map(t=>t.motivation||(t.stats||{}).motivation||0).filter(m=>m>=1);
+  const worstClimax=moodAtClimax.length?Math.min(...moodAtClimax):null;
+  // Item leftover counts
+  const charmLeft=invCount('Good-Luck Charm');
+  const megaLeft=invCount('Coaching Megaphone')+invCount('Motivating Megaphone')+invCount('Empowering Megaphone');
+  const ankletLeft=invCount('Speed Ankle Weights')+invCount('Stamina Ankle Weights')+invCount('Power Ankle Weights')+invCount('Guts Ankle Weights');
+  const whistleLeft=invCount('Reset Whistle');
+  const mchLeft=invCount('Master Cleat Hammer');
+  // Cupcake usage after repair turn
+  const repairTurn=nirio.nirio_mood_repair_turn||50;
+  let cupcakesUsedAfterRepair=0;
+  for(const t of turns){if(t.turn>=repairTurn)for(const u of(t.bot_item_use_selected||[]))if(u.name==='Berry Sweet Cupcake'||u.name==='Plain Cupcake')cupcakesUsedAfterRepair++}
+  // Build evaluations
+  const evals=[];
+  const v=(key)=>nirio[key];
+  const rate=(pass,label,detail,rec)=>evals.push({label,verdict:pass==='pass'?'PASS':pass==='partial'?'PARTIAL':'FAIL',detail,rec:rec||''});
+  // Skill buying
+  if(v('nirio_skill_force_turn')!=null){
+    if(skillCount===0&&finalSP>200)rate('fail','Skill Buying','0 skills bought, '+finalSP+' SP remaining. Force turn '+v('nirio_skill_force_turn')+' did not trigger.','Lower nirio_skill_sp_floor (currently '+v('nirio_skill_sp_floor')+') or check if enable_skill_point_check is disabled in preset.');
+    else if(finalSP>500)rate('partial','Skill Buying',skillCount+' skills bought (first at T'+(firstSkillTurn||'?')+'), but '+finalSP+' SP remaining.','Lower nirio_skill_force_turn (currently '+v('nirio_skill_force_turn')+') or lower nirio_skill_sp_floor.');
+    else rate('pass','Skill Buying',skillCount+' skills, '+finalSP+' SP remaining'+(firstSkillTurn?', first at T'+firstSkillTurn:'')+'.');
+  }
+  // Mood floor
+  if(v('nirio_mood_floor')!=null){
+    const badAfterRepair=badMoodTurns.filter(t=>t>=repairTurn).length;
+    if(badAfterRepair>5)rate('fail','Mood Floor',badAfterRepair+' turns at mood ≤'+v('nirio_mood_floor')+' after T'+repairTurn+'. Cupcakes used: '+cupcakesUsedAfterRepair+'.'+(worstClimax!=null?' Climax mood: '+fmtMood(worstClimax)+'.':''),'Lower nirio_mood_repair_turn or raise nirio_mood_floor. Check cupcake supply.');
+    else if(badAfterRepair>0||worstClimax!=null&&worstClimax<=2)rate('partial','Mood Floor',badAfterRepair+' bad-mood turns after T'+repairTurn+'. Cupcakes used: '+cupcakesUsedAfterRepair+'.'+(worstClimax!=null?' Climax mood: '+fmtMood(worstClimax)+'.':''),'May need earlier cupcake buying or lower nirio_mood_critical_turn.');
+    else rate('pass','Mood Floor','No bad-mood turns after T'+repairTurn+'.'+(worstClimax!=null?' Climax mood: '+fmtMood(worstClimax)+'.':''));
+  }
+  // Good-Luck Charm
+  if(v('nirio_charm_dump_turn')!=null){
+    if(charmLeft>=2)rate('fail','Good-Luck Charm',charmLeft+' charms left at end. Dump turn '+v('nirio_charm_dump_turn')+' with min gain '+v('nirio_charm_dump_min_gain')+' was too strict.','Lower nirio_charm_dump_min_gain or nirio_charm_dump_failure_rate.');
+    else if(charmLeft===1)rate('partial','Good-Luck Charm','1 charm left. Dump window partially effective.');
+    else rate('pass','Good-Luck Charm','0 charms left — all used.');
+  }
+  // Megaphone
+  if(v('nirio_mega_dump_turn')!=null){
+    if(megaLeft>=3)rate('fail','Megaphone',megaLeft+' megaphones left. Dump turn '+v('nirio_mega_dump_turn')+' with multiplier '+v('nirio_mega_dump_multiplier')+'% was too conservative.','Lower nirio_mega_dump_multiplier or nirio_mega_dump_turn.');
+    else if(megaLeft>=1)rate('partial','Megaphone',megaLeft+' megaphone(s) left.');
+    else rate('pass','Megaphone','0 megaphones left — all used.');
+  }
+  // Anklet
+  if(v('nirio_anklet_dump_turn')!=null){
+    if(ankletLeft>=2)rate('fail','Ankle Weights',ankletLeft+' anklets left. Dump turn '+v('nirio_anklet_dump_turn')+' with multiplier '+v('nirio_anklet_dump_multiplier')+'% was too conservative.','Lower nirio_anklet_dump_multiplier or nirio_anklet_dump_turn.');
+    else if(ankletLeft>=1)rate('partial','Ankle Weights',ankletLeft+' anklet(s) left.');
+    else rate('pass','Ankle Weights','0 anklets left — all used.');
+  }
+  // Whistle
+  if(v('nirio_whistle_dump_turn')!=null){
+    if(whistleLeft>=2)rate('fail','Reset Whistle',whistleLeft+' whistles left. Dump turn '+v('nirio_whistle_dump_turn')+' did not spend them.','Lower nirio_whistle_dump_turn or nirio_whistle_dump_score.');
+    else if(whistleLeft===1)rate('partial','Reset Whistle','1 whistle left.');
+    else rate('pass','Reset Whistle','0 whistles left.');
+  }
+  // Cash-out
+  if(v('nirio_cashout_start_turn')!=null){
+    if(finalCoins>300)rate('fail','Cash-Out',finalCoins+' coins remaining. Conservation lifted at T'+v('nirio_cashout_start_turn')+' but coins were not spent.','Lower nirio_cashout_start_turn.');
+    else if(finalCoins>150)rate('partial','Cash-Out',finalCoins+' coins remaining.');
+    else rate('pass','Cash-Out',finalCoins+' coins remaining.');
+  }
+  // MCH reserve
+  if(v('nirio_mch_reserve')!=null){
+    const mchAtT73=turns.filter(t=>t.turn<=73).reduce((best,t)=>{const inv=t.inventory||[];const c=inv.filter(i=>i.item_id===11002).reduce((s,i)=>s+(i.current_num||i.num||1),0);return t.turn>=70?c:best},0);
+    if(mchLeft>1)rate('partial','MCH Reserve',mchLeft+' Master hammers left after climax (overhoarded).','Lower nirio_mch_reserve if climax races were all covered.');
+    else rate('pass','MCH Reserve',mchLeft+' Master hammer(s) left after climax.');
+  }
+  if(!evals.length)return'';
+  let o='--- (NIRIO) EFFECTIVENESS ---\n';
+  const fails=evals.filter(e=>e.verdict==='FAIL');
+  const partials=evals.filter(e=>e.verdict==='PARTIAL');
+  const passes=evals.filter(e=>e.verdict==='PASS');
+  for(const e of evals){
+    o+=e.verdict+' '+e.label+': '+e.detail+(e.rec?' → '+e.rec:'')+'\n';
+  }
+  o+='\nOverall: '+passes.length+' PASS, '+partials.length+' PARTIAL, '+fails.length+' FAIL\n';
+  if(fails.length)o+='Priority tuning targets: '+fails.map(e=>e.label).join(', ')+'\n';
+  o+='\n';
+  return o;
+}
+
 function generateAISummary(){
   if(!logData)return'No log loaded.';
   const d=logData,turns=d.turns||[],rs=d.runner_status||{};
@@ -1747,13 +1838,14 @@ function generateAISummary(){
   o+='Total Turns: '+turns.length+'/'+(d.final_turn||'—')+'\n';
   o+='Run: '+(rs.loop_index||'—')+' / '+(rs.loop_target||'—')+'\n\n';
 
-  // (nirio) fork tuning snapshot
+  // (nirio) fork tuning snapshot + effectiveness
   const nirio=(d.runtime_settings||{}).nirio||{};
   const nirioKeys=Object.keys(nirio).sort();
   if(nirioKeys.length){
-    o+='--- (NIRIO) FORK TUNING ---\n';
+    o+='--- (NIRIO) FORK TUNING (active config) ---\n';
     for(const k of nirioKeys)o+=k+': '+nirio[k]+'\n';
     o+='\n';
+    o+=nirioEffectiveness(nirio,turns,last);
   }
 
   // Metric confidence
