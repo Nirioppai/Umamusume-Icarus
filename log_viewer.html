@@ -1478,7 +1478,7 @@ function buildRaceResults(data){
     let usedClock=false;
     if(rr){
       finalRank=rr.final_rank||rr.rank||null;
-      usedClock=!!(rr.clocks_used||rr.clock_retry);
+      usedClock=parseInt(rr.clocks_used||0)>0;
     }
     if(!finalRank){finalRank=rm.rankAfterClock||rm.rank||null}
     if(!usedClock){usedClock=rm.usedClock||false}
