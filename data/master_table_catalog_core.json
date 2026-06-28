@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": 1782638748,
+  "generated_at": 1782674499,
   "source": "official_table_data:master.mdb_catalog",
   "table_count": 338,
   "tables": [
@@ -36,7 +36,7 @@
     },
     {
       "table": "announce_data",
-      "rows": 84,
+      "rows": 83,
       "columns": [
         {
           "cid": 0,
@@ -90,7 +90,7 @@
     },
     {
       "table": "announce_event",
-      "rows": 14,
+      "rows": 13,
       "columns": [
         {
           "cid": 0,
@@ -144,7 +144,7 @@
     },
     {
       "table": "announce_support_card",
-      "rows": 36,
+      "rows": 35,
       "columns": [
         {
           "cid": 0,
@@ -972,7 +972,7 @@
     },
     {
       "table": "available_skill_set",
-      "rows": 616,
+      "rows": 609,
       "columns": [
         {
           "cid": 0,
@@ -1010,7 +1010,7 @@
     },
     {
       "table": "background_data",
-      "rows": 437,
+      "rows": 434,
       "columns": [
         {
           "cid": 0,
@@ -1166,7 +1166,7 @@
     },
     {
       "table": "banner_data",
-      "rows": 226,
+      "rows": 222,
       "columns": [
         {
           "cid": 0,
@@ -1260,7 +1260,7 @@
     },
     {
       "table": "campaign_chara_story_schedule",
-      "rows": 252,
+      "rows": 244,
       "columns": [
         {
           "cid": 0,
@@ -1290,7 +1290,7 @@
     },
     {
       "table": "campaign_data",
-      "rows": 161,
+      "rows": 158,
       "columns": [
         {
           "cid": 0,
@@ -1594,7 +1594,7 @@
     },
     {
       "table": "card_data",
-      "rows": 90,
+      "rows": 87,
       "columns": [
         {
           "cid": 0,
@@ -1712,7 +1712,7 @@
     },
     {
       "table": "card_rarity_data",
-      "rows": 289,
+      "rows": 286,
       "columns": [
         {
           "cid": 0,
@@ -2036,7 +2036,7 @@
     },
     {
       "table": "card_talent_upgrade",
-      "rows": 356,
+      "rows": 352,
       "columns": [
         {
           "cid": 0,
@@ -4328,7 +4328,7 @@
     },
     {
       "table": "chara_data",
-      "rows": 86,
+      "rows": 85,
       "columns": [
         {
           "cid": 0,
@@ -4716,7 +4716,7 @@
     },
     {
       "table": "chara_motion_set",
-      "rows": 4325,
+      "rows": 4299,
       "columns": [
         {
           "cid": 0,
@@ -4896,7 +4896,7 @@
     },
     {
       "table": "chara_type",
-      "rows": 3400,
+      "rows": 3360,
       "columns": [
         {
           "cid": 0,
@@ -5004,7 +5004,7 @@
     },
     {
       "table": "character_system_lottery",
-      "rows": 3529,
+      "rows": 3414,
       "columns": [
         {
           "cid": 0,
@@ -5082,7 +5082,7 @@
     },
     {
       "table": "character_system_text",
-      "rows": 12857,
+      "rows": 12738,
       "columns": [
         {
           "cid": 0,
@@ -5278,7 +5278,7 @@
     },
     {
       "table": "circle_stamp_data",
-      "rows": 43,
+      "rows": 40,
       "columns": [
         {
           "cid": 0,
@@ -6560,7 +6560,7 @@
     },
     {
       "table": "dress_data",
-      "rows": 199,
+      "rows": 196,
       "columns": [
         {
           "cid": 0,
@@ -7518,7 +7518,7 @@
     },
     {
       "table": "gacha_available",
-      "rows": 11694,
+      "rows": 11413,
       "columns": [
         {
           "cid": 0,
@@ -7588,7 +7588,7 @@
     },
     {
       "table": "gacha_data",
-      "rows": 122,
+      "rows": 120,
       "columns": [
         {
           "cid": 0,
@@ -7954,7 +7954,7 @@
     },
     {
       "table": "gacha_exchange",
-      "rows": 246,
+      "rows": 243,
       "columns": [
         {
           "cid": 0,
@@ -8358,7 +8358,7 @@
     },
     {
       "table": "gacha_top_bg",
-      "rows": 122,
+      "rows": 120,
       "columns": [
         {
           "cid": 0,
@@ -9102,7 +9102,7 @@
     },
     {
       "table": "honor_data",
-      "rows": 506,
+      "rows": 503,
       "columns": [
         {
           "cid": 0,
@@ -9370,7 +9370,7 @@
     },
     {
       "table": "item_exchange",
-      "rows": 566,
+      "rows": 563,
       "columns": [
         {
           "cid": 0,
@@ -9658,7 +9658,7 @@
     },
     {
       "table": "item_place",
-      "rows": 162,
+      "rows": 161,
       "columns": [
         {
           "cid": 0,
@@ -9818,7 +9818,7 @@
     },
     {
       "table": "jukebox_music_data",
-      "rows": 34,
+      "rows": 29,
       "columns": [
         {
           "cid": 0,
@@ -10006,7 +10006,7 @@
     },
     {
       "table": "jukebox_request_data",
-      "rows": 157,
+      "rows": 151,
       "columns": [
         {
           "cid": 0,
@@ -11012,7 +11012,7 @@
     },
     {
       "table": "live_data",
-      "rows": 37,
+      "rows": 30,
       "columns": [
         {
           "cid": 0,
@@ -11162,7 +11162,7 @@
     },
     {
       "table": "live_extra_data",
-      "rows": 1,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -11224,7 +11224,7 @@
     },
     {
       "table": "live_permission_data",
-      "rows": 257,
+      "rows": 249,
       "columns": [
         {
           "cid": 0,
@@ -11246,7 +11246,7 @@
     },
     {
       "table": "login_bonus_data",
-      "rows": 51,
+      "rows": 50,
       "columns": [
         {
           "cid": 0,
@@ -11308,7 +11308,7 @@
     },
     {
       "table": "login_bonus_detail",
-      "rows": 149,
+      "rows": 139,
       "columns": [
         {
           "cid": 0,
@@ -11488,7 +11488,7 @@
     },
     {
       "table": "main_story_data",
-      "rows": 118,
+      "rows": 103,
       "columns": [
         {
           "cid": 0,
@@ -11726,7 +11726,7 @@
     },
     {
       "table": "main_story_part",
-      "rows": 7,
+      "rows": 6,
       "columns": [
         {
           "cid": 0,
@@ -11756,7 +11756,7 @@
     },
     {
       "table": "main_story_race_bonus",
-      "rows": 24,
+      "rows": 22,
       "columns": [
         {
           "cid": 0,
@@ -11802,7 +11802,7 @@
     },
     {
       "table": "main_story_race_bonus_condition",
-      "rows": 16,
+      "rows": 14,
       "columns": [
         {
           "cid": 0,
@@ -11848,7 +11848,7 @@
     },
     {
       "table": "main_story_race_chara_data",
-      "rows": 320,
+      "rows": 262,
       "columns": [
         {
           "cid": 0,
@@ -12070,7 +12070,7 @@
     },
     {
       "table": "main_story_race_data",
-      "rows": 28,
+      "rows": 24,
       "columns": [
         {
           "cid": 0,
@@ -12770,7 +12770,7 @@
     },
     {
       "table": "mission_data",
-      "rows": 3050,
+      "rows": 2990,
       "columns": [
         {
           "cid": 0,
@@ -12928,7 +12928,7 @@
     },
     {
       "table": "mob_data",
-      "rows": 823,
+      "rows": 798,
       "columns": [
         {
           "cid": 0,
@@ -13078,7 +13078,7 @@
     },
     {
       "table": "mob_dress_color_set",
-      "rows": 802,
+      "rows": 782,
       "columns": [
         {
           "cid": 0,
@@ -13188,7 +13188,7 @@
     },
     {
       "table": "mob_hair_color_set",
-      "rows": 102,
+      "rows": 90,
       "columns": [
         {
           "cid": 0,
@@ -13756,7 +13756,7 @@
     },
     {
       "table": "note_profile",
-      "rows": 38,
+      "rows": 37,
       "columns": [
         {
           "cid": 0,
@@ -13856,7 +13856,7 @@
     },
     {
       "table": "piece_data",
-      "rows": 89,
+      "rows": 88,
       "columns": [
         {
           "cid": 0,
@@ -13986,7 +13986,7 @@
     },
     {
       "table": "race",
-      "rows": 1384,
+      "rows": 1369,
       "columns": [
         {
           "cid": 0,
@@ -14112,7 +14112,7 @@
     },
     {
       "table": "race_bgm",
-      "rows": 223,
+      "rows": 217,
       "columns": [
         {
           "cid": 0,
@@ -14318,7 +14318,7 @@
     },
     {
       "table": "race_bgm_cutin",
-      "rows": 3,
+      "rows": 2,
       "columns": [
         {
           "cid": 0,
@@ -14396,7 +14396,7 @@
     },
     {
       "table": "race_bgm_cutin_extension_time",
-      "rows": 151,
+      "rows": 148,
       "columns": [
         {
           "cid": 0,
@@ -14450,7 +14450,7 @@
     },
     {
       "table": "race_bgm_pattern",
-      "rows": 36,
+      "rows": 31,
       "columns": [
         {
           "cid": 0,
@@ -15268,7 +15268,7 @@
     },
     {
       "table": "race_course_set",
-      "rows": 110,
+      "rows": 107,
       "columns": [
         {
           "cid": 0,
@@ -15408,7 +15408,7 @@
     },
     {
       "table": "race_env_define",
-      "rows": 960,
+      "rows": 880,
       "columns": [
         {
           "cid": 0,
@@ -15462,7 +15462,7 @@
     },
     {
       "table": "race_fence_set",
-      "rows": 111,
+      "rows": 108,
       "columns": [
         {
           "cid": 0,
@@ -15540,7 +15540,7 @@
     },
     {
       "table": "race_instance",
-      "rows": 1490,
+      "rows": 1475,
       "columns": [
         {
           "cid": 0,
@@ -15602,7 +15602,7 @@
     },
     {
       "table": "race_jikkyo_base",
-      "rows": 3939,
+      "rows": 3904,
       "columns": [
         {
           "cid": 0,
@@ -16002,7 +16002,7 @@
     },
     {
       "table": "race_jikkyo_race",
-      "rows": 617,
+      "rows": 607,
       "columns": [
         {
           "cid": 0,
@@ -16024,7 +16024,7 @@
     },
     {
       "table": "race_jikkyo_trigger",
-      "rows": 1763,
+      "rows": 1757,
       "columns": [
         {
           "cid": 0,
@@ -16350,7 +16350,7 @@
     },
     {
       "table": "race_track",
-      "rows": 12,
+      "rows": 11,
       "columns": [
         {
           "cid": 0,
@@ -17066,7 +17066,7 @@
     },
     {
       "table": "single_mode_chara_effect",
-      "rows": 22,
+      "rows": 21,
       "columns": [
         {
           "cid": 0,
@@ -17188,7 +17188,7 @@
     },
     {
       "table": "single_mode_conclusion_set",
-      "rows": 809,
+      "rows": 792,
       "columns": [
         {
           "cid": 0,
@@ -18492,7 +18492,7 @@
     },
     {
       "table": "single_mode_hint_gain",
-      "rows": 1774,
+      "rows": 1750,
       "columns": [
         {
           "cid": 0,
@@ -19912,7 +19912,7 @@
     },
     {
       "table": "single_mode_scout_chara",
-      "rows": 216,
+      "rows": 213,
       "columns": [
         {
           "cid": 0,
@@ -20126,7 +20126,7 @@
     },
     {
       "table": "single_mode_skill_need_point",
-      "rows": 480,
+      "rows": 478,
       "columns": [
         {
           "cid": 0,
@@ -20202,7 +20202,7 @@
     },
     {
       "table": "single_mode_story_data",
-      "rows": 7413,
+      "rows": 7388,
       "columns": [
         {
           "cid": 0,
@@ -20414,7 +20414,7 @@
     },
     {
       "table": "single_mode_tag_card_pos",
-      "rows": 3360,
+      "rows": 3300,
       "columns": [
         {
           "cid": 0,
@@ -21322,7 +21322,7 @@
     },
     {
       "table": "skill_data",
-      "rows": 605,
+      "rows": 597,
       "columns": [
         {
           "cid": 0,
@@ -21994,7 +21994,7 @@
     },
     {
       "table": "skill_set",
-      "rows": 1280,
+      "rows": 1222,
       "columns": [
         {
           "cid": 0,
@@ -22168,7 +22168,7 @@
     },
     {
       "table": "sqlite_stat1",
-      "rows": 438,
+      "rows": 423,
       "columns": [
         {
           "cid": 0,
@@ -22198,7 +22198,7 @@
     },
     {
       "table": "story_event_announce_detail",
-      "rows": 173,
+      "rows": 164,
       "columns": [
         {
           "cid": 0,
@@ -22588,7 +22588,7 @@
     },
     {
       "table": "story_event_data",
-      "rows": 16,
+      "rows": 15,
       "columns": [
         {
           "cid": 0,
@@ -23716,7 +23716,7 @@
     },
     {
       "table": "story_live_position",
-      "rows": 116,
+      "rows": 109,
       "columns": [
         {
           "cid": 0,
@@ -23810,7 +23810,7 @@
     },
     {
       "table": "story_still",
-      "rows": 81,
+      "rows": 77,
       "columns": [
         {
           "cid": 0,
@@ -23848,7 +23848,7 @@
     },
     {
       "table": "succession_factor",
-      "rows": 965,
+      "rows": 962,
       "columns": [
         {
           "cid": 0,
@@ -23918,7 +23918,7 @@
     },
     {
       "table": "succession_factor_effect",
-      "rows": 1459,
+      "rows": 1456,
       "columns": [
         {
           "cid": 0,
@@ -24146,7 +24146,7 @@
     },
     {
       "table": "support_card_data",
-      "rows": 226,
+      "rows": 222,
       "columns": [
         {
           "cid": 0,
@@ -24288,7 +24288,7 @@
     },
     {
       "table": "support_card_effect_table",
-      "rows": 1872,
+      "rows": 1836,
       "columns": [
         {
           "cid": 0,
@@ -24398,7 +24398,7 @@
     },
     {
       "table": "support_card_group",
-      "rows": 9,
+      "rows": 6,
       "columns": [
         {
           "cid": 0,
@@ -24604,7 +24604,7 @@
     },
     {
       "table": "support_card_unique_effect",
-      "rows": 147,
+      "rows": 144,
       "columns": [
         {
           "cid": 0,
@@ -24722,7 +24722,7 @@
     },
     {
       "table": "team_building_basic_reward",
-      "rows": 12,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -24784,7 +24784,7 @@
     },
     {
       "table": "team_building_chara_count",
-      "rows": 10,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -24822,7 +24822,7 @@
     },
     {
       "table": "team_building_chara_group",
-      "rows": 6,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -24852,7 +24852,7 @@
     },
     {
       "table": "team_building_collection_chara",
-      "rows": 60,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -24930,7 +24930,7 @@
     },
     {
       "table": "team_building_collection_set",
-      "rows": 3,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -24968,7 +24968,7 @@
     },
     {
       "table": "team_building_consecutive_wins",
-      "rows": 10,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -25100,7 +25100,7 @@
     },
     {
       "table": "team_building_discount_point",
-      "rows": 24,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -25130,7 +25130,7 @@
     },
     {
       "table": "team_building_race",
-      "rows": 9,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -25184,7 +25184,7 @@
     },
     {
       "table": "team_building_race_npc",
-      "rows": 286,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -25358,7 +25358,7 @@
     },
     {
       "table": "team_building_rank",
-      "rows": 24,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -25404,7 +25404,7 @@
     },
     {
       "table": "team_building_rank_reward_group",
-      "rows": 27,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -25496,7 +25496,7 @@
     },
     {
       "table": "team_building_scout_point",
-      "rows": 98,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -25526,7 +25526,7 @@
     },
     {
       "table": "team_building_win_reward",
-      "rows": 2,
+      "rows": 0,
       "columns": [
         {
           "cid": 0,
@@ -25994,7 +25994,7 @@
     },
     {
       "table": "team_stadium_race_result_motion",
-      "rows": 75,
+      "rows": 74,
       "columns": [
         {
           "cid": 0,
@@ -27178,7 +27178,7 @@
     },
     {
       "table": "transfer_event_data",
-      "rows": 13,
+      "rows": 12,
       "columns": [
         {
           "cid": 0,
@@ -27288,7 +27288,7 @@
     },
     {
       "table": "transfer_event_detail",
-      "rows": 93,
+      "rows": 78,
       "columns": [
         {
           "cid": 0,
@@ -27478,7 +27478,7 @@
     },
     {
       "table": "transfer_event_reward",
-      "rows": 227,
+      "rows": 182,
       "columns": [
         {
           "cid": 0,
@@ -27540,7 +27540,7 @@
     },
     {
       "table": "tutorial_guide_data",
-      "rows": 138,
+      "rows": 129,
       "columns": [
         {
           "cid": 0,

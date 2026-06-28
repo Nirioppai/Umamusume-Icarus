@@ -107,3 +107,8 @@ Quick-reference table for each upstream update. Detailed context is in the entri
 | Hammer dump window | NO COLLISION |
 | `_item_cap()` auto_buy priority | NO COLLISION |
 | `log_viewer.html` | NO COLLISION |
+
+### 2026-06-29 — Fix headless bypass ticket consumed before pre-load
+**Commit:** (pending) **File(s):** `main.py`
+**Context:** `check_saved_auth()` creates a UmaClient and calls `c.login()` to test the headless bypass. This consumes the Steam session ticket. But `saved_cfg` (returned to the caller) still holds the old ticket. The startup pre-load then creates a second UmaClient with the stale ticket, causing 394 errors on `load/index`. Fixed by syncing the client's (possibly refreshed) ticket back into `saved_cfg` before returning it.
+**Status:** ACTIVE
