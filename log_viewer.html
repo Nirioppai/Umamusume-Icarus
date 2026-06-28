@@ -1744,6 +1744,19 @@ function generateAISummary(){
   o+='Total Turns: '+turns.length+'/'+(d.final_turn||'—')+'\n';
   o+='Run: '+(rs.loop_index||'—')+' / '+(rs.loop_target||'—')+'\n\n';
 
+  // Metric confidence
+  const rr=buildRaceResults(d);
+  const rClocks=rr.filter(r=>r.usedClock).length;
+  const clockSuspicious=rr.length>0&&rClocks===rr.length;
+  o+='--- METRIC CONFIDENCE ---\n';
+  o+='Final stats: HIGH\n';
+  o+='Race placements: HIGH\n';
+  o+='SP remaining: HIGH\n';
+  o+='Item inventory: HIGH\n';
+  if(clockSuspicious)o+='Clock retries: LOW / SUSPICIOUS (clock count equals total races — likely a parsing artifact, not actual clock consumption)\n';
+  else o+='Clock retries: '+(rClocks>0?'MEDIUM (verify against actual clock item consumption)':'HIGH (no clocks detected)')+'\n';
+  o+='\n';
+
   // Final stats
   o+='--- FINAL STATS ---\n';
   o+='Speed: '+(ls.speed||0)+' | Stamina: '+(ls.stamina||0)+' | Power: '+(ls.power||0)+' | Guts: '+(ls.guts||0)+' | Wit: '+(ls.wit||0)+'\n';
@@ -1753,15 +1766,17 @@ function generateAISummary(){
   o+='Final Coins: '+(last.mant_coin!=null?last.mant_coin:'—')+'\n\n';
 
   // Race economy
-  const rr=buildRaceResults(d);
   const rWins=rr.filter(r=>r.finalRank===1).length;
-  const rClocks=rr.filter(r=>r.usedClock).length;
   const rWinPct=rr.length?(rWins/rr.length*100).toFixed(1):'0';
 
   o+='--- RACE ECONOMY ---\n';
   o+='Total Races: '+rr.length+'\n';
   o+='Wins (1st): '+rWins+' ('+rWinPct+'%)\n';
-  o+='Clock Retries: '+rClocks+'\n';
+  if(clockSuspicious){
+    o+='Clock Retries: '+rClocks+' — SUSPICIOUS: equals total races. Every race shows a clock icon including 1st-place wins. This likely indicates a parsing artifact rather than actual clock item consumption. Do NOT treat this as '+rClocks+' consumed clocks.\n';
+  }else{
+    o+='Clock Retries: '+rClocks+'\n';
+  }
   o+='Fans Gained: '+(rs.fans_gained?fmtNum(rs.fans_gained):'—')+'\n\n';
 
   // By grade
@@ -1770,28 +1785,28 @@ function generateAISummary(){
   const gOrd=['G1','G2','G3','900','OP','Pre-OP'];
   o+='By Grade:\n';
   for(const[g,gd]of Object.entries(byG).sort((a,b)=>(gOrd.indexOf(a[0])===-1?99:gOrd.indexOf(a[0]))-(gOrd.indexOf(b[0])===-1?99:gOrd.indexOf(b[0])))){
-    o+='  '+g+': '+gd.w+'/'+gd.t+' wins ('+Math.round(gd.w/gd.t*100)+'%)'+(gd.c?' ['+gd.c+' clocks]':'')+'\n';
+    o+='  '+g+': '+gd.w+'/'+gd.t+' wins ('+Math.round(gd.w/gd.t*100)+'%)'+(gd.c&&!clockSuspicious?' ['+gd.c+' clocks]':'')+'\n';
   }
   o+='\n';
 
-  // Race log
+  // Race log (suppress clock icon when suspicious)
   o+='Race Log:\n';
   for(const r of rr){
     let ln='  T'+String(r.turn).padStart(2,'0')+': '+r.name+' ('+r.grade+') '+r.distance+' → #'+(r.finalRank||'?');
-    if(r.usedClock)ln+=' 🕐';
+    if(r.usedClock&&!clockSuspicious)ln+=' 🕐';
     if(r.fansReward)ln+=' ['+fmtNum(r.fansReward)+' fans]';
     if(r.itemsUsed.length)ln+=' ['+r.itemsUsed.join(', ')+']';
     o+=ln+'\n';
   }
   o+='\n';
 
-  // Consecutive race chains
-  const chains=aiRaceChains(turns);
+  // Contextual race chains
+  const chains=aiRaceChains(turns,rr);
   if(chains.length){
-    o+='Consecutive Race Chains:\n';
+    o+='Consecutive Race Chains (contextual):\n';
+    o+='Note: Race chains are normal in Trackblazer. Only flag chains that caused losses, mood collapse, HP crash, or forced rest.\n';
     for(const c of chains){
-      const flag=c.length>=4?' ⚠⚠ HEAVY FLAG':c.length>=3?' ⚠ FLAG':'';
-      o+='  T'+c[0]+'-T'+c[c.length-1]+': '+c.length+' consecutive races'+flag+'\n';
+      o+='  '+c.label+'\n';
     }
     o+='\n';
   }
@@ -1820,6 +1835,9 @@ function generateAISummary(){
     o+='\n';
   }
 
+  // Unused permanent stat value estimate
+  o+=aiUnusedStatEstimate(ie);
+
   // Summer bootcamp
   o+='--- SUMMER BOOTCAMP ---\n';
   o+=aiSummerSnap(turns,37,40,'Classic Summer (T37-40)');
@@ -1828,7 +1846,12 @@ function generateAISummary(){
 
   // T73 / Climax
   o+='--- TURN 73 / CLIMAX PREP ---\n';
-  o+=aiT73Summary(turns,rr);
+  o+=aiT73Summary(turns,rr,clockSuspicious);
+  o+='\n';
+
+  // Late-game dump window
+  o+='--- LATE-GAME DUMP WINDOW (T65-T76) ---\n';
+  o+=aiDumpWindow(turns,ie);
   o+='\n';
 
   // Mood & HP
@@ -1839,6 +1862,11 @@ function generateAISummary(){
   // Skills
   o+='--- SKILLS ---\n';
   o+=aiSkillSummary(turns);
+  o+='\n';
+
+  // Cash-out failure analysis
+  o+='--- CASH-OUT ANALYSIS ---\n';
+  o+=aiCashOut(turns,last,ie,rr);
   o+='\n';
 
   // Final inventory
@@ -1857,11 +1885,34 @@ function generateAISummary(){
   return o;
 }
 
-function aiRaceChains(turns){
-  const chains=[];let cur=[];
-  for(const t of turns){if(categorize(t)==='race'){cur.push(t.turn)}else{if(cur.length>=2)chains.push([...cur]);cur=[]}}
-  if(cur.length>=2)chains.push([...cur]);
-  return chains;
+function aiRaceChains(turns,raceResults){
+  const rrMap={};for(const r of raceResults)rrMap[r.turn]=r;
+  const turnMap={};for(const t of turns)turnMap[t.turn]=t;
+  const rawChains=[];let cur=[];
+  for(const t of turns){if(categorize(t)==='race'){cur.push(t.turn)}else{if(cur.length>=2)rawChains.push([...cur]);cur=[]}}
+  if(cur.length>=2)rawChains.push([...cur]);
+  return rawChains.map(c=>{
+    const wins=c.filter(tn=>rrMap[tn]&&rrMap[tn].finalRank===1).length;
+    const losses=c.length-wins;
+    const firstT=turnMap[c[0]];
+    const lastT=turnMap[c[c.length-1]];
+    const startMood=firstT?(firstT.motivation||(firstT.stats||{}).motivation||'?'):'?';
+    const endMood=lastT?(lastT.motivation||(lastT.stats||{}).motivation||'?'):'?';
+    const startHP=(firstT&&firstT.stats)?firstT.stats.hp:'?';
+    const endHP=(lastT&&lastT.stats)?lastT.stats.hp:'?';
+    const nextTurn=turnMap[c[c.length-1]+1];
+    const forcedRest=nextTurn&&categorize(nextTurn)==='rest';
+    const grades=c.map(tn=>rrMap[tn]?rrMap[tn].grade:'?').filter(g=>g!=='?');
+    const gradeStr=grades.length?grades.join('/'):'-';
+    let risk='OK';
+    if(losses>=2)risk='HIGH — multiple losses';
+    else if(endMood!=='?'&&endMood<=2)risk='RISKY — mood collapsed to '+endMood;
+    else if(endHP!=='?'&&endHP<15)risk='RISKY — HP crashed to '+endHP;
+    else if(forcedRest)risk='MODERATE — forced rest after chain';
+    else if(c.length>=4&&losses===0)risk='OK — all wins, high volume but successful';
+    let label='T'+c[0]+'-T'+c[c.length-1]+': '+c.length+' races, '+wins+'W/'+losses+'L ('+gradeStr+'), mood '+startMood+'→'+endMood+', HP '+startHP+'→'+endHP+(forcedRest?', forced rest after':'')+' — '+risk;
+    return{turns:c,wins,losses,startMood,endMood,startHP,endHP,forcedRest,risk,label};
+  });
 }
 
 function aiItemSummary(turns){
@@ -1902,7 +1953,7 @@ function aiSummerSnap(turns,ss,se,label){
   return o;
 }
 
-function aiT73Summary(turns,rr){
+function aiT73Summary(turns,rr,clockSuspicious){
   const TID=11002;
   const t73=[...turns].reverse().find(t=>t.turn<=73);
   let o='';
@@ -1920,9 +1971,16 @@ function aiT73Summary(turns,rr){
     if(inv.length)o+='Inventory at T'+t73.turn+': '+inv.map(i=>fmtItem(i.name||ITEM[i.item_id]||'?')+'×'+(i.current_num||i.num||1)).join(', ')+'\n';
   }else o+='No turn data at or before T73.\n';
   const climax=rr.filter(r=>r.turn>=74);
+  const EXPECTED_CLIMAX=3;
+  o+='\nClimax Race Count Check:\n';
+  o+='  Expected Climax races: '+EXPECTED_CLIMAX+'\n';
+  o+='  Logged Climax races: '+climax.length+'\n';
+  if(climax.length<EXPECTED_CLIMAX)o+='  Status: VERIFY — '+(EXPECTED_CLIMAX-climax.length)+' race(s) may be missing, skipped, or not part of this scenario flow. Leftover Master Hammers should be judged with this in mind.\n';
+  else if(climax.length===EXPECTED_CLIMAX)o+='  Status: OK — all expected Climax races are logged.\n';
+  else o+='  Status: more races logged than expected ('+climax.length+').\n';
   if(climax.length){
     o+='\nFinal Climax Races:\n';
-    for(const r of climax)o+='  T'+r.turn+': '+r.name+' ('+r.grade+') → #'+(r.finalRank||'?')+(r.usedClock?' 🕐':'')+(r.itemsUsed.length?' ['+r.itemsUsed.join(', ')+']':'')+'\n';
+    for(const r of climax)o+='  T'+r.turn+': '+r.name+' ('+r.grade+') → #'+(r.finalRank||'?')+(r.usedClock&&!clockSuspicious?' 🕐':'')+(r.itemsUsed.length?' ['+r.itemsUsed.join(', ')+']':'')+'\n';
   }
   return o;
 }
@@ -1980,6 +2038,109 @@ function aiTurnLog(turns,raceResultMap){
       ln+=' | result:#'+(rr.finalRank||'?')+(rr.usedClock?' 🕐':'')+(rr.fansReward?' fans:'+fmtNum(rr.fansReward):'');
     }
     o+=ln+'\n';
+  }
+  return o;
+}
+
+// Stat value estimates: Scroll=+30, Manual=+15, Notepad=+5
+const STAT_ITEM_VALUES={
+  'Speed Scroll':30,'Stamina Scroll':30,'Power Scroll':30,'Guts Scroll':30,'Wit Scroll':30,
+  'Speed Manual':15,'Stamina Manual':15,'Power Manual':15,'Guts Manual':15,'Wit Manual':15,
+  'Speed Notepad':5,'Stamina Notepad':5,'Power Notepad':5,'Guts Notepad':5,'Wit Notepad':5
+};
+
+function aiUnusedStatEstimate(ie){
+  const unused=[];let totalLost=0;
+  for(const[nm,sv]of Object.entries(STAT_ITEM_VALUES)){
+    const bought=ie.bought[nm]||0;
+    const used=ie.used[nm]||0;
+    const left=bought-used;
+    if(left>0){unused.push({name:fmtItem(nm),count:left,value:left*sv});totalLost+=left*sv}
+  }
+  if(!unused.length)return'';
+  let o='--- UNUSED PERMANENT STAT ITEMS ---\n';
+  for(const it of unused.sort((a,b)=>b.value-a.value))o+='  '+it.name+' ×'+it.count+' (~'+it.value+' stats lost)\n';
+  o+='Estimated total stat value lost from unused stat items: ~'+totalLost+'\n';
+  o+='Note: Scrolls give ~30 per stat, Manuals ~15, Notepads ~5. These are approximate values.\n\n';
+  return o;
+}
+
+function aiDumpWindow(turns,ie){
+  const DUMP_START=65,DUMP_END=76;
+  const t65=[...turns].reverse().find(t=>t.turn<=DUMP_START);
+  const dumpTurns=turns.filter(t=>t.turn>=DUMP_START&&t.turn<=DUMP_END);
+  let o='';
+  if(t65){
+    const inv=t65.inventory||[];
+    o+='Items available at T'+t65.turn+': '+(inv.length?inv.map(i=>fmtItem(i.name||ITEM[i.item_id]||'?')+'×'+(i.current_num||i.num||1)).join(', '):'none')+'\n';
+  }
+  // Items used during dump window
+  const usedDuring={};
+  for(const t of dumpTurns){
+    const prn=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const u of(t.bot_item_use_selected||[]).filter(i=>!prn.has(i.name))){const nm=u.name||ITEM[u.item_id]||'?';usedDuring[nm]=(usedDuring[nm]||0)+(u.use_num||1)}
+    for(const u of(t.bot_pre_race_use_selected||[])){const nm=u.name||ITEM[u.item_id]||'?';usedDuring[nm]=(usedDuring[nm]||0)+(u.use_num||1)}
+  }
+  const usedEntries=Object.entries(usedDuring).sort((a,b)=>b[1]-a[1]);
+  o+='Items used T'+DUMP_START+'-T'+DUMP_END+': '+(usedEntries.length?usedEntries.map(([nm,c])=>fmtItem(nm)+'×'+c).join(', '):'none')+'\n';
+  // Check final inventory for items that could have been dumped
+  const lastDump=dumpTurns.length?dumpTurns[dumpTurns.length-1]:null;
+  if(lastDump){
+    const finalInv=lastDump.inventory||[];
+    const dumpable=finalInv.filter(i=>{const id=i.item_id;return(id>=1001&&id<=1205)||(id>=8001&&id<=8003)||(id>=9001&&id<=9004)||id===7001||id===10001||(id>=2001&&id<=2302)||id===11001||id===11002||id===11003});
+    if(dumpable.length){
+      o+='Items still held after T'+DUMP_END+' (missed dump candidates):\n';
+      for(const it of dumpable)o+='  '+fmtItem(it.name||ITEM[it.item_id]||'?')+' ×'+(it.current_num||it.num||1)+'\n';
+    }
+  }
+  const leftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  if(leftover>10)o+='Assessment: The bot entered the late-game with usable items and ended with '+leftover+' leftovers. The late-game dump policy may not be aggressive enough.\n';
+  else if(leftover>0)o+='Assessment: Some items remained unused ('+leftover+'), but volume is moderate.\n';
+  else o+='Assessment: Good — no significant leftovers from the dump window.\n';
+  return o;
+}
+
+function aiCashOut(turns,last,ie,rr){
+  const ls=last.stats||{};
+  const spRemaining=(ls.skill_point||0);
+  const leftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  const skillLog=[];let spSpent=0;
+  for(const t of turns)for(const sk of(t.bot_skill_selected||[])){skillLog.push(sk);spSpent+=(sk.cost||0)}
+  const finalInv=last.inventory||[];
+  const mchLeft=finalInv.filter(i=>i.item_id===11002).reduce((s,i)=>s+(i.current_num||i.num||1),0);
+  const achLeft=finalInv.filter(i=>i.item_id===11001).reduce((s,i)=>s+(i.current_num||i.num||1),0);
+  const finalCoins=last.mant_coin!=null?last.mant_coin:0;
+
+  // Count unused stat items
+  let unusedStatVal=0;
+  for(const[nm,sv]of Object.entries(STAT_ITEM_VALUES)){
+    const left=(ie.bought[nm]||0)-(ie.used[nm]||0);
+    if(left>0)unusedStatVal+=left*sv;
+  }
+
+  // Build warnings
+  const warnings=[];
+  if(spSpent===0&&spRemaining>100)warnings.push({resource:'SP Remaining',value:spRemaining,comment:'CRITICAL: no skills purchased. All SP wasted.'});
+  else if(spRemaining>300)warnings.push({resource:'SP Remaining',value:spRemaining,comment:'High leftover SP — potential skill value lost.'});
+  if(leftover>20)warnings.push({resource:'Items Left Over',value:leftover,comment:'High waste — many items bought but never used.'});
+  else if(leftover>10)warnings.push({resource:'Items Left Over',value:leftover,comment:'Moderate waste.'});
+  if(mchLeft>0)warnings.push({resource:'Master Cleat Hammers Left',value:mchLeft,comment:mchLeft>=3?'Overhoarded after final Climax.':'Some hammers unused after Climax.'});
+  if(achLeft>0)warnings.push({resource:'Artisan Cleat Hammers Left',value:achLeft,comment:'Unused after final races.'});
+  if(unusedStatVal>0)warnings.push({resource:'Permanent Stat Items Left',value:'~'+unusedStatVal+' stats',comment:'Direct stat loss from unused scrolls/manuals/notepads.'});
+  if(finalCoins>50)warnings.push({resource:'Final Coins',value:finalCoins,comment:'Minor leftover.'});
+
+  let o='';
+  if(warnings.length){
+    o+='Resource Cash-Out Summary:\n';
+    for(const w of warnings)o+='  '+w.resource+': '+w.value+' — '+w.comment+'\n';
+    o+='\n';
+    const critical=warnings.filter(w=>w.comment.startsWith('CRITICAL'));
+    const high=warnings.filter(w=>w.comment.startsWith('High')||w.comment.startsWith('Overhoarded'));
+    if(critical.length||high.length>=2)o+='Cash-Out Verdict: POOR. The run generated resources but failed to convert them before the career ended.\n';
+    else if(high.length>=1)o+='Cash-Out Verdict: MODERATE. Some resources were left unconverted.\n';
+    else o+='Cash-Out Verdict: ACCEPTABLE. Minor leftover resources.\n';
+  }else{
+    o+='Cash-Out Verdict: GOOD. Resources were well-converted before career end.\n';
   }
   return o;
 }
