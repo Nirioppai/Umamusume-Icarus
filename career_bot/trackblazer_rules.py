@@ -271,3 +271,43 @@ EVENT_MOOD_BONUS_BY_MOTIVATION = {
     4: 60,
     5: 0,
 }
+
+
+# ── (nirio) fork-only tuning constants ──────────────────────────────────────
+# Each key maps to a mant_config field prefixed "nirio_". All are user-tunable
+# via the (nirio) section in Scenario Override Settings and saved per-preset.
+
+# Skill buying: force SP spending earlier than the default turn-73 pre-finals.
+DEFAULT_NIRIO_SKILL_FORCE_TURN = 60
+DEFAULT_NIRIO_SKILL_SP_FLOOR = 500
+DEFAULT_NIRIO_SKILL_HOARD_THRESHOLD = 1000
+
+# Mood floor: use cupcakes aggressively when motivation drops below this.
+DEFAULT_NIRIO_MOOD_FLOOR = 2
+DEFAULT_NIRIO_MOOD_REPAIR_TURN = 50
+DEFAULT_NIRIO_MOOD_CRITICAL_TURN = 68
+
+# Good-Luck Charm: lower the bar for late-game charm usage.
+DEFAULT_NIRIO_CHARM_DUMP_TURN = 60
+DEFAULT_NIRIO_CHARM_DUMP_MIN_GAIN = 8
+DEFAULT_NIRIO_CHARM_DUMP_FAILURE_RATE = 10
+
+# Megaphone/Anklet: lower quality threshold after this turn.
+DEFAULT_NIRIO_MEGA_DUMP_TURN = 65
+DEFAULT_NIRIO_MEGA_DUMP_MULTIPLIER = 0.5
+DEFAULT_NIRIO_ANKLET_DUMP_TURN = 65
+DEFAULT_NIRIO_ANKLET_DUMP_MULTIPLIER = 0.5
+
+# Shop cash-out: spend coins aggressively after this turn.
+DEFAULT_NIRIO_CASHOUT_START_TURN = 60
+DEFAULT_NIRIO_CASHOUT_AGGRO_TURN = 69
+
+# Whistle: use when training board is weak in late game.
+DEFAULT_NIRIO_WHISTLE_DUMP_TURN = 60
+DEFAULT_NIRIO_WHISTLE_DUMP_SCORE = 20
+
+# MCH reserve: protect this many Master hammers for climax.
+DEFAULT_NIRIO_MCH_RESERVE = 3
+
+# Race chaining: block optional chains when mood is at or below this.
+DEFAULT_NIRIO_CHAIN_MOOD_FLOOR = 2

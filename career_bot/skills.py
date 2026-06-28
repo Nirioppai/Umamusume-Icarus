@@ -2,6 +2,7 @@ import json
 import re
 from pathlib import Path
 
+from career_bot import trackblazer_rules as tb_rules
 from career_bot.running_style import (
     STYLE_ID_TO_KEY,
     STYLE_KEY_TO_ID,
@@ -660,6 +661,7 @@ class SkillBuyer:
 
     def _skill_config(self, preset):
         preset = preset or {}
+        mant = (preset.get("mant_config") or {})
         return {
             "enable_skill_point_check": bool(preset.get("enable_skill_point_check", True)),
             "learn_skill_threshold": int(preset.get("learn_skill_threshold") or 888),
@@ -671,6 +673,10 @@ class SkillBuyer:
             "skill_spending_strategy": str(preset.get("skill_spending_strategy") or "best_skills_first"),
             "skill_stop_after_recommended": bool(preset.get("skill_stop_after_recommended", False)),
             "skill_manual_auto_fallback": bool(preset.get("skill_manual_auto_fallback", False)),
+            # FORK: (nirio) earlier skill buying
+            "nirio_skill_force_turn": int(mant.get("nirio_skill_force_turn") or tb_rules.DEFAULT_NIRIO_SKILL_FORCE_TURN),
+            "nirio_skill_sp_floor": int(mant.get("nirio_skill_sp_floor") or tb_rules.DEFAULT_NIRIO_SKILL_SP_FLOOR),
+            "nirio_skill_hoard_threshold": int(mant.get("nirio_skill_hoard_threshold") or tb_rules.DEFAULT_NIRIO_SKILL_HOARD_THRESHOLD),
         }
 
     def _candidate_allowed_by_skill_config(self, candidate, preset):
@@ -702,7 +708,9 @@ class SkillBuyer:
             self.last_attempt = []
             self.last_result = {"skip": "skill_point_check_disabled"}
             return state, 0
-        is_hoarding = points > 1500
+        # FORK: (nirio) uses a lower hoard threshold so the bot spends SP sooner.
+        nirio_hoard = cfg.get("nirio_skill_hoard_threshold", 1000)
+        is_hoarding = points > nirio_hoard
         threshold = cfg["learn_skill_threshold"]
         # v1.5 pre-finals dump (the reference preFinals plan): on the turns just
         # before the Twinkle Star Climax (finale races at 74/76/78), spend the
@@ -711,6 +719,11 @@ class SkillBuyer:
         # past the last races it can affect.
         pre_finals_turn = int(cfg.get("pre_finals_skill_turn") or 73)
         if not force and cfg.get("enable_pre_finals_skill_dump", True) and turn >= pre_finals_turn and points > 0:
+            force = True
+        # FORK: (nirio) force skill evaluation earlier with a lower SP floor.
+        nirio_force_turn = cfg.get("nirio_skill_force_turn", 60)
+        nirio_sp_floor = cfg.get("nirio_skill_sp_floor", 500)
+        if not force and turn >= nirio_force_turn and points >= nirio_sp_floor:
             force = True
         if not force and not is_hoarding and points <= threshold:
             self.last_candidates = []

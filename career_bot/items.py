@@ -1377,6 +1377,23 @@ class MantItemManager:
         cfg.setdefault("trackblazer_glow_stick_min_fans", tb_rules.DEFAULT_GLOW_STICK_MIN_FANS)
         cfg.setdefault("glow_stick_fan_multiplier", 1.0)
         cfg.setdefault("late_whistle_lackluster_threshold", DEFAULT_LATE_WHISTLE_LACKLUSTER_THRESHOLD)
+        # FORK: (nirio) tuning knobs — user-adjustable via Scenario Override Settings
+        cfg.setdefault("nirio_mood_floor", tb_rules.DEFAULT_NIRIO_MOOD_FLOOR)
+        cfg.setdefault("nirio_mood_repair_turn", tb_rules.DEFAULT_NIRIO_MOOD_REPAIR_TURN)
+        cfg.setdefault("nirio_mood_critical_turn", tb_rules.DEFAULT_NIRIO_MOOD_CRITICAL_TURN)
+        cfg.setdefault("nirio_charm_dump_turn", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_TURN)
+        cfg.setdefault("nirio_charm_dump_min_gain", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_MIN_GAIN)
+        cfg.setdefault("nirio_charm_dump_failure_rate", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_FAILURE_RATE)
+        cfg.setdefault("nirio_mega_dump_turn", tb_rules.DEFAULT_NIRIO_MEGA_DUMP_TURN)
+        cfg.setdefault("nirio_mega_dump_multiplier", tb_rules.DEFAULT_NIRIO_MEGA_DUMP_MULTIPLIER)
+        cfg.setdefault("nirio_anklet_dump_turn", tb_rules.DEFAULT_NIRIO_ANKLET_DUMP_TURN)
+        cfg.setdefault("nirio_anklet_dump_multiplier", tb_rules.DEFAULT_NIRIO_ANKLET_DUMP_MULTIPLIER)
+        cfg.setdefault("nirio_cashout_start_turn", tb_rules.DEFAULT_NIRIO_CASHOUT_START_TURN)
+        cfg.setdefault("nirio_cashout_aggro_turn", tb_rules.DEFAULT_NIRIO_CASHOUT_AGGRO_TURN)
+        cfg.setdefault("nirio_whistle_dump_turn", tb_rules.DEFAULT_NIRIO_WHISTLE_DUMP_TURN)
+        cfg.setdefault("nirio_whistle_dump_score", tb_rules.DEFAULT_NIRIO_WHISTLE_DUMP_SCORE)
+        cfg.setdefault("nirio_mch_reserve", tb_rules.DEFAULT_NIRIO_MCH_RESERVE)
+        cfg.setdefault("nirio_chain_mood_floor", tb_rules.DEFAULT_NIRIO_CHAIN_MOOD_FLOOR)
         return cfg
 
     def _owned_map(self, free):
@@ -1557,6 +1574,15 @@ class MantItemManager:
         reserve = max(0, _cfg_num(cfg, "trackblazer_cupcake_reserve", tb_rules.DEFAULT_CUPCAKE_RESERVE))
         threshold = _cfg_num(cfg, "cupcake_energy_threshold", 70)
 
+        # FORK: (nirio) mood floor — if motivation is at or below the floor
+        # after the repair turn, use cupcakes aggressively to bring mood up.
+        nirio_repair_turn = _cfg_num(cfg, "nirio_mood_repair_turn", tb_rules.DEFAULT_NIRIO_MOOD_REPAIR_TURN)
+        nirio_floor = _cfg_num(cfg, "nirio_mood_floor", tb_rules.DEFAULT_NIRIO_MOOD_FLOOR)
+        if turn >= nirio_repair_turn and motivation <= nirio_floor:
+            cupcake = self._available_cupcake(owned, reserve=0, allow_reserved=True)
+            if cupcake:
+                return (cupcake, 1)
+
         # v2.1 late-game cupcake policy (turn >= 60):
         #  * Past turn 59 Plain Cupcake is NOT held back for the kale-juice mood
         #    offset (the reserve that protects it mid-career no longer matters --
@@ -1631,7 +1657,9 @@ class MantItemManager:
         # they're used to reroll into turns worth spending megaphones + anklets on.
         # Don't burn them rerolling random mid-career turns.
         SUMMER = {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}
-        whistle_late_turn = int(_cfg_num(cfg, "whistle_late_turn", 65))
+        # FORK: (nirio) whistle dump activates at an earlier turn
+        _nirio_whistle_turn = int(_cfg_num(cfg, "nirio_whistle_dump_turn", tb_rules.DEFAULT_NIRIO_WHISTLE_DUMP_TURN))
+        whistle_late_turn = min(int(_cfg_num(cfg, "whistle_late_turn", 65)), _nirio_whistle_turn)
         if int(turn or 0) not in SUMMER and int(turn or 0) < whistle_late_turn:
             return None
         current_chara = None
@@ -1682,12 +1710,24 @@ class MantItemManager:
         # training. Floor of 1 keeps it off a literal 0%-failure / 0-gain pick
         # (where a charm does nothing).
         _dump_late = (not cfg.get("save_items_lategame", tb_rules.DEFAULT_SAVE_ITEMS_LATEGAME)) and int(turn or 0) > 64
-        threshold = 1 if _dump_late else _cfg_num(cfg, "charm_failure_rate", tb_rules.DEFAULT_CHARM_FAILURE_THRESHOLD)
+        # FORK: (nirio) intermediate charm dump — lower thresholds after nirio_charm_dump_turn
+        _nirio_charm_dump = (not _dump_late) and int(turn or 0) >= _cfg_num(cfg, "nirio_charm_dump_turn", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_TURN)
+        if _dump_late:
+            threshold = 1
+        elif _nirio_charm_dump:
+            threshold = _cfg_num(cfg, "nirio_charm_dump_failure_rate", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_FAILURE_RATE)
+        else:
+            threshold = _cfg_num(cfg, "charm_failure_rate", tb_rules.DEFAULT_CHARM_FAILURE_THRESHOLD)
         if fail_rate < threshold:
             return None
 
         main_gain = self._command_main_stat_gain(best_command)
-        min_gain = 1 if _dump_late else _cfg_num(cfg, "charm_min_main_gain", tb_rules.DEFAULT_CHARM_MIN_MAIN_GAIN)
+        if _dump_late:
+            min_gain = 1
+        elif _nirio_charm_dump:
+            min_gain = _cfg_num(cfg, "nirio_charm_dump_min_gain", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_MIN_GAIN)
+        else:
+            min_gain = _cfg_num(cfg, "charm_min_main_gain", tb_rules.DEFAULT_CHARM_MIN_MAIN_GAIN)
         # Aggressiveness (fixes "fails despite high failure rate"): on a HIGH
         # failure-rate turn, protect even a modest-gain training -- a wasted-turn
         # failure costs the whole turn, so the gain bar shouldn't block the charm.
@@ -1757,6 +1797,13 @@ class MantItemManager:
             small_threshold = 0.0
             medium_threshold = 0.0
             large_threshold = 0.0
+        elif int(turn or 0) >= _cfg_num(cfg, "nirio_mega_dump_turn", tb_rules.DEFAULT_NIRIO_MEGA_DUMP_TURN):
+            # FORK: (nirio) lower megaphone thresholds in late game
+            _raw = float(cfg.get("nirio_mega_dump_multiplier") or tb_rules.DEFAULT_NIRIO_MEGA_DUMP_MULTIPLIER * 100)
+            _mega_mult = _raw / 100.0 if _raw > 1 else _raw
+            small_threshold *= _mega_mult
+            medium_threshold *= _mega_mult
+            large_threshold *= _mega_mult
         elif turn in {36, 37, 38, 39, 40}:
             small_threshold *= 0.82
             medium_threshold *= 0.82
@@ -1985,7 +2032,13 @@ class MantItemManager:
             if score > 0 and (_dump_late or self._training_raises_priority_stat(state, best_command, preset)):
                 return (anklet, 1)
             return None
-        if turn in {36, 37, 38, 39, 40}:
+        # FORK: (nirio) lower anklet threshold after nirio_anklet_dump_turn
+        cfg = self._mant_cfg(preset)
+        _nirio_anklet_turn = _cfg_num(cfg, "nirio_anklet_dump_turn", tb_rules.DEFAULT_NIRIO_ANKLET_DUMP_TURN)
+        if turn >= _nirio_anklet_turn:
+            _raw_a = float(cfg.get("nirio_anklet_dump_multiplier") or tb_rules.DEFAULT_NIRIO_ANKLET_DUMP_MULTIPLIER * 100)
+            threshold *= (_raw_a / 100.0 if _raw_a > 1 else _raw_a)
+        elif turn in {36, 37, 38, 39, 40}:
             threshold *= 0.80
         elif turn >= 49:
             threshold *= 0.88
@@ -2214,7 +2267,9 @@ class MantItemManager:
         # stock-conservation buy caps so the use logic has megaphones/anklets to
         # spend, mirroring the 60-64 summer window.
         _dump_late = (not cfg.get("save_items_lategame", tb_rules.DEFAULT_SAVE_ITEMS_LATEGAME)) and int(turn or 0) > 64
-        _lift_conservation = _late_summer or _dump_late
+        # FORK: (nirio) cashout mode lifts conservation even earlier
+        _nirio_cashout = int(turn or 0) >= int(cfg.get("nirio_cashout_start_turn") or tb_rules.DEFAULT_NIRIO_CASHOUT_START_TURN)
+        _lift_conservation = _late_summer or _dump_late or _nirio_cashout
         if name in MEGAPHONE_TIERS and not _lift_conservation and self._megaphone_buy_surplus(data or {}, owned, turn, race_planner, preset):
             return "skip_mega_surplus"
         # v2.0 megaphone buy policy: never buy small (Coaching); buy big
