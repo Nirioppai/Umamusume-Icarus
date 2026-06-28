@@ -901,8 +901,9 @@ function applyFilters(){
 
 function buildRow(t,prev){
   const bought=t.bot_shop_selected||[];
-  const used=t.bot_item_use_selected||[];
   const preRaceUsed=t.bot_pre_race_use_selected||[];
+  const preRaceNames=new Set(preRaceUsed.map(i=>i.name));
+  const used=(t.bot_item_use_selected||[]).filter(i=>!preRaceNames.has(i.name));
   const skills=t.bot_skill_selected||[];
   const cat=categorize(t);
   const isBootcamp=BOOTCAMP_RANGES.some(([a,b])=>t.turn>=a&&t.turn<=b);
@@ -952,8 +953,9 @@ function buildRow(t,prev){
 function buildDetails(t,prev){
   const s=t.stats||{}, p=prev||{};
   const bought=t.bot_shop_selected||[];
-  const used=t.bot_item_use_selected||[];
   const preRaceUsed=t.bot_pre_race_use_selected||[];
+  const preRaceNames=new Set(preRaceUsed.map(i=>i.name));
+  const used=(t.bot_item_use_selected||[]).filter(i=>!preRaceNames.has(i.name));
   const skills=t.bot_skill_selected||[];
   const shopOpts=t.shop_rows_enriched||[];
   const skillOpts=t.skill_rows_enriched||[];
