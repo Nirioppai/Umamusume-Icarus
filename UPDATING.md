@@ -1,13 +1,10 @@
-# UPDATING.md — Post-Update Fork Restoration Guide
+# UPDATING.md — Post-Update Fork Restoration Process
 
-When a new upstream version (v3.x) is applied to this repo, use this file to audit
-and restore fork-specific changes that the update may have silently reverted.
+Step-by-step process for auditing and restoring fork changes after an upstream
+version bump.
 
-**Read [UPDATES.md](UPDATES.md) first** — it lists every active fork change and
-what's been superseded. This file is the process; UPDATES.md is the inventory.
-
-This is a prompt template. Paste it into a Claude Code conversation after applying
-the update commit, then follow the steps.
+**[UPDATES.md](UPDATES.md)** is the inventory — what changed, when, why, and
+whether it's still active. Read it first. This file is the how-to.
 
 ---
 
@@ -31,7 +28,7 @@ I just applied an upstream update to this Icarus fork.
 Previous commit (last fork state): PREV_COMMIT
 Update commit: UPDATE_COMMIT
 
-Audit every file the update touched against the active fork changes in UPDATES.md.
+Audit every file the update touched against the ACTIVE fork changes in UPDATES.md.
 For each collision, tell me:
   1. What our fork had (with the specific FORK: comment or section)
   2. What the update replaced it with
@@ -105,9 +102,10 @@ that doesn't collide with our fork. Commit the restorations separately:
   git commit -m "Restore fork data contracts after vX.Y update"
 
 Then update UPDATES.md:
-  - Move superseded fork changes from "Currently Active" to "Superseded"
-  - Add a new version entry under "Version History" with collision table
-  - Add any new fork changes to "Currently Active"
+  - Add a dated entry for the upstream update (status: N/A, upstream snapshot)
+  - Add a dated entry for the restoration commit (status: ACTIVE)
+  - Move any superseded fork changes' status to SUPERSEDED
+  - Add a collision summary table under "Collision Summary by Version"
 Also update CLAUDE.md if the "Files Safe to Accept Upstream Wholesale" list changed.
 ```
 
@@ -128,46 +126,28 @@ After restoration, spot-check:
 
 ---
 
-## Collision history
+## Collision Summary Template
 
-Track which fork changes survived or were superseded across updates. This tells
-you what to watch for and what's no longer at risk.
+Copy this table for new versions. Fill in from the audit results.
 
-### v3.1 (2026-06-29)
+### vX.Y (YYYY-MM-DD)
 
-| Fork change | Outcome | Notes |
-|---|---|---|
-| `_skip_buy()` granular reasons | **Reverted by upstream, restored** | Upstream returned to True/False; we re-applied string reasons |
-| `_skip_buy()` caller pass-through | **Reverted by upstream, restored** | Upstream collapsed to `"skip_buy"`; we re-applied `or None` |
-| Pre-race item logging (runner.py) | **Deleted by upstream, restored** | 16-line FORK block removed; we re-inserted it |
-| `manual_aptitude_overrides` (main.py) | **Superseded by upstream** | v3.1 fixed root cause: UI now sends correct trainee_name/id to solver. Our overlay approach no longer needed |
-| `public/app.js` manual overrides | **Superseded by upstream** | Legacy UI (`public/`) replaced by v3 UI (`public-v3/`). Solver aptitude flow redesigned |
-| `_pace()` pacing system (runner.py) | **Already gone** | Removed during v3 merge, before v3.1 |
-| Megaphone/anklet thresholds | **No collision** | v3.1 didn't change these constants |
-| Hammer dump window | **No collision** | v3.1 didn't touch hammer logic |
-| `log_viewer.html` | **No collision** | Upstream doesn't ship this file |
-
-### Template for future updates
-
-Copy this table, fill in for the new version:
-
-| Fork change | Outcome | Notes |
-|---|---|---|
-| `_skip_buy()` granular reasons | | |
-| `_skip_buy()` caller pass-through | | |
-| Pre-race item logging (runner.py) | | |
-| `log_viewer.html` exists | | |
-| Megaphone/anklet thresholds | | |
-| Hammer dump window | | |
-| `_item_cap()` auto_buy priority | | |
-| *(add new fork changes here)* | | |
+| Fork change | Outcome |
+|---|---|
+| `_skip_buy()` granular reasons | |
+| `_skip_buy()` caller pass-through | |
+| Pre-race item logging (runner.py) | |
+| Megaphone/anklet thresholds | |
+| Hammer dump window | |
+| `_item_cap()` auto_buy priority | |
+| `log_viewer.html` exists | |
+| *(add new fork changes here)* | |
 
 ---
 
 ## Why this file exists
 
 Upstream updates are applied as whole-commit drops. The author doesn't know about
-our fork changes, so every update will silently revert them. CLAUDE.md documents
-WHAT we changed and WHY. This file documents HOW to detect and fix reversions
-efficiently, including the exact prompt to give Claude Code so it catches everything
-in one pass instead of requiring back-and-forth.
+our fork changes, so every update will silently revert them. UPDATES.md documents
+WHAT and WHEN. This file documents HOW to detect and fix reversions efficiently,
+including the exact prompt to give Claude Code so it catches everything in one pass.

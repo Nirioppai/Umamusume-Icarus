@@ -21,6 +21,10 @@ that silently revert our changes. Two companion files track the details:
 4. **`log_viewer.html` is fork-only.** Upstream does not ship it. Never delete it.
 5. **The active UI is `public-v3/`.** The legacy `public/` directory is served at
    `/legacy/` only. Fork changes to `public/app.js` are no longer active.
+6. **Every fork change must be logged in [UPDATES.md](UPDATES.md).** Use the exact
+   entry format defined at the top of that file. Include date, commit hash, file(s),
+   context (the WHY), and status (ACTIVE / SUPERSEDED / RESTORED). This is mandatory
+   — if it's not in UPDATES.md, it doesn't exist for future audits.
 
 ---
 
