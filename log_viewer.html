@@ -746,13 +746,24 @@ function renderOverview(){
     <div class="ov-row"><span class="ov-lbl">Other</span><span class="ov-val" style="color:var(--text3)">${otherCount}</span></div>
     </div>`;
 
-  // Race performance card
+  // Race performance card — with per-grade breakdown
+  const gradeBreakdown={};
+  for(const r of raceResults){
+    const g=r.grade&&r.grade!=='—'?r.grade:'Other';
+    if(!gradeBreakdown[g])gradeBreakdown[g]={total:0,wins:0};
+    gradeBreakdown[g].total++;
+    if(r.finalRank===1)gradeBreakdown[g].wins++;
+  }
+  const gradeOrder=['G1','G2','G3','OP','Pre-OP','Maiden','Debut','Other'];
+  const sortedGrades=gradeOrder.filter(g=>gradeBreakdown[g]);
+
   html+=`<div class="ov-card"><h3>Race Performance</h3>
-    <div class="ov-big">${wins}/${raceResults.length}</div><div class="ov-sub">Wins (${raceResults.length?Math.round(wins/raceResults.length*100):0}%)</div>
+    <div class="ov-big">${wins}/${raceResults.length}</div><div class="ov-sub">Wins (${raceResults.length?Math.round(wins/raceResults.length*100):0}% win rate)</div>
     <div style="margin-top:8px">
     <div class="ov-row"><span class="ov-lbl">Clocks Used</span><span class="ov-val" style="color:var(--cyan)">${clocksUsed}</span></div>
-    <div class="ov-row"><span class="ov-lbl">Total Races</span><span class="ov-val">${raceResults.length}</span></div>
-    </div></div>`;
+    </div>
+    ${sortedGrades.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)"><div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600">By Grade</div>`+sortedGrades.map(g=>{const b=gradeBreakdown[g];const pct=b.total?Math.round(b.wins/b.total*100):0;const pctColor=pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';return`<div class="ov-row"><span class="ov-lbl">${esc(g)}</span><span class="ov-val" style="font-size:11px"><span style="color:var(--text)">${b.wins}/${b.total}</span> <span style="color:${pctColor};font-size:10px">(${pct}%)</span></span></div>`}).join('')+`</div>`:''}
+    </div>`;
 
   // Items & economy card
   const leftoverItems=Object.entries(shopItems).reduce((s,[n,c])=>s+Math.max(0,c-(usedItems[n]||0)),0);
@@ -1325,12 +1336,14 @@ function renderSkillsTab(){
   let totalSpent=skillLog.reduce((s,sk)=>s+(sk.cost||0),0);
   const spHistory=turns.map(t=>({turn:t.turn,sp:(t.stats||{}).skill_point||0}));
 
+  const noSkillsBought=ownedSkills.length<=1&&totalSpent===0&&skillLog.length===0;
   let html=`<div class="metric-cards">
-    <div class="metric-card"><div class="mc-val" style="color:var(--accent2)">${ownedSkills.length}</div><div class="mc-lbl">Skills Owned</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:${noSkillsBought?'var(--red)':'var(--accent2)'}">${ownedSkills.length}</div><div class="mc-lbl">Skills Owned${noSkillsBought?' (innate only)':''}</div></div>
     <div class="metric-card"><div class="mc-val" style="color:var(--sp-c)">${totalSpent}</div><div class="mc-lbl">SP Spent</div></div>
     <div class="metric-card"><div class="mc-val" style="color:var(--text2)">${skillLog.length}</div><div class="mc-lbl">Purchase Events</div></div>
     <div class="metric-card"><div class="mc-val" style="color:var(--sp-c)">${(last.stats||{}).skill_point||0}</div><div class="mc-lbl">SP Remaining</div></div>
   </div>`;
+  if(noSkillsBought){html+=`<div style="background:var(--red-dim);border:1px solid var(--red);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--red)">⚠ No skills were purchased this career. The ${ownedSkills.length===1?'1 skill shown is the trainee\'s innate skill':'skills shown are innate'}, not bot-purchased. All SP (${(last.stats||{}).skill_point||0}) remains unspent.</div>`}
 
   // Owned skills
   html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Owned Skills (${ownedSkills.length})</h3><div class="s-arrow">▾</div></div><div class="section-body">
@@ -1405,10 +1418,11 @@ function renderRacesTab(){
     <th>Items Used</th>
     </tr></thead><tbody>
     ${raceResults.map(r=>{
-      const rankCls=r.finalRank===1?'race-1st':r.finalRank===2?'race-2nd':r.finalRank===3?'race-3rd':'race-other';
+      const rankCls=r.finalRank===1?'race-1st':r.finalRank===2?'race-2nd':r.finalRank===3?'race-3rd':r.finalRank?'race-other':'';
+      const rankLabel=r.finalRank?`#${r.finalRank}`:'<span style="color:var(--text3)">#?</span>';
       const clockBadge=r.usedClock?`<span class="race-clock">🕐 clock</span>`:'';
       const itemsUsed=(r.itemsUsed||[]).map(i=>`<span class="chip use" style="font-size:9px">✨${esc(i)}</span>`).join(' ');
-      return`<tr><td style="font-weight:700;color:var(--text3)">${r.turn}</td><td>${esc(r.name)}</td><td style="font-weight:600">${esc(r.grade)}</td><td style="color:var(--text3)">${esc(r.distance)}</td><td><span class="race-result ${rankCls}">#${r.finalRank}</span>${clockBadge}</td><td>${itemsUsed||'<span style="color:var(--text3)">—</span>'}</td></tr>`;
+      return`<tr><td style="font-weight:700;color:var(--text3)">${r.turn}</td><td>${esc(r.name)}</td><td style="font-weight:600">${esc(r.grade)}</td><td style="color:var(--text3)">${esc(r.distance)}</td><td><span class="race-result ${rankCls}">${rankLabel}</span>${clockBadge}</td><td>${itemsUsed||'<span style="color:var(--text3)">—</span>'}</td></tr>`;
     }).join('')}
     </tbody></table></div></div>`;
 
@@ -1418,10 +1432,18 @@ function renderRacesTab(){
 function buildRaceResults(data){
   const turns=data.turns||[];
   const logEntries=(data.runner_status||{}).log||[];
+  const raceResultsArr=(data.runner_status||{}).race_results||[];
   const results=[];
 
-  // Build race rank map from runner_status.log
-  const rankMap={};   // turn -> {rank, usedClock, rankAfterClock}
+  // Primary source: runner_status.race_results (persisted for ALL races, never evicted)
+  const rrMap={};
+  for(const rr of raceResultsArr){
+    const t=parseInt(rr.turn||0);
+    if(t)rrMap[t]=rr;
+  }
+
+  // Fallback: runner_status.log (rolling 120-entry buffer, early entries may be evicted)
+  const rankMap={};
   for(const entry of logEntries){
     const turn=entry.turn;
     if(!rankMap[turn])rankMap[turn]={rank:null,usedClock:false,rankAfterClock:null};
@@ -1429,9 +1451,7 @@ function buildRaceResults(data){
       const m=entry.detail.match(/rank\s+(\d+)/);
       if(m)rankMap[turn].rank=parseInt(m[1]);
     }
-    if(entry.action==='race_clock'){
-      rankMap[turn].usedClock=true;
-    }
+    if(entry.action==='race_clock'){rankMap[turn].usedClock=true}
     if(entry.action==='race_rank_retry'){
       const m=entry.detail.match(/rank\s+(\d+)/);
       if(m)rankMap[turn].rankAfterClock=parseInt(m[1]);
@@ -1441,21 +1461,36 @@ function buildRaceResults(data){
   for(const t of turns){
     if(categorize(t)!=='race')continue;
     const reason=t.decision_reason||'';
-    // Parse: "Race Name · Grade · Distance · Surface" or just the name
     const parts=reason.split(' · ');
-    const name=parts[0]||reason;
-    const grade=parts.length>=2?parts[1]:'—';
-    const dist=parts.length>=3?parts[2]:'—';
-    const surface=parts.length>=4?parts[3]:'';
 
+    // Use race_results as primary source for name/grade/distance/rank
+    const rr=rrMap[t.turn];
+    const name=rr?rr.name:parts[0]||reason;
+    const grade=rr?rr.grade:(parts.length>=2?parts[1]:'—');
+    const distM=rr&&rr.distance_m?rr.distance_m+'m':'';
+    const terrain=rr?rr.terrain:'';
+    const dist=distM||(parts.length>=3?parts[2]:'—');
+    const surface=terrain||(parts.length>=4?parts[3]:'');
+
+    // Rank: prefer race_results (always complete), fall back to log buffer
     const rm=rankMap[t.turn]||{};
-    const finalRank=rm.rankAfterClock||rm.rank||null;
-    const usedClock=rm.usedClock||false;
+    let finalRank=null;
+    let usedClock=false;
+    if(rr){
+      finalRank=rr.final_rank||rr.rank||null;
+      usedClock=!!(rr.clocks_used||rr.clock_retry);
+    }
+    if(!finalRank){finalRank=rm.rankAfterClock||rm.rank||null}
+    if(!usedClock){usedClock=rm.usedClock||false}
 
     const _prn4=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
     const itemsUsed=[...(t.bot_item_use_selected||[]).filter(i=>!_prn4.has(i.name)),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name||ITEM[i.item_id]||''));
 
-    results.push({turn:t.turn,name,grade,distance:dist+(surface?' '+surface:''),finalRank,usedClock,itemsUsed});
+    // Race selection reasoning from decision_reason
+    const raceReason=parts.length>=2?parts.slice(1).join(' · '):'';
+
+    results.push({turn:t.turn,name,grade,distance:dist+(surface?' '+surface:''),finalRank,usedClock,itemsUsed,raceReason,
+      fansReward:rr?rr.fans:0,distanceType:rr?rr.distance_type||'':'',wonFlag:rr?rr.won:finalRank===1});
   }
   return results;
 }
@@ -1742,7 +1777,11 @@ function generateAISummary(){
   // Race log
   o+='Race Log:\n';
   for(const r of rr){
-    o+='  T'+String(r.turn).padStart(2,'0')+': '+r.name+' ('+r.grade+') → #'+(r.finalRank||'?')+(r.usedClock?' 🕐':'')+(r.itemsUsed.length?' ['+r.itemsUsed.join(', ')+']':'')+'\n';
+    let ln='  T'+String(r.turn).padStart(2,'0')+': '+r.name+' ('+r.grade+') '+r.distance+' → #'+(r.finalRank||'?');
+    if(r.usedClock)ln+=' 🕐';
+    if(r.fansReward)ln+=' ['+fmtNum(r.fansReward)+' fans]';
+    if(r.itemsUsed.length)ln+=' ['+r.itemsUsed.join(', ')+']';
+    o+=ln+'\n';
   }
   o+='\n';
 
@@ -1811,8 +1850,9 @@ function generateAISummary(){
   }
 
   // Condensed turn log
+  const rrMap={};for(const r of rr)rrMap[r.turn]=r;
   o+='--- TURN LOG (CONDENSED) ---\n';
-  o+=aiTurnLog(turns);
+  o+=aiTurnLog(turns,rrMap);
 
   return o;
 }
@@ -1909,14 +1949,15 @@ function aiSkillSummary(turns){
   const log=[];let spent=0;
   for(const t of turns)for(const sk of(t.bot_skill_selected||[])){log.push({turn:t.turn,name:sk.name||'id:'+sk.skill_id,cost:sk.cost||0});spent+=(sk.cost||0)}
   let o='';
-  o+='Skills Owned: '+owned.length+'\n';
+  o+='Skills Owned: '+owned.length+(owned.length<=1&&spent===0&&log.length===0?' (innate only — no skills were purchased)':'')+'\n';
   o+='SP Spent: '+spent+'\n';
   o+='SP Remaining: '+((last.stats||{}).skill_point||0)+'\n';
+  if(owned.length<=1&&spent===0&&log.length===0){o+='WARNING: Bot did not buy any skills this career. All SP remains unspent.\n'}
   if(log.length){o+='Acquisition Timeline:\n';for(const sk of log)o+='  T'+String(sk.turn).padStart(2,'0')+': '+sk.name+' ('+sk.cost+' SP)\n'}
   return o;
 }
 
-function aiTurnLog(turns){
+function aiTurnLog(turns,raceResultMap){
   let o='';
   for(const t of turns){
     const s=t.stats||{};
@@ -1933,6 +1974,11 @@ function aiTurnLog(turns){
     if(u.length)ln+=' | used:['+u.join(',')+']';
     if(pr.length)ln+=' | pre-race:['+pr.join(',')+']';
     if(sk.length)ln+=' | skills:['+sk.join(',')+']';
+    // Enrich race turns with result from race_results
+    if(raceResultMap&&raceResultMap[t.turn]){
+      const rr=raceResultMap[t.turn];
+      ln+=' | result:#'+(rr.finalRank||'?')+(rr.usedClock?' 🕐':'')+(rr.fansReward?' fans:'+fmtNum(rr.fansReward):'');
+    }
     o+=ln+'\n';
   }
   return o;
