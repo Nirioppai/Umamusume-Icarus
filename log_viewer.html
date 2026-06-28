@@ -458,7 +458,8 @@ function renderAllTab(){
     const shopMap={},useMap={};
     for(const t of turns){
       for(const b of(t.bot_shop_selected||[])){itemsB++;spent+=(b.cost||0);const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;shopMap[nm]=(shopMap[nm]||0)+1}
-      for(const u of(t.bot_item_use_selected||[])){itemsU++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;useMap[nm]=(useMap[nm]||0)+(u.use_num||1)}
+      const _prn1=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+      for(const u of(t.bot_item_use_selected||[]).filter(i=>!_prn1.has(i.name))){itemsU++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;useMap[nm]=(useMap[nm]||0)+(u.use_num||1)}
       for(const u of(t.bot_pre_race_use_selected||[])){itemsU++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;useMap[nm]=(useMap[nm]||0)+(u.use_num||1)}
       skillsB+=(t.bot_skill_selected||[]).length;
     }
@@ -637,7 +638,8 @@ function renderAllTab(){
     for(const t of r.turns){
       const ev=[];
       for(const b of(t.bot_shop_selected||[]))ev.push(`🛒 ${fmtItem(b.name||ITEM[b.item_id]||'?')}`);
-      for(const u of(t.bot_item_use_selected||[]))ev.push(`✨ ${fmtItem(u.name||ITEM[u.item_id]||'?')}`);
+      const _prn6=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+      for(const u of(t.bot_item_use_selected||[]).filter(i=>!_prn6.has(i.name)))ev.push(`✨ ${fmtItem(u.name||ITEM[u.item_id]||'?')}`);
       for(const u of(t.bot_pre_race_use_selected||[]))ev.push(`⚔ ${fmtItem(u.name||ITEM[u.item_id]||'?')}`);
       for(const sk of(t.bot_skill_selected||[]))ev.push(`📘 ${sk.name||'?'}`);
       if(categorize(t)==='race'){const p=(t.decision_reason||'').split(' · ');ev.push(`🏁 ${p[0]||'Race'}`)}
@@ -689,7 +691,8 @@ function renderOverview(){
       const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;
       shopItems[nm]=(shopItems[nm]||0)+1;
     }
-    for(const u of(t.bot_item_use_selected||[])){
+    const _prn2=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const u of(t.bot_item_use_selected||[]).filter(i=>!_prn2.has(i.name))){
       itemsUsed++;
       const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
       usedItems[nm]=(usedItems[nm]||0)+(u.use_num||1);
@@ -1197,7 +1200,8 @@ function renderItemsTab(){
       itemBuyTotals[nm].turns.push(t.turn);
       totalSpent+=(b.cost||0);
     }
-    for(const u of(t.bot_item_use_selected||[])){
+    const _prn3=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const u of(t.bot_item_use_selected||[]).filter(i=>!_prn3.has(i.name))){
       const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
       useLog.push({turn:t.turn,name:nm,itemId:u.item_id,useNum:u.use_num||1});
       if(!itemUseTotals[nm])itemUseTotals[nm]={count:0,turns:[],itemId:u.item_id};
@@ -1444,7 +1448,8 @@ function buildRaceResults(data){
     const finalRank=rm.rankAfterClock||rm.rank||null;
     const usedClock=rm.usedClock||false;
 
-    const itemsUsed=[...(t.bot_item_use_selected||[]),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name||ITEM[i.item_id]||''));
+    const _prn4=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    const itemsUsed=[...(t.bot_item_use_selected||[]).filter(i=>!_prn4.has(i.name)),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name||ITEM[i.item_id]||''));
 
     results.push({turn:t.turn,name,grade,distance:dist+(surface?' '+surface:''),finalRank,usedClock,itemsUsed});
   }
@@ -1563,7 +1568,9 @@ function countItemStats(turns,targetIds){
   let offered=0,bought=0,used=0;
   for(const t of turns){
     for(const row of(t.shop_rows_enriched||[]))if(idSet.has(row.item_id)){offered++;if(row.selected&&!row.skip_reason)bought++}
-    for(const item of(t.bot_item_use_selected||[]))if(idSet.has(item.item_id))used++;
+    const _prn5=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const item of(t.bot_item_use_selected||[]).filter(i=>!_prn5.has(i.name)))if(idSet.has(item.item_id))used++;
+    for(const item of(t.bot_pre_race_use_selected||[]))if(idSet.has(item.item_id))used++;
   }
   return{offered,bought,used};
 }
