@@ -476,7 +476,7 @@ The entire Classic/Legacy training scorer was deleted from `mant.py` (~800 lines
 | Card art assets | `data/card_art/*` | Only needed if v3 UI is adopted |
 | Higher-res images | `data/images/*` | ~400 files, purely cosmetic upgrade |
 | Berry Sweet cupcake skip-recreation | `mant_trackblazer.py` | Saves a recreation turn |
-| Finalize single runs | `runner.py` | Clean career close, but changes behavior |
+| Finalize single runs | `runner.py` | Plays through URA finale instead of bailing at turn 77; lets new career start without restart |
 | Skill intercept (DEV-ONLY) | `main.py`, `skills.py` | Development tool, not user-facing |
 | Log export endpoint | `main.py` | Nice for debugging, low priority |
 | Recreation minimum turn | `mant_trackblazer.py` | Early turns better for bonds |
@@ -575,9 +575,29 @@ These are master fork fixes that v3-raw reverted. They must be re-applied after 
 
 ---
 
+## Known Issues on v3-raw
+
+### CRITICAL: Bot not buying skills
+
+v3-raw is observed to not purchase skills during careers, unlike master. Likely causes (in order of suspicion):
+
+1. **`skill_stop_after_recommended`** — defaults OFF but was bugged and disabled post-release ("disabled after a bug caused the bot to buy almost nothing"). If re-enabled or misconfigured, it halts all candidate generation after the recommended list is exhausted.
+2. **`skill_manual_auto_fallback` defaults OFF** — if manual skill tiers are populated (even with stale IDs), the bot buys ONLY those skills and does NOT fall back to auto. On master, manual tiers were gated behind a separate toggle and auto always ran.
+3. **`_skill_distance_mismatch()` filter** — new hard filter may be too aggressive, dropping valid skills as "off-distance" for trainees with ambiguous distance profiles.
+4. **`_acquired_skill_ids` false positives** — the career-persistent set may over-accumulate IDs from state snapshots, falsely marking skills as already owned.
+5. **`_confirm_purchases()` retry exhaustion** — the 3-attempt verification loop may reject valid purchases if the post-buy state refresh is slow or inconsistent.
+
+**Recommendation for `master-v3-merge`:** When cherry-picking the skill purchase retry/verification (§1.21), carefully test with a live career. The retry loop and `_acquired_skill_ids` tracking are valuable bug fixes, but the gating logic (`skill_stop_after_recommended`, `skill_manual_auto_fallback`, distance mismatch) must be verified against actual skill buying behavior before merging.
+
+### API Communication: 205/208 errors
+
+- v3-raw had API communication issues (205/208 errors on `single_mode_free/start`). These are server-side/networking issues, not code bugs — do not block cherry-picking on this.
+
+---
+
 ## Notes
 
-- The v3-raw branch had API communication issues (205/208 errors on `single_mode_free/start`). These are server-side/networking issues, not code bugs — do not block cherry-picking on this.
+- The v3-raw API 205/208 errors are networking issues, not code bugs.
 - The `public-v3/` UI is self-contained and can be mounted alongside the existing UI without conflicts if desired.
 - The biggest architectural shift is the removal of the legacy/Classic training scorer (~800 lines from `mant.py` + 832 lines `training_scorer.py`). Trackblazer is now the sole engine. This simplification is good but means all training quality depends on `mant_trackblazer.py`.
 - The item management philosophy shifted from "lower thresholds globally" (master fork) to "keep standard thresholds + structured late-game dump windows" (v3-raw). The v3-raw approach is more surgical and avoids mis-spending items early.
