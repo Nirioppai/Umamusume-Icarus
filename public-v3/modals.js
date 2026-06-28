@@ -1001,6 +1001,23 @@
               slider('sc-ah2', 'Artisan Hammer Min Stock for G2', 0, 3, 0, 1, '', '', 'mant.trackblazer_artisan_hammer_min_stock_for_g2'),
               slider('sc-gs', 'Glow Stick Final-Day Reserve', 0, 3, 1, 1, '', '', 'mant.trackblazer_glow_stick_final_reserve'),
               slider('sc-gsf', 'Glow Stick Minimum Fans', 0, 30000, 20000, 1000, '', '', 'mant.trackblazer_glow_stick_min_fans'))}
+            ${sec('(NIRIO) FORK TUNING',
+              note('<b style="color:var(--amber)">Fork-only knobs.</b> These override the bot’s default late-game thresholds for more aggressive item usage, skill buying, and mood management. Saved per-preset.'),
+              slider('nr-sft', 'Skill Force Turn', 30, 73, 60, 1, '', 'Force skill buying after this turn if SP ≥ floor.', 'mant.nirio_skill_force_turn'),
+              slider('nr-ssf', 'Skill SP Floor', 100, 1500, 500, 50, '', 'Min SP required for forced skill buying.', 'mant.nirio_skill_sp_floor'),
+              slider('nr-sht', 'Skill Hoard Threshold', 500, 2000, 1000, 50, '', 'Buy skills immediately above this SP.', 'mant.nirio_skill_hoard_threshold'),
+              slider('nr-mrt', 'Mood Repair Turn', 30, 70, 50, 1, '', 'Use cupcakes aggressively after this turn when mood ≤ floor.', 'mant.nirio_mood_repair_turn'),
+              slider('nr-mfl', 'Mood Floor', 1, 4, 2, 1, '', 'Trigger mood repair when motivation ≤ this.', 'mant.nirio_mood_floor'),
+              slider('nr-cdt', 'Charm Dump Turn', 40, 72, 60, 1, '', 'Lower Good-Luck Charm thresholds after this turn.', 'mant.nirio_charm_dump_turn'),
+              slider('nr-cdg', 'Charm Dump Min Gain', 1, 20, 8, 1, '', 'Minimum stat gain for charm in dump window.', 'mant.nirio_charm_dump_min_gain'),
+              slider('nr-cdf', 'Charm Dump Failure Rate', 1, 30, 10, 1, '', 'Min failure rate to trigger charm in dump window.', 'mant.nirio_charm_dump_failure_rate'),
+              slider('nr-mdt', 'Mega Dump Turn', 50, 72, 65, 1, '', 'Lower megaphone thresholds after this turn.', 'mant.nirio_mega_dump_turn'),
+              slider('nr-mdm', 'Mega Dump Multiplier', 10, 100, 50, 5, '%', 'Multiply megaphone thresholds by this % in dump window.', 'mant.nirio_mega_dump_multiplier'),
+              slider('nr-adt', 'Anklet Dump Turn', 50, 72, 65, 1, '', 'Lower anklet thresholds after this turn.', 'mant.nirio_anklet_dump_turn'),
+              slider('nr-adm', 'Anklet Dump Multiplier', 10, 100, 50, 5, '%', 'Multiply anklet thresholds by this % in dump window.', 'mant.nirio_anklet_dump_multiplier'),
+              slider('nr-cst', 'Cash-Out Start Turn', 50, 72, 60, 1, '', 'Lift shop conservation caps after this turn.', 'mant.nirio_cashout_start_turn'),
+              slider('nr-wdt', 'Whistle Dump Turn', 40, 72, 60, 1, '', 'Allow whistle usage after this turn.', 'mant.nirio_whistle_dump_turn'),
+              slider('nr-mcr', 'MCH Climax Reserve', 0, 5, 3, 1, '', 'Master Cleat Hammers reserved for climax races.', 'mant.nirio_mch_reserve'))}
 `,
         onMount: (o) => { wireSave(o); initSettingsModal(o); },
       });
