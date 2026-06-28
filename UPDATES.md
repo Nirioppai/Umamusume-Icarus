@@ -118,6 +118,11 @@ Quick-reference table for each upstream update. Detailed context is in the entri
 **Context:** Bot ended runs with 2362 SP unspent, mood 1 at climax, 322 leftover coins, 3 Good-Luck Charms, 4 megaphones, 3 whistles, and ankle weights unused. Added 16 configurable `nirio_*` keys to `mant_config` that lower late-game thresholds: skill buying forced at turn 60 (was 73), mood floor at motivation 2 after turn 50, charm/mega/anklet thresholds halved after turn 60-65, shop conservation lifted at turn 60, whistle usage from turn 60. All saved per-preset.
 **Status:** ACTIVE
 
+### 2026-06-29 — (nirio) race chain mood gating in strategy layer
+**Commit:** `714bc1a` **File(s):** `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`
+**Context:** Bot continued optional race chains with mood 1 through turns 53-72, collapsing mood and training value before climax. Added two levels: soft break (prefer training over chain when mood <= floor after repair turn) and hard block (prevent all optional chains after critical turn 68 when mood <= floor). Both exempt mandatory races, year-end turns, and manual mode.
+**Status:** ACTIVE
+
 ### 2026-06-29 — (nirio) UI section in Scenario Override Settings
 **Commit:** `6f1a3d3` **File(s):** `public-v3/modals.js`
 **Context:** Adds a "(NIRIO) FORK TUNING" section to the Scenario Overrides modal with sliders for all nirio_* config keys. Gives the user visibility and control over fork-specific behavior tuning.
