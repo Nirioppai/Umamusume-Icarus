@@ -126,13 +126,10 @@ ITEM_INVENTORY_CAPS = {
     "Coaching Megaphone": 5,
     "Motivating Megaphone": 5,
     "Empowering Megaphone": 5,
-    # P1: anklets/weights over-buy left ~3 unused per run.  Cap each type at 3
-    # (the per-name cap), with a combined "keep ~2 main +1 sub" stock ceiling
-    # enforced separately in _skip_buy via trackblazer_anklet_max_stock.
-    "Speed Ankle Weights": 3,
-    "Stamina Ankle Weights": 3,
-    "Power Ankle Weights": 3,
-    "Guts Ankle Weights": 3,
+    "Speed Ankle Weights": 2,
+    "Stamina Ankle Weights": 2,
+    "Power Ankle Weights": 2,
+    "Guts Ankle Weights": 2,
 }
 
 INSTANT_USE_ITEMS = [
@@ -846,9 +843,8 @@ class MantItemManager:
 
         is_final_race = turn >= tb_rules.TRACKBLAZER_FINAL_RACE_TURN
         conservation = turn >= tb_rules.RACE_ITEM_CONSERVATION_START_TURN
+        master_reserve = _cfg_num(cfg, "trackblazer_master_hammer_finale_reserve", tb_rules.DEFAULT_MASTER_HAMMER_FINALE_RESERVE)
 
-        # P0: CLIMAX/finale race -> swing the best hammer unconditionally.  This is
-        # the payoff for the conservation reserves enforced on regular G1s below.
         if is_climax or grade == "CLIMAX":
             if master_qty > 0:
                 return "Master Cleat Hammer"
@@ -856,22 +852,30 @@ class MantItemManager:
                 return "Artisan Cleat Hammer"
             return None
 
+        # Pre-climax dump window (turns 65-73): spend down Artisan hammers
+        # on any G1/G2/G3 race since they won't be used on climax races
+        # (Masters are preferred there). Also spend excess Masters on G1s.
+        dump_window_start = _cfg_num(cfg, "trackblazer_hammer_dump_start_turn", 65)
+        in_dump_window = dump_window_start <= turn < min(tb_rules.TRACKBLAZER_FINALE_RACE_TURNS)
+        if in_dump_window and grade in {"G1", "G2", "G3"}:
+            if grade == "G1" and master_qty > master_reserve:
+                return "Master Cleat Hammer"
+            if artisan_qty > 0:
+                return "Artisan Cleat Hammer"
+            if grade == "G1" and master_qty > master_reserve:
+                return "Master Cleat Hammer"
+            return None
+
         if grade == "G1":
-            # P0: hold back a Master-hammer reserve for the finale so regular G1s
-            # stop draining the stock (the conservation window now opens at T25).
-            master_reserve = _cfg_num(cfg, "trackblazer_master_hammer_finale_reserve", tb_rules.DEFAULT_MASTER_HAMMER_FINALE_RESERVE)
             artisan_reserve = _cfg_num(cfg, "trackblazer_artisan_hammer_finale_reserve", tb_rules.DEFAULT_ARTISAN_HAMMER_FINALE_RESERVE)
             if master_qty > 0:
                 if not conservation or is_final_race:
                     return "Master Cleat Hammer"
-                # During conservation, only swing a Master on a regular G1 once we
-                # are above the finale reserve floor.
                 if master_qty > master_reserve:
                     return "Master Cleat Hammer"
             if artisan_qty > 0:
                 if not conservation or is_final_race:
                     return "Artisan Cleat Hammer"
-                # Same hold-back logic for the Artisan stock on regular G1s.
                 return "Artisan Cleat Hammer" if artisan_qty > artisan_reserve else None
             return None
 
@@ -1702,12 +1706,12 @@ class MantItemManager:
                 return None
 
         score = self._command_stat_gain(best_command, sp_weight=0.5)
-        threshold = 30 * (1 - (0.2 * self._active_megaphone_tier(state)))
+        threshold = 18 * (1 - (0.2 * self._active_megaphone_tier(state)))
         turn = int(((state.get("data") or {}).get("chara_info") or {}).get("turn") or 0)
         if turn in {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}:
-            threshold *= 0.80
+            threshold *= 0.75
         elif turn >= 49:
-            threshold *= 0.88
+            threshold *= 0.82
         if score > threshold:
             return (anklet, 1)
         return None

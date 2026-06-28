@@ -67,9 +67,9 @@
         }
       }
     },
-    "observations": 283,
+    "observations": 286,
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:23:24"
+    "updated_at": "2026-06-28T13:32:32"
   },
   "501004516": {
     "event_name": "Slow Metabolism Event",
@@ -3427,12 +3427,12 @@
         }
       }
     },
-    "observations": 293,
+    "observations": 296,
     "outcomes": {
       "1": "known outcome"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T06:56:42"
+    "updated_at": "2026-06-28T13:02:45"
   },
   "400000031": {
     "event_name": "",
@@ -3461,12 +3461,12 @@
         }
       }
     },
-    "observations": 601,
+    "observations": 606,
     "outcomes": {
       "1": "speed +2, stamina +2, power +2, guts +2, wiz +2"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T06:57:33"
+    "updated_at": "2026-06-28T13:05:39"
   },
   "501006718": {
     "event_name": "",
@@ -3513,12 +3513,12 @@
         }
       }
     },
-    "observations": 629,
+    "observations": 631,
     "outcomes": {
       "1": "SP +2"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:04:03"
+    "updated_at": "2026-06-28T13:13:06"
   },
   "501006500": {
     "event_name": "",
@@ -3725,12 +3725,12 @@
         }
       }
     },
-    "observations": 95,
+    "observations": 97,
     "outcomes": {
       "1": "speed +3, power +3, wiz +3, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T06:56:44"
+    "updated_at": "2026-06-28T13:04:44"
   },
   "830028001": {
     "event_name": "",
@@ -3755,12 +3755,12 @@
         }
       }
     },
-    "observations": 237,
+    "observations": 240,
     "outcomes": {
       "1": "speed +2, power +2, wiz +2, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T06:58:07"
+    "updated_at": "2026-06-28T13:05:58"
   },
   "400004201": {
     "event_name": "",
@@ -3781,12 +3781,12 @@
         }
       }
     },
-    "observations": 41,
+    "observations": 42,
     "outcomes": {
       "1": "speed +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-25T13:34:07"
+    "updated_at": "2026-06-28T12:13:53"
   },
   "501006701": {
     "event_name": "",
@@ -4073,13 +4073,13 @@
         }
       }
     },
-    "observations": 5698,
+    "observations": 5775,
     "outcomes": {
       "2": "speed +5, stamina +5, power +5, guts +5, wiz +5",
       "1": "skill hints 77"
     },
     "choice_count": 2,
-    "updated_at": "2026-06-28T07:23:21"
+    "updated_at": "2026-06-28T13:32:29"
   },
   "400004241": {
     "event_name": "",
@@ -4100,12 +4100,12 @@
         }
       }
     },
-    "observations": 41,
+    "observations": 42,
     "outcomes": {
       "1": "speed +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T06:59:15"
+    "updated_at": "2026-06-28T13:29:09"
   },
   "830028003": {
     "event_name": "",
@@ -4150,13 +4150,13 @@
         }
       }
     },
-    "observations": 203,
+    "observations": 204,
     "outcomes": {
       "2": "speed +5, power +5, skill hints 1",
       "1": "speed +10, power +10, skill hints 1"
     },
     "choice_count": 2,
-    "updated_at": "2026-06-28T07:03:04"
+    "updated_at": "2026-06-28T13:11:08"
   },
   "400000035": {
     "event_name": "",
@@ -4203,9 +4203,9 @@
           "20023": 1
         },
         "skill_hint": true,
-        "power": 20,
+        "power": 21,
         "stamina": 21,
-        "guts": 20
+        "guts": 21
       },
       "1": {
         "power": 20,
@@ -4237,7 +4237,7 @@
         },
         "skill_hint": true,
         "guts": 20,
-        "wiz": 20,
+        "wiz": 21,
         "stamina": 20
       }
     },
@@ -4282,9 +4282,9 @@
             "20023": 1
           },
           "skill_hint": true,
-          "power": 20,
+          "power": 21,
           "stamina": 21,
-          "guts": 20
+          "guts": 21
         },
         "1": {
           "power": 20,
@@ -4316,18 +4316,18 @@
           },
           "skill_hint": true,
           "guts": 20,
-          "wiz": 20,
+          "wiz": 21,
           "stamina": 20
         }
       }
     },
-    "observations": 2218,
+    "observations": 2249,
     "outcomes": {
-      "2": "speed +21, stamina +21, power +20, guts +20, wiz +21, SP +76, energy -20, motivation +1, skill hints 29",
-      "1": "speed +21, stamina +20, power +20, guts +20, wiz +20, SP +76, energy -20, motivation +1, skill hints 19"
+      "2": "speed +21, stamina +21, power +21, guts +21, wiz +21, SP +76, energy -20, motivation +1, skill hints 29",
+      "1": "speed +21, stamina +20, power +20, guts +20, wiz +21, SP +76, energy -20, motivation +1, skill hints 19"
     },
     "choice_count": 2,
-    "updated_at": "2026-06-28T07:23:19"
+    "updated_at": "2026-06-28T13:32:26"
   },
   "400004016": {
     "event_name": "",
@@ -4356,12 +4356,12 @@
         }
       }
     },
-    "observations": 1304,
+    "observations": 1316,
     "outcomes": {
       "1": "speed +5, stamina +5, power +5, guts +5, wiz +5"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:15:07"
+    "updated_at": "2026-06-28T13:21:27"
   },
   "501006523": {
     "event_name": "",
@@ -4453,12 +4453,12 @@
         }
       }
     },
-    "observations": 288,
+    "observations": 291,
     "outcomes": {
       "1": "speed +5, stamina +5, power +5, guts +5, wiz +5, SP +30"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:03:31"
+    "updated_at": "2026-06-28T13:10:49"
   },
   "400004010": {
     "event_name": "",
@@ -4489,12 +4489,12 @@
         }
       }
     },
-    "observations": 281,
+    "observations": 283,
     "outcomes": {
       "1": "speed +10, stamina +10, power +10, guts +10, wiz +10, SP +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:03:32"
+    "updated_at": "2026-06-28T12:13:24"
   },
   "501006508": {
     "event_name": "",
@@ -4547,12 +4547,12 @@
         }
       }
     },
-    "observations": 145,
+    "observations": 147,
     "outcomes": {
       "1": "wiz +10, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:04:06"
+    "updated_at": "2026-06-28T13:11:40"
   },
   "501006722": {
     "event_name": "",
@@ -4612,12 +4612,12 @@
         }
       }
     },
-    "observations": 140,
+    "observations": 141,
     "outcomes": {
       "1": "stamina +10, energy +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:05:09"
+    "updated_at": "2026-06-28T09:58:59"
   },
   "400000040": {
     "event_name": "",
@@ -4685,10 +4685,17 @@
           "20021": 3,
           "90068": 1,
           "20043": 1,
-          "20037": 2,
-          "20068": 2,
+          "20037": 4,
+          "20068": 3,
           "21003": 1,
-          "90006": 1
+          "90006": 3,
+          "21001": 3,
+          "20046": 3,
+          "20073": 2,
+          "20161": 4,
+          "20015": 3,
+          "91004": 3,
+          "20059": 3
         },
         "skill_hint": true,
         "guts": 36,
@@ -4757,10 +4764,17 @@
             "20021": 3,
             "90068": 1,
             "20043": 1,
-            "20037": 2,
-            "20068": 2,
+            "20037": 4,
+            "20068": 3,
             "21003": 1,
-            "90006": 1
+            "90006": 3,
+            "21001": 3,
+            "20046": 3,
+            "20073": 2,
+            "20161": 4,
+            "20015": 3,
+            "91004": 3,
+            "20059": 3
           },
           "skill_hint": true,
           "guts": 36,
@@ -4768,12 +4782,12 @@
         }
       }
     },
-    "observations": 571,
+    "observations": 577,
     "outcomes": {
-      "1": "speed +69, stamina +121, power +35, guts +36, wiz +50, skill hints 59"
+      "1": "speed +69, stamina +121, power +35, guts +36, wiz +50, skill hints 66"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:16:25"
+    "updated_at": "2026-06-28T13:24:19"
   },
   "400004015": {
     "event_name": "",
@@ -4802,12 +4816,12 @@
         }
       }
     },
-    "observations": 593,
+    "observations": 605,
     "outcomes": {
       "1": "speed +15, stamina +15, power +15, guts +15, wiz +15"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:20:29"
+    "updated_at": "2026-06-28T13:29:43"
   },
   "501006509": {
     "event_name": "",
@@ -4968,12 +4982,12 @@
         }
       }
     },
-    "observations": 856,
+    "observations": 862,
     "outcomes": {
       "1": "known outcome"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T14:06:10"
+    "updated_at": "2026-06-28T13:34:04"
   },
   "820015001": {
     "event_name": "",
@@ -5070,12 +5084,12 @@
         }
       }
     },
-    "observations": 295,
+    "observations": 303,
     "outcomes": {
       "1": "speed +6, power +2, skill hints 8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:25:45"
+    "updated_at": "2026-06-28T13:16:31"
   },
   "400004277": {
     "event_name": "",
@@ -5192,12 +5206,12 @@
         }
       }
     },
-    "observations": 82,
+    "observations": 84,
     "outcomes": {
       "1": "stamina +2, power +6, skill hints 5"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T13:38:23"
+    "updated_at": "2026-06-28T13:34:02"
   },
   "830010003": {
     "event_name": "",
@@ -5285,12 +5299,12 @@
         }
       }
     },
-    "observations": 348,
+    "observations": 349,
     "outcomes": {
       "1": "speed +5, stamina +5, power +5, guts +5, wiz +5"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T14:08:31"
+    "updated_at": "2026-06-28T13:34:48"
   },
   "400004403": {
     "event_name": "",
@@ -5319,12 +5333,12 @@
         }
       }
     },
-    "observations": 284,
+    "observations": 287,
     "outcomes": {
       "1": "speed +6, stamina +6, power +6, guts +6, wiz +6, SP +40"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:14:20"
+    "updated_at": "2026-06-28T13:20:27"
   },
   "400004011": {
     "event_name": "",
@@ -5363,12 +5377,12 @@
         }
       }
     },
-    "observations": 236,
+    "observations": 239,
     "outcomes": {
       "1": "speed +5, stamina +5, power +5, guts +5, wiz +5, SP +30, skill hints 1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:14:21"
+    "updated_at": "2026-06-28T13:20:29"
   },
   "400004293": {
     "event_name": "",
@@ -5389,12 +5403,12 @@
         }
       }
     },
-    "observations": 38,
+    "observations": 39,
     "outcomes": {
       "1": "guts +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:04:04"
+    "updated_at": "2026-06-28T10:08:53"
   },
   "801022003": {
     "event_name": "",
@@ -5539,12 +5553,12 @@
         }
       }
     },
-    "observations": 40,
+    "observations": 42,
     "outcomes": {
       "1": "wiz +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T22:43:45"
+    "updated_at": "2026-06-28T13:25:11"
   },
   "400004205": {
     "event_name": "",
@@ -5567,12 +5581,12 @@
         }
       }
     },
-    "observations": 47,
+    "observations": 48,
     "outcomes": {
       "1": "stamina +4, power +4"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T08:58:43"
+    "updated_at": "2026-06-28T12:23:33"
   },
   "400004260": {
     "event_name": "",
@@ -5593,12 +5607,12 @@
         }
       }
     },
-    "observations": 138,
+    "observations": 139,
     "outcomes": {
       "1": "stamina +10, energy +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T12:35:35"
+    "updated_at": "2026-06-28T10:15:52"
   },
   "801055003": {
     "event_name": "",
@@ -5637,12 +5651,12 @@
         }
       }
     },
-    "observations": 204,
+    "observations": 206,
     "outcomes": {
       "1": "wiz +6, SP +5, skill hints 5"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-25T13:35:14"
+    "updated_at": "2026-06-28T13:03:39"
   },
   "400004274": {
     "event_name": "",
@@ -5689,12 +5703,12 @@
         }
       }
     },
-    "observations": 143,
+    "observations": 144,
     "outcomes": {
       "1": "speed +10, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T12:38:20"
+    "updated_at": "2026-06-28T10:19:52"
   },
   "400000012": {
     "event_name": "",
@@ -5803,12 +5817,12 @@
         }
       }
     },
-    "observations": 280,
+    "observations": 283,
     "outcomes": {
       "1": "speed +10, stamina +10, power +10, guts +10, wiz +10, SP +30"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:23:26"
+    "updated_at": "2026-06-28T13:32:34"
   },
   "501006700": {
     "event_name": "",
@@ -5898,13 +5912,13 @@
         }
       }
     },
-    "observations": 283,
+    "observations": 286,
     "outcomes": {
       "1": "speed +21, stamina +21, power +21, guts +21, wiz +21, SP +66",
       "2": "speed +15, stamina +15, power +15, guts +15, wiz +15, SP +45"
     },
     "choice_count": 2,
-    "updated_at": "2026-06-28T07:25:02"
+    "updated_at": "2026-06-28T13:34:32"
   },
   "400004061": {
     "event_name": "",
@@ -5953,13 +5967,13 @@
         }
       }
     },
-    "observations": 283,
+    "observations": 286,
     "outcomes": {
       "1": "speed +21, stamina +21, power +21, guts +21, wiz +21, SP +66",
       "2": "speed +15, stamina +15, power +15, guts +15, wiz +15, SP +45"
     },
     "choice_count": 2,
-    "updated_at": "2026-06-28T07:26:14"
+    "updated_at": "2026-06-28T13:35:14"
   },
   "400004071": {
     "event_name": "",
@@ -6132,12 +6146,12 @@
         }
       }
     },
-    "observations": 43,
+    "observations": 44,
     "outcomes": {
       "1": "SP +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T08:46:35"
+    "updated_at": "2026-06-28T13:04:29"
   },
   "400004265": {
     "event_name": "",
@@ -6184,12 +6198,12 @@
         }
       }
     },
-    "observations": 37,
+    "observations": 38,
     "outcomes": {
       "1": "speed +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T12:17:28"
+    "updated_at": "2026-06-28T09:54:47"
   },
   "501006507": {
     "event_name": "",
@@ -6333,12 +6347,12 @@
         }
       }
     },
-    "observations": 45,
+    "observations": 46,
     "outcomes": {
       "1": "motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T08:41:00"
+    "updated_at": "2026-06-28T13:14:30"
   },
   "400004226": {
     "event_name": "",
@@ -6385,12 +6399,12 @@
         }
       }
     },
-    "observations": 30,
+    "observations": 31,
     "outcomes": {
       "1": "speed +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:20:31"
+    "updated_at": "2026-06-28T10:19:05"
   },
   "400004307": {
     "event_name": "",
@@ -6551,12 +6565,12 @@
         }
       }
     },
-    "observations": 41,
+    "observations": 42,
     "outcomes": {
       "1": "speed +4, wiz +4"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-25T13:32:06"
+    "updated_at": "2026-06-28T10:20:49"
   },
   "501006522": {
     "event_name": "",
@@ -6601,12 +6615,12 @@
         }
       }
     },
-    "observations": 148,
+    "observations": 150,
     "outcomes": {
       "1": "guts +10, energy +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T12:22:32"
+    "updated_at": "2026-06-28T13:12:09"
   },
   "400004208": {
     "event_name": "",
@@ -6653,12 +6667,12 @@
         }
       }
     },
-    "observations": 18,
+    "observations": 19,
     "outcomes": {
       "1": "speed +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T19:28:16"
+    "updated_at": "2026-06-28T10:03:34"
   },
   "400004270": {
     "event_name": "",
@@ -6681,12 +6695,12 @@
         }
       }
     },
-    "observations": 35,
+    "observations": 36,
     "outcomes": {
       "1": "guts +6, SP +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T20:30:54"
+    "updated_at": "2026-06-28T13:16:40"
   },
   "400004216": {
     "event_name": "",
@@ -6707,12 +6721,12 @@
         }
       }
     },
-    "observations": 51,
+    "observations": 52,
     "outcomes": {
       "1": "SP +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T12:34:55"
+    "updated_at": "2026-06-28T13:05:06"
   },
   "501006519": {
     "event_name": "",
@@ -6759,12 +6773,12 @@
         }
       }
     },
-    "observations": 45,
+    "observations": 46,
     "outcomes": {
       "1": "stamina +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-25T14:56:56"
+    "updated_at": "2026-06-28T13:11:38"
   },
   "400004218": {
     "event_name": "",
@@ -6813,12 +6827,12 @@
         }
       }
     },
-    "observations": 45,
+    "observations": 47,
     "outcomes": {
       "1": "power +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-25T14:56:26"
+    "updated_at": "2026-06-28T12:10:45"
   },
   "400004268": {
     "event_name": "",
@@ -6841,12 +6855,12 @@
         }
       }
     },
-    "observations": 43,
+    "observations": 44,
     "outcomes": {
       "1": "speed +6, stamina +6"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-21T00:49:53"
+    "updated_at": "2026-06-28T10:17:13"
   },
   "501006517": {
     "event_name": "",
@@ -6893,12 +6907,12 @@
         }
       }
     },
-    "observations": 38,
+    "observations": 39,
     "outcomes": {
       "1": "stamina +8, power +4"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T12:26:33"
+    "updated_at": "2026-06-28T09:52:55"
   },
   "400004263": {
     "event_name": "",
@@ -6997,12 +7011,12 @@
         }
       }
     },
-    "observations": 143,
+    "observations": 144,
     "outcomes": {
       "1": "power +10, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T07:18:59"
+    "updated_at": "2026-06-28T09:58:24"
   },
   "400004200": {
     "event_name": "",
@@ -7023,12 +7037,12 @@
         }
       }
     },
-    "observations": 48,
+    "observations": 49,
     "outcomes": {
       "1": "guts +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:15:46"
+    "updated_at": "2026-06-28T12:34:12"
   },
   "400004312": {
     "event_name": "",
@@ -7079,12 +7093,12 @@
         }
       }
     },
-    "observations": 45,
+    "observations": 46,
     "outcomes": {
       "1": "stamina +4, power +4"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-25T15:36:51"
+    "updated_at": "2026-06-28T12:17:12"
   },
   "830015001": {
     "event_name": "",
@@ -7235,12 +7249,12 @@
         }
       }
     },
-    "observations": 42,
+    "observations": 44,
     "outcomes": {
       "1": "SP +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-25T12:55:44"
+    "updated_at": "2026-06-28T12:27:15"
   },
   "400004285": {
     "event_name": "",
@@ -7261,12 +7275,12 @@
         }
       }
     },
-    "observations": 140,
+    "observations": 142,
     "outcomes": {
       "1": "wiz +10, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:21:14"
+    "updated_at": "2026-06-28T13:30:30"
   },
   "400004289": {
     "event_name": "",
@@ -7317,12 +7331,12 @@
         }
       }
     },
-    "observations": 40,
+    "observations": 41,
     "outcomes": {
       "1": "power +6, wiz +6"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T23:39:27"
+    "updated_at": "2026-06-28T09:53:29"
   },
   "400004287": {
     "event_name": "",
@@ -7451,12 +7465,12 @@
         }
       }
     },
-    "observations": 96,
+    "observations": 99,
     "outcomes": {
       "1": "wiz +10, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:11:19"
+    "updated_at": "2026-06-28T13:17:02"
   },
   "400004250": {
     "event_name": "",
@@ -7505,12 +7519,12 @@
         }
       }
     },
-    "observations": 58,
+    "observations": 59,
     "outcomes": {
       "1": "stamina +4, SP +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-21T01:08:19"
+    "updated_at": "2026-06-28T12:08:28"
   },
   "400004321": {
     "event_name": "",
@@ -7633,12 +7647,12 @@
         }
       }
     },
-    "observations": 138,
+    "observations": 141,
     "outcomes": {
       "1": "stamina +10, energy +30"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:22:57"
+    "updated_at": "2026-06-28T13:31:59"
   },
   "400004236": {
     "event_name": "",
@@ -7687,12 +7701,12 @@
         }
       }
     },
-    "observations": 43,
+    "observations": 44,
     "outcomes": {
       "1": "energy +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T21:09:41"
+    "updated_at": "2026-06-28T13:19:38"
   },
   "400004264": {
     "event_name": "",
@@ -7713,12 +7727,12 @@
         }
       }
     },
-    "observations": 40,
+    "observations": 41,
     "outcomes": {
       "1": "guts +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T06:59:35"
+    "updated_at": "2026-06-28T09:53:42"
   },
   "400004239": {
     "event_name": "",
@@ -7739,12 +7753,12 @@
         }
       }
     },
-    "observations": 50,
+    "observations": 51,
     "outcomes": {
       "1": "guts +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T13:43:58"
+    "updated_at": "2026-06-28T13:26:04"
   },
   "400004296": {
     "event_name": "",
@@ -7793,12 +7807,12 @@
         }
       }
     },
-    "observations": 30,
+    "observations": 32,
     "outcomes": {
       "1": "speed +6, guts +6"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T08:52:47"
+    "updated_at": "2026-06-28T12:29:59"
   },
   "830041002": {
     "event_name": "",
@@ -7847,12 +7861,12 @@
         }
       }
     },
-    "observations": 40,
+    "observations": 41,
     "outcomes": {
       "1": "speed +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T13:45:00"
+    "updated_at": "2026-06-28T12:36:14"
   },
   "400004221": {
     "event_name": "",
@@ -7899,12 +7913,12 @@
         }
       }
     },
-    "observations": 144,
+    "observations": 146,
     "outcomes": {
       "1": "speed +10, energy +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:18:19"
+    "updated_at": "2026-06-28T13:27:05"
   },
   "801033003": {
     "event_name": "",
@@ -7997,12 +8011,12 @@
         }
       }
     },
-    "observations": 46,
+    "observations": 48,
     "outcomes": {
       "1": "wiz +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:11:17"
+    "updated_at": "2026-06-28T13:09:17"
   },
   "400004281": {
     "event_name": "",
@@ -8023,12 +8037,12 @@
         }
       }
     },
-    "observations": 51,
+    "observations": 52,
     "outcomes": {
       "1": "wiz +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T22:46:58"
+    "updated_at": "2026-06-28T09:54:31"
   },
   "400004291": {
     "event_name": "",
@@ -8051,12 +8065,12 @@
         }
       }
     },
-    "observations": 39,
+    "observations": 40,
     "outcomes": {
       "1": "speed +6, power +6"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-21T01:08:28"
+    "updated_at": "2026-06-28T13:12:08"
   },
   "830038001": {
     "event_name": "",
@@ -8083,12 +8097,12 @@
         }
       }
     },
-    "observations": 5,
+    "observations": 6,
     "outcomes": {
       "1": "SP +15, skill hints 1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-19T20:17:50"
+    "updated_at": "2026-06-28T12:25:01"
   },
   "400004207": {
     "event_name": "",
@@ -8189,12 +8203,12 @@
         }
       }
     },
-    "observations": 48,
+    "observations": 50,
     "outcomes": {
       "1": "SP +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T07:35:27"
+    "updated_at": "2026-06-28T12:10:33"
   },
   "400004249": {
     "event_name": "",
@@ -8243,12 +8257,12 @@
         }
       }
     },
-    "observations": 45,
+    "observations": 46,
     "outcomes": {
       "1": "wiz +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-21T01:07:15"
+    "updated_at": "2026-06-28T13:17:54"
   },
   "400004306": {
     "event_name": "",
@@ -8481,12 +8495,12 @@
         }
       }
     },
-    "observations": 41,
+    "observations": 42,
     "outcomes": {
       "1": "stamina +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T13:54:41"
+    "updated_at": "2026-06-28T13:11:06"
   },
   "830002001": {
     "event_name": "",
@@ -8737,12 +8751,12 @@
         }
       }
     },
-    "observations": 51,
+    "observations": 53,
     "outcomes": {
       "1": "stamina +4, wiz +4"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T23:37:37"
+    "updated_at": "2026-06-28T13:07:09"
   },
   "501006733": {
     "event_name": "",
@@ -8825,12 +8839,12 @@
         }
       }
     },
-    "observations": 51,
+    "observations": 52,
     "outcomes": {
       "1": "power +4, wiz +4"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T12:28:32"
+    "updated_at": "2026-06-28T13:27:00"
   },
   "400004230": {
     "event_name": "",
@@ -8881,12 +8895,12 @@
         }
       }
     },
-    "observations": 6,
+    "observations": 7,
     "outcomes": {
       "1": "speed +12, power +12, energy -10"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T08:43:28"
+    "updated_at": "2026-06-28T09:51:13"
   },
   "400000038": {
     "event_name": "",
@@ -8931,12 +8945,12 @@
         }
       }
     },
-    "observations": 36,
+    "observations": 37,
     "outcomes": {
       "1": "SP +20"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-25T14:56:11"
+    "updated_at": "2026-06-28T12:09:14"
   },
   "830014001": {
     "event_name": "",
@@ -9069,12 +9083,12 @@
         }
       }
     },
-    "observations": 9,
+    "observations": 11,
     "outcomes": {
       "1": "stamina +5, energy +10"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T02:04:20"
+    "updated_at": "2026-06-28T13:12:39"
   },
   "400000032": {
     "event_name": "",
@@ -9103,12 +9117,12 @@
         }
       }
     },
-    "observations": 135,
+    "observations": 137,
     "outcomes": {
       "1": "speed +3, stamina +3, power +3, guts +3, wiz +3"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T07:18:51"
+    "updated_at": "2026-06-28T12:10:21"
   },
   "400004215": {
     "event_name": "",
@@ -9193,12 +9207,12 @@
         }
       }
     },
-    "observations": 55,
+    "observations": 56,
     "outcomes": {
       "1": "guts +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T07:36:35"
+    "updated_at": "2026-06-28T10:04:00"
   },
   "400004212": {
     "event_name": "",
@@ -9353,12 +9367,12 @@
         }
       }
     },
-    "observations": 17,
+    "observations": 18,
     "outcomes": {
       "1": "stamina +6, guts +6, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T13:37:32"
+    "updated_at": "2026-06-28T09:50:43"
   },
   "830096001": {
     "event_name": "",
@@ -9405,12 +9419,12 @@
         }
       }
     },
-    "observations": 23,
+    "observations": 24,
     "outcomes": {
       "1": "speed +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T13:49:57"
+    "updated_at": "2026-06-28T13:28:00"
   },
   "400004202": {
     "event_name": "",
@@ -9433,12 +9447,12 @@
         }
       }
     },
-    "observations": 43,
+    "observations": 44,
     "outcomes": {
       "1": "power +4, guts +4"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T08:42:21"
+    "updated_at": "2026-06-28T09:52:04"
   },
   "400004255": {
     "event_name": "",
@@ -9459,12 +9473,12 @@
         }
       }
     },
-    "observations": 28,
+    "observations": 29,
     "outcomes": {
       "1": "speed +12"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T19:34:09"
+    "updated_at": "2026-06-28T13:13:07"
   },
   "400004404": {
     "event_name": "",
@@ -9541,12 +9555,12 @@
         }
       }
     },
-    "observations": 34,
+    "observations": 35,
     "outcomes": {
       "1": "guts +8"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T13:39:22"
+    "updated_at": "2026-06-28T12:12:37"
   },
   "400004295": {
     "event_name": "",
@@ -10298,12 +10312,12 @@
         }
       }
     },
-    "observations": 9,
+    "observations": 10,
     "outcomes": {
       "1": "energy +10, max energy +4, motivation +1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T02:01:52"
+    "updated_at": "2026-06-28T10:07:48"
   },
   "400004308": {
     "event_name": "",
@@ -10388,12 +10402,12 @@
         }
       }
     },
-    "observations": 15,
+    "observations": 18,
     "outcomes": {
       "1": "speed +7, stamina +7, wiz +7, energy -10, motivation +1, skill hints 1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:09:08"
+    "updated_at": "2026-06-28T13:03:59"
   },
   "830075001": {
     "event_name": "",
@@ -10708,12 +10722,12 @@
         }
       }
     },
-    "observations": 61,
+    "observations": 62,
     "outcomes": {
       "1": "speed +5, power +5, SP +10, skill hints 2"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-20T21:19:30"
+    "updated_at": "2026-06-28T09:52:37"
   },
   "830069001": {
     "event_name": "",
@@ -12516,13 +12530,13 @@
         }
       }
     },
-    "observations": 25,
+    "observations": 27,
     "outcomes": {
       "2": "stamina +4",
       "1": "stamina +4"
     },
     "choice_count": 2,
-    "updated_at": "2026-06-27T13:44:58"
+    "updated_at": "2026-06-28T10:04:41"
   },
   "830074001": {
     "event_name": "",
@@ -12541,12 +12555,12 @@
         }
       }
     },
-    "observations": 8,
+    "observations": 11,
     "outcomes": {
       "1": "speed +10"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T06:57:49"
+    "updated_at": "2026-06-28T13:04:31"
   },
   "801077003": {
     "event_name": "",
@@ -12559,7 +12573,8 @@
         "gained_skill_hints": {
           "20057": 3,
           "20015": 3,
-          "20058": 2
+          "20058": 2,
+          "20170": 3
         },
         "skill_hint": true,
         "speed": 6,
@@ -12573,7 +12588,8 @@
           "gained_skill_hints": {
             "20057": 3,
             "20015": 3,
-            "20058": 2
+            "20058": 2,
+            "20170": 3
           },
           "skill_hint": true,
           "speed": 6,
@@ -12581,12 +12597,12 @@
         }
       }
     },
-    "observations": 7,
+    "observations": 10,
     "outcomes": {
-      "1": "speed +6, power +2, skill hints 3"
+      "1": "speed +6, power +2, skill hints 4"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T09:16:20"
+    "updated_at": "2026-06-28T13:03:07"
   },
   "501015600": {
     "event_name": "",
@@ -12681,12 +12697,12 @@
         }
       }
     },
-    "observations": 7,
+    "observations": 9,
     "outcomes": {
       "1": "speed +15, stamina +15, SP +20, energy -10, skill hints 1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-28T07:15:35"
+    "updated_at": "2026-06-28T13:10:01"
   },
   "501015801": {
     "event_name": "",
@@ -12802,13 +12818,13 @@
         }
       }
     },
-    "observations": 7,
+    "observations": 10,
     "outcomes": {
       "1": "speed +5, SP +10, skill hints 1",
       "2": "speed +5, SP +10, skill hints 1"
     },
     "choice_count": 2,
-    "updated_at": "2026-06-28T06:59:05"
+    "updated_at": "2026-06-28T13:20:08"
   },
   "501015500": {
     "event_name": "",
@@ -13056,12 +13072,12 @@
         }
       }
     },
-    "observations": 5,
+    "observations": 6,
     "outcomes": {
       "1": "stamina +13, guts +6, motivation +1, skill hints 1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T13:44:01"
+    "updated_at": "2026-06-28T09:57:40"
   },
   "501015523": {
     "event_name": "",
@@ -13362,12 +13378,12 @@
         }
       }
     },
-    "observations": 1,
+    "observations": 2,
     "outcomes": {
       "1": "speed +7, stamina +7, power +7, guts +7, wiz +7, SP +77, skill hints 1"
     },
     "choice_count": 1,
-    "updated_at": "2026-06-27T09:09:32"
+    "updated_at": "2026-06-28T13:22:09"
   },
   "501015726": {
     "event_name": "",
@@ -13602,5 +13618,549 @@
     },
     "choice_count": 1,
     "updated_at": "2026-06-28T07:27:52"
+  },
+  "501016718": {
+    "event_name": "",
+    "story_id": "501016718",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "vital": 50,
+        "playing_state": -4
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 50,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 18,
+    "outcomes": {
+      "1": "energy +50"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:26:03"
+  },
+  "501016500": {
+    "event_name": "",
+    "story_id": "501016500",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "power": 10
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 10
+        }
+      }
+    },
+    "observations": 3,
+    "outcomes": {
+      "1": "power +10"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:08:51"
+  },
+  "501016600": {
+    "event_name": "",
+    "story_id": "501016600",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "power": 5,
+        "stamina": 5,
+        "speed": 5,
+        "wiz": 5,
+        "guts": 5
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "power": 5,
+          "stamina": 5,
+          "speed": 5,
+          "wiz": 5,
+          "guts": 5
+        }
+      }
+    },
+    "observations": 33,
+    "outcomes": {
+      "1": "speed +5, stamina +5, power +5, guts +5, wiz +5"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:30:09"
+  },
+  "501016701": {
+    "event_name": "",
+    "story_id": "501016701",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "vital": 70,
+        "playing_state": -4,
+        "lost_conditions": [
+          3
+        ]
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 70,
+          "playing_state": -4,
+          "lost_conditions": [
+            3
+          ]
+        }
+      }
+    },
+    "observations": 12,
+    "outcomes": {
+      "1": "energy +70, conditions -1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:31:19"
+  },
+  "501016508": {
+    "event_name": "",
+    "story_id": "501016508",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "motivation": -1,
+        "playing_state": -4,
+        "gained_conditions": [
+          3
+        ]
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "motivation": -1,
+          "playing_state": -4,
+          "gained_conditions": [
+            3
+          ]
+        }
+      }
+    },
+    "observations": 21,
+    "outcomes": {
+      "1": "motivation -1, conditions +1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:31:07"
+  },
+  "501016522": {
+    "event_name": "",
+    "story_id": "501016522",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "motivation": -2
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "motivation": -2
+        }
+      }
+    },
+    "observations": 9,
+    "outcomes": {
+      "1": "motivation -2"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:26:07"
+  },
+  "501016719": {
+    "event_name": "",
+    "story_id": "501016719",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "guts": -5,
+        "vital": 15,
+        "motivation": -1
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "guts": -5,
+          "vital": 15,
+          "motivation": -1
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "guts -5, energy +15, motivation -1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T10:00:22"
+  },
+  "501016509": {
+    "event_name": "",
+    "story_id": "501016509",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "2": {
+        "speed": -10,
+        "stamina": -10,
+        "power": -10,
+        "playing_state": -4,
+        "wiz": -10,
+        "motivation": -1,
+        "gained_conditions": [
+          3
+        ],
+        "guts": -10
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "2": {
+          "speed": -10,
+          "stamina": -10,
+          "power": -10,
+          "playing_state": -4,
+          "wiz": -10,
+          "motivation": -1,
+          "gained_conditions": [
+            3
+          ],
+          "guts": -10
+        }
+      }
+    },
+    "observations": 4,
+    "outcomes": {
+      "2": "speed -10, stamina -10, power -10, guts -10, wiz -10, motivation -1, conditions +1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:25:43"
+  },
+  "501016700": {
+    "event_name": "",
+    "story_id": "501016700",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "vital": 30,
+        "playing_state": -4
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": 30,
+          "playing_state": -4
+        }
+      }
+    },
+    "observations": 2,
+    "outcomes": {
+      "1": "energy +30"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T10:20:47"
+  },
+  "501016523": {
+    "event_name": "",
+    "story_id": "501016523",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "speed": 5,
+        "stamina": 5,
+        "power": 5,
+        "guts": 5,
+        "wiz": 5,
+        "skill_point": 30,
+        "motivation": 1
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "speed": 5,
+          "stamina": 5,
+          "power": 5,
+          "guts": 5,
+          "wiz": 5,
+          "skill_point": 30,
+          "motivation": 1
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "speed +5, stamina +5, power +5, guts +5, wiz +5, SP +30, motivation +1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T10:12:03"
+  },
+  "501016722": {
+    "event_name": "",
+    "story_id": "501016722",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "wiz": -5,
+        "motivation": -1
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "wiz": -5,
+          "motivation": -1
+        }
+      }
+    },
+    "observations": 2,
+    "outcomes": {
+      "1": "wiz -5, motivation -1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T12:18:10"
+  },
+  "501016900": {
+    "event_name": "",
+    "story_id": "501016900",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "skill_point": 120
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "skill_point": 120
+        }
+      }
+    },
+    "observations": 2,
+    "outcomes": {
+      "1": "SP +120"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:02:33"
+  },
+  "830016002": {
+    "event_name": "",
+    "story_id": "830016002",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "stamina": 5,
+        "power": 5
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 5,
+          "power": 5
+        }
+      }
+    },
+    "observations": 2,
+    "outcomes": {
+      "1": "stamina +5, power +5"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:15:21"
+  },
+  "830016003": {
+    "event_name": "",
+    "story_id": "830016003",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "stamina": 10,
+        "power": 5,
+        "gained_skill_hints": {
+          "20035": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": 10,
+          "power": 5,
+          "gained_skill_hints": {
+            "20035": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 2,
+    "outcomes": {
+      "1": "stamina +10, power +5, skill hints 1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:20:59"
+  },
+  "801045003": {
+    "event_name": "",
+    "story_id": "801045003",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "playing_state": -4,
+        "gained_skill_hints": {
+          "20088": 1
+        },
+        "skill_hint": true
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "playing_state": -4,
+          "gained_skill_hints": {
+            "20088": 1
+          },
+          "skill_hint": true
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "skill hints 1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T12:37:23"
+  },
+  "501016518": {
+    "event_name": "",
+    "story_id": "501016518",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "vital": -10,
+        "motivation": -1
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "vital": -10,
+          "motivation": -1
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "energy -10, motivation -1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:07:11"
+  },
+  "501016507": {
+    "event_name": "",
+    "story_id": "501016507",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "skill_point": 30
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "skill_point": 30
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "SP +30"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:14:32"
+  },
+  "501016517": {
+    "event_name": "",
+    "story_id": "501016517",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "motivation": -1
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "motivation": -1
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "motivation -1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:17:55"
+  },
+  "501016519": {
+    "event_name": "",
+    "story_id": "501016519",
+    "source": "native:bot",
+    "confidence": "observed_live",
+    "details": {
+      "1": {
+        "stamina": -5,
+        "motivation": -1
+      }
+    },
+    "choice_slots": {
+      "0": {
+        "1": {
+          "stamina": -5,
+          "motivation": -1
+        }
+      }
+    },
+    "observations": 1,
+    "outcomes": {
+      "1": "stamina -5, motivation -1"
+    },
+    "choice_count": 1,
+    "updated_at": "2026-06-28T13:21:28"
   }
 }

@@ -455,10 +455,11 @@ function renderAllTab(){
     let trainC=0,raceC=0,restC=0,otherC=0;
     for(const t of turns){const c=categorize(t);if(c==='training')trainC++;else if(c==='race')raceC++;else if(c==='rest')restC++;else otherC++}
     let itemsB=0,itemsU=0,skillsB=0,spent=0;
-    const shopMap={};
+    const shopMap={},useMap={};
     for(const t of turns){
       for(const b of(t.bot_shop_selected||[])){itemsB++;spent+=(b.cost||0);const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;shopMap[nm]=(shopMap[nm]||0)+1}
-      itemsU+=(t.bot_item_use_selected||[]).length;
+      for(const u of(t.bot_item_use_selected||[])){itemsU++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;useMap[nm]=(useMap[nm]||0)+(u.use_num||1)}
+      for(const u of(t.bot_pre_race_use_selected||[])){itemsU++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;useMap[nm]=(useMap[nm]||0)+(u.use_num||1)}
       skillsB+=(t.bot_skill_selected||[]).length;
     }
     const raw=filename.replace(/career_log_?/,'').replace(/\.json$/,'')||filename;
@@ -466,7 +467,7 @@ function renderAllTab(){
     const dateLabel=m?`${m[2]}/${m[3]} ${m[4]}:${m[5]}`:raw;
     const shortName=`${ordinalLabel(i)} (${dateLabel})`;
     const dur=data.started_at&&data.ended_at?fmtDur(new Date(data.ended_at)-new Date(data.started_at)):'—';
-    return{shortName,filename,data,turns,ls,totalStat,raceResults,wins,trainC,raceC,restC,otherC,itemsB,itemsU,skillsB,spent,shopMap,dur,rs};
+    return{shortName,filename,data,turns,ls,totalStat,raceResults,wins,trainC,raceC,restC,otherC,itemsB,itemsU,skillsB,spent,shopMap,useMap,dur,rs};
   });
 
   const n=allRuns.length;
@@ -480,6 +481,8 @@ function renderAllTab(){
 
   const combShop={};
   for(const r of allRuns)for(const[nm,c]of Object.entries(r.shopMap))combShop[nm]=(combShop[nm]||0)+c;
+  const combUsed={};
+  for(const r of allRuns)for(const[nm,c]of Object.entries(r.useMap||{}))combUsed[nm]=(combUsed[nm]||0)+c;
 
   const combSkills={};
   for(const r of allRuns)for(const t of r.turns)for(const sk of(t.bot_skill_selected||[])){
@@ -529,8 +532,8 @@ function renderAllTab(){
     </div>`;
 
   const topItems=Object.entries(combShop).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  html+=`<div class="ov-card"><h3>Top Purchased Items</h3>`;
-  if(topItems.length)html+=topItems.map(([nm,c])=>`<div class="ov-row"><span class="ov-lbl">${esc(nm)}</span><span class="ov-val" style="color:var(--yellow)">${c}×</span></div>`).join('');
+  html+=`<div class="ov-card"><h3>Top Items — Bought / Used</h3>`;
+  if(topItems.length)html+=topItems.map(([nm,c])=>{const u=combUsed[nm]||0;const leftover=c-u;const leftC=leftover>0?'var(--orange)':'var(--green)';return`<div class="ov-row"><span class="ov-lbl">${esc(fmtItem(nm))}</span><span class="ov-val" style="font-size:11px"><span style="color:var(--yellow)">${c}×</span> <span style="color:var(--text3)">/</span> <span style="color:var(--blue)">${u}×</span>${leftover>0?` <span style="color:${leftC};font-size:10px">(${leftover} left)</span>`:''}</span></div>`}).join('');
   else html+=`<div class="ov-sub">No items purchased</div>`;
   html+=`</div>`;
 
@@ -606,7 +609,7 @@ function renderAllTab(){
       </tr></thead><tbody>
       ${shopEntries.map(([nm,d])=>{
         const tags=Object.entries(d.reasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
-        return`<tr><td>${esc(nm)}</td><td class="r" style="color:var(--text2);font-weight:600">${d.offered}</td><td class="r" style="color:var(--green);font-weight:600">${d.bought||'—'}</td><td class="r" style="color:#a0a060;font-weight:600">${d.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
+        return`<tr><td>${esc(fmtItem(nm))}</td><td class="r" style="color:var(--text2);font-weight:600">${d.offered}</td><td class="r" style="color:var(--green);font-weight:600">${d.bought||'—'}</td><td class="r" style="color:#a0a060;font-weight:600">${d.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
       }).join('')}
       </tbody></table></div></div>`;
   }
@@ -633,8 +636,9 @@ function renderAllTab(){
     const keyEv=[];
     for(const t of r.turns){
       const ev=[];
-      for(const b of(t.bot_shop_selected||[]))ev.push(`🛒 ${b.name||ITEM[b.item_id]||'?'}`);
-      for(const u of(t.bot_item_use_selected||[]))ev.push(`✨ ${u.name||ITEM[u.item_id]||'?'}`);
+      for(const b of(t.bot_shop_selected||[]))ev.push(`🛒 ${fmtItem(b.name||ITEM[b.item_id]||'?')}`);
+      for(const u of(t.bot_item_use_selected||[]))ev.push(`✨ ${fmtItem(u.name||ITEM[u.item_id]||'?')}`);
+      for(const u of(t.bot_pre_race_use_selected||[]))ev.push(`⚔ ${fmtItem(u.name||ITEM[u.item_id]||'?')}`);
       for(const sk of(t.bot_skill_selected||[]))ev.push(`📘 ${sk.name||'?'}`);
       if(categorize(t)==='race'){const p=(t.decision_reason||'').split(' · ');ev.push(`🏁 ${p[0]||'Race'}`)}
       if(ev.length)keyEv.push({turn:t.turn,ev});
@@ -658,7 +662,8 @@ function renderOverview(){
   if(!logData)return;
   const el=document.getElementById('panelOverview');
   const d=logData, turns=d.turns||[], rs=d.runner_status||{};
-  const last=turns.length?turns[turns.length-1]:{};
+  let last=turns.length?turns[turns.length-1]:{};
+  if(!last.stats||!last.stats.speed){for(let i=turns.length-1;i>=0;i--){if(turns[i].stats&&turns[i].stats.speed){last=turns[i];break}}}
   const lastStats=last.stats||{};
   const totalStats=lastStats.speed+lastStats.stamina+lastStats.power+lastStats.guts+lastStats.wit;
 
@@ -675,15 +680,30 @@ function renderOverview(){
   // Item counts
   let itemsBought=0,itemsUsed=0,skillsBought=0;
   const shopItems={};
+  const usedItems={};
+  const moodCounts={1:0,2:0,3:0,4:0,5:0};
+  let moodTotal=0,moodTurns=0;
   for(const t of turns){
     for(const b of(t.bot_shop_selected||[])){
       itemsBought++;
       const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;
       shopItems[nm]=(shopItems[nm]||0)+1;
     }
-    itemsUsed+=(t.bot_item_use_selected||[]).length;
+    for(const u of(t.bot_item_use_selected||[])){
+      itemsUsed++;
+      const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
+      usedItems[nm]=(usedItems[nm]||0)+(u.use_num||1);
+    }
+    for(const u of(t.bot_pre_race_use_selected||[])){
+      itemsUsed++;
+      const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
+      usedItems[nm]=(usedItems[nm]||0)+(u.use_num||1);
+    }
     skillsBought+=(t.bot_skill_selected||[]).length;
+    const m=t.motivation||(t.stats||{}).motivation||0;
+    if(m>=1&&m<=5){moodCounts[m]++;moodTotal+=m;moodTurns++;}
   }
+  const avgMood=moodTurns?moodTotal/moodTurns:0;
 
   // Race results from runner_status.log
   const raceResults=buildRaceResults(d);
@@ -728,20 +748,33 @@ function renderOverview(){
     </div></div>`;
 
   // Items & economy card
+  const leftoverItems=Object.entries(shopItems).reduce((s,[n,c])=>s+Math.max(0,c-(usedItems[n]||0)),0);
+  const finalCoin=last.mant_coin!=null?last.mant_coin:null;
+  const coinColor=finalCoin!=null&&finalCoin>50?'var(--orange)':'var(--green)';
   html+=`<div class="ov-card"><h3>Items &amp; Economy</h3>
     <div class="ov-row"><span class="ov-lbl">Items Bought</span><span class="ov-val" style="color:var(--yellow)">${itemsBought}</span></div>
     <div class="ov-row"><span class="ov-lbl">Items Used</span><span class="ov-val" style="color:var(--blue)">${itemsUsed}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Items Left Over</span><span class="ov-val" style="color:${leftoverItems>0?'var(--orange)':'var(--green)'}">${leftoverItems}</span></div>
     <div class="ov-row"><span class="ov-lbl">Skills Bought</span><span class="ov-val" style="color:var(--accent2)">${skillsBought}</span></div>
-    <div class="ov-row"><span class="ov-lbl">Final Coin</span><span class="ov-val" style="color:var(--yellow)">${last.mant_coin!=null?'🪙'+last.mant_coin:'—'}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Final Coin</span><span class="ov-val" style="color:${coinColor}">${finalCoin!=null?'🪙'+finalCoin:'—'}</span></div>
     </div>`;
 
-  // Top bought items card
+  // Top bought items card (bought vs used)
   const topItems=Object.entries(shopItems).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  html+=`<div class="ov-card"><h3>Top Purchased Items</h3>`;
+  html+=`<div class="ov-card"><h3>Top Items — Bought / Used</h3>`;
   if(topItems.length){
-    html+=topItems.map(([n,c])=>`<div class="ov-row"><span class="ov-lbl">${esc(n)}</span><span class="ov-val" style="color:var(--yellow)">${c}×</span></div>`).join('');
+    html+=topItems.map(([n,c])=>{const u=usedItems[n]||0;const leftover=c-u;const leftC=leftover>0?'var(--orange)':'var(--green)';return`<div class="ov-row"><span class="ov-lbl">${esc(fmtItem(n))}</span><span class="ov-val" style="font-size:11px"><span style="color:var(--yellow)">${c}×</span> <span style="color:var(--text3)">/</span> <span style="color:var(--blue)">${u}×</span>${leftover>0?` <span style="color:${leftC};font-size:10px">(${leftover} left)</span>`:''}</span></div>`}).join('');
   }else html+=`<div class="ov-sub">No items purchased</div>`;
   html+=`</div>`;
+
+  // Mood summary card
+  const MOOD_LABELS={1:'😰 Worst',2:'😟 Bad',3:'😐 Normal',4:'😊 Good',5:'🔥 Best'};
+  const MOOD_COLORS={1:'var(--red)',2:'var(--orange)',3:'var(--text2)',4:'var(--green)',5:'var(--yellow)'};
+  html+=`<div class="ov-card"><h3>Mood Summary</h3>`;
+  html+=`<div class="ov-big">${avgMood?avgMood.toFixed(1):'—'}</div><div class="ov-sub">Average mood across ${moodTurns} turns</div>`;
+  html+=`<div style="margin-top:8px">`;
+  for(let m=5;m>=1;m--){const c=moodCounts[m];const pct=moodTurns?Math.round(c/moodTurns*100):0;html+=`<div class="ov-row"><span class="ov-lbl">${MOOD_LABELS[m]}</span><span class="ov-val" style="color:${MOOD_COLORS[m]}">${c} <span style="font-size:10px;color:var(--text3)">(${pct}%)</span></span></div>`;}
+  html+=`</div></div>`;
 
   html+=`</div>`;
 
@@ -754,7 +787,7 @@ function renderOverview(){
     html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Final Inventory (${inv.length} items)</h3><div class="s-arrow">▾</div></div><div class="section-body" style="padding:10px"><div class="inv-wrap">`;
     html+=inv.map(it=>{
       const nm=it.name||ITEM[it.item_id]||'id:'+it.item_id;
-      return`<span class="inv-chip">${esc(nm)} ×${it.current_num||it.num||1}</span>`;
+      return`<span class="inv-chip">${esc(fmtItem(nm))} ×${it.current_num||it.num||1}</span>`;
     }).join('');
     html+=`</div></div></div>`;
   }
@@ -846,13 +879,13 @@ function applyFilters(){
   if(activeFilter==='training')turns=turns.filter(t=>categorize(t)==='training');
   else if(activeFilter==='race')turns=turns.filter(t=>categorize(t)==='race');
   else if(activeFilter==='rest')turns=turns.filter(t=>categorize(t)==='rest');
-  else if(activeFilter==='items')turns=turns.filter(t=>(t.bot_shop_selected||[]).length||(t.bot_item_use_selected||[]).length);
+  else if(activeFilter==='items')turns=turns.filter(t=>(t.bot_shop_selected||[]).length||(t.bot_item_use_selected||[]).length||(t.bot_pre_race_use_selected||[]).length);
   else if(activeFilter==='skills')turns=turns.filter(t=>(t.bot_skill_selected||[]).length);
   if(q){
     turns=turns.filter(t=>{
       const r=(t.decision_reason||'').toLowerCase();
-      const b=(t.bot_shop_selected||[]).map(i=>i.name).join(' ').toLowerCase();
-      const u=(t.bot_item_use_selected||[]).map(i=>i.name).join(' ').toLowerCase();
+      const b=(t.bot_shop_selected||[]).map(i=>fmtItem(i.name)).join(' ').toLowerCase();
+      const u=[...(t.bot_item_use_selected||[]),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name)).join(' ').toLowerCase();
       const sk=(t.bot_skill_selected||[]).map(i=>i.name).join(' ').toLowerCase();
       return r.includes(q)||b.includes(q)||u.includes(q)||sk.includes(q)||String(t.turn).includes(q);
     });
@@ -869,6 +902,7 @@ function applyFilters(){
 function buildRow(t,prev){
   const bought=t.bot_shop_selected||[];
   const used=t.bot_item_use_selected||[];
+  const preRaceUsed=t.bot_pre_race_use_selected||[];
   const skills=t.bot_skill_selected||[];
   const cat=categorize(t);
   const isBootcamp=BOOTCAMP_RANGES.some(([a,b])=>t.turn>=a&&t.turn<=b);
@@ -880,8 +914,9 @@ function buildRow(t,prev){
   const motiv=t.motivation||s.motivation||3;
 
   const chipsHtml=[
-    ...bought.map(i=>`<span class="chip buy">🛒 ${esc(i.name)}</span>`),
-    ...used.map(i=>`<span class="chip use">✨ ${esc(i.name)}${i.use_num>1?' ×'+i.use_num:''}</span>`),
+    ...bought.map(i=>`<span class="chip buy">Bought: ${esc(fmtItem(i.name))}</span>`),
+    ...used.map(i=>`<span class="chip use">Used: ${esc(fmtItem(i.name))}${i.use_num>1?' ×'+i.use_num:''}</span>`),
+    ...preRaceUsed.map(i=>`<span class="chip use" style="border-color:var(--cyan)">Used: ${esc(fmtItem(i.name))}${i.use_num>1?' ×'+i.use_num:''} (pre-race)</span>`),
     ...skills.map(i=>`<span class="chip skill">📘 ${esc(i.name)}</span>`),
   ].join('');
   const bootcampChip=isBootcamp?`<span class="bootcamp-chip">☀️ Bootcamp</span>`:'';
@@ -918,6 +953,7 @@ function buildDetails(t,prev){
   const s=t.stats||{}, p=prev||{};
   const bought=t.bot_shop_selected||[];
   const used=t.bot_item_use_selected||[];
+  const preRaceUsed=t.bot_pre_race_use_selected||[];
   const skills=t.bot_skill_selected||[];
   const shopOpts=t.shop_rows_enriched||[];
   const skillOpts=t.skill_rows_enriched||[];
@@ -964,14 +1000,15 @@ function buildDetails(t,prev){
     html+=`</div>`;
   }else if(bought.length){
     html+=`<div class="ds"><h4>Bought ${fmtRes(buyRes)}</h4>`;
-    html+=bought.map(i=>`<div class="il-row"><span>${esc(i.name)}</span><span class="il-cost">🪙${i.cost}</span></div>`).join('');
+    html+=bought.map(i=>`<div class="il-row"><span>${esc(fmtItem(i.name))}</span><span class="il-cost">🪙${i.cost}</span></div>`).join('');
     html+=`</div>`;
   }
 
   // Items used
-  if(used.length){
+  if(used.length||preRaceUsed.length){
     html+=`<div class="ds"><h4>Used ${fmtRes(useRes)}</h4>`;
-    html+=used.map(i=>`<div class="il-row"><span>${esc(i.name)}</span><span class="il-uses">×${i.use_num}</span></div>`).join('');
+    html+=used.map(i=>`<div class="il-row"><span>${esc(fmtItem(i.name))}</span><span class="il-uses">×${i.use_num}</span></div>`).join('');
+    html+=preRaceUsed.map(i=>`<div class="il-row"><span style="color:var(--cyan)">⚔ ${esc(fmtItem(i.name))}</span><span class="il-uses">×${i.use_num}</span></div>`).join('');
     html+=`</div>`;
   }
 
@@ -987,7 +1024,7 @@ function buildDetails(t,prev){
     html+=`<div class="ds"><h4>Inventory</h4><div class="inv-wrap">`;
     html+=inv.map(it=>{
       const nm=it.name||ITEM[it.item_id]||'id:'+it.item_id;
-      return`<span class="inv-chip">${esc(nm)} ×${it.current_num||it.num||1}</span>`;
+      return`<span class="inv-chip">${esc(fmtItem(nm))} ×${it.current_num||it.num||1}</span>`;
     }).join('');
     html+=`</div></div>`;
   }
@@ -1060,7 +1097,7 @@ function renderShopTab(){
     </tr></thead><tbody>${items.map(it=>{
       const ts=Object.values(it.skippedReasons).reduce((a,b)=>a+b,0);
       const tags=Object.entries(it.skippedReasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag" title="${esc(r)}">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
-      return`<tr><td>${esc(it.name)}</td><td class="r" style="color:var(--text2);font-weight:600">${it.offered}</td><td class="r" style="color:var(--green);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:#a0a060;font-weight:600">${ts||'—'}</td><td class="r" style="color:#c07070;font-weight:600">${it.missed||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
+      return`<tr><td>${esc(fmtItem(it.name))}</td><td class="r" style="color:var(--text2);font-weight:600">${it.offered}</td><td class="r" style="color:var(--green);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:#a0a060;font-weight:600">${ts||'—'}</td><td class="r" style="color:#c07070;font-weight:600">${it.missed||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
     }).join('')}</tbody></table></div></div>`;
 
   // Restock cards
@@ -1132,7 +1169,7 @@ function buildShopRow(row,st){
   else if(st.skip_reason==='unaffordable')statusH=`<span class="status-badge sb-missed">💸 Not enough coins</span>`;
   else if(st.skip_reason)statusH=`<span class="status-badge sb-skipped" title="${esc(st.skip_reason)}">⊘ ${esc(friendlySkipReason(st.skip_reason))}</span>`;
   else statusH=`<span class="status-badge sb-missed">✗ Not bought</span>`;
-  return`<tr><td>${esc(name)}</td><td>${costH}</td><td style="color:var(--text3)">${limit}×</td><td>${ltH}</td><td>${statusH}</td></tr>`;
+  return`<tr><td>${esc(fmtItem(name))}</td><td>${costH}</td><td style="color:var(--text3)">${limit}×</td><td>${ltH}</td><td>${statusH}</td></tr>`;
 }
 
 /* ═══════════════════════════════════════
@@ -1239,7 +1276,7 @@ function renderItemsTab(){
     ${unified.map(it=>{
       const leftColor=it.remaining>0?'var(--orange)':'var(--green)';
       const tags=Object.entries(it.reasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag" title="${esc(r)}">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
-      return`<tr><td>${esc(it.name)}</td><td class="r" style="color:var(--yellow);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:var(--blue);font-weight:600">${it.used||'—'}</td><td class="r" style="color:${leftColor};font-weight:600">${it.remaining>0?it.remaining:'—'}</td><td class="r cost-cell">${it.cost?'🪙'+it.cost:'—'}</td><td class="r" style="font-weight:600;color:var(--text2)">${it.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
+      return`<tr><td>${esc(fmtItem(it.name))}</td><td class="r" style="color:var(--yellow);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:var(--blue);font-weight:600">${it.used||'—'}</td><td class="r" style="color:${leftColor};font-weight:600">${it.remaining>0?it.remaining:'—'}</td><td class="r cost-cell">${it.cost?'🪙'+it.cost:'—'}</td><td class="r" style="font-weight:600;color:var(--text2)">${it.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
     }).join('')}
     </tbody></table></div></div>`;
 
@@ -1247,7 +1284,7 @@ function renderItemsTab(){
   const timeline=[...purchaseLog.map(p=>({...p,type:'buy'})),...useLog.map(u=>({...u,type:'use'}))].sort((a,b)=>a.turn-b.turn);
   html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Full Timeline (${timeline.length} events)</h3><div class="s-arrow">▾</div></div><div class="section-body">
     <table class="tbl"><thead><tr><th class="sortable" onclick="sortTable(this)">Turn</th><th>Type</th><th class="sortable" onclick="sortTable(this)">Item</th><th class="r">Detail</th></tr></thead><tbody>
-    ${timeline.map(e=>`<tr><td style="font-weight:700;color:var(--text3)">${e.turn}</td><td>${e.type==='buy'?'<span style="color:var(--yellow)">🛒 Buy</span>':e.preRace?'<span style="color:var(--cyan)">⚔ Pre-Race</span>':'<span style="color:var(--blue)">✨ Use</span>'}</td><td>${esc(e.name)}</td><td class="r">${e.type==='buy'?`<span class="cost-cell">🪙${e.cost}</span>`:`<span class="il-uses">×${e.useNum||1}</span>`}</td></tr>`).join('')}
+    ${timeline.map(e=>`<tr><td style="font-weight:700;color:var(--text3)">${e.turn}</td><td>${e.type==='buy'?'<span style="color:var(--yellow)">🛒 Buy</span>':e.preRace?'<span style="color:var(--cyan)">⚔ Pre-Race</span>':'<span style="color:var(--blue)">✨ Use</span>'}</td><td>${esc(fmtItem(e.name))}</td><td class="r">${e.type==='buy'?`<span class="cost-cell">🪙${e.cost}</span>`:`<span class="il-uses">×${e.useNum||1}</span>`}</td></tr>`).join('')}
     </tbody></table></div></div>`;
 
   el.innerHTML=html;
@@ -1405,7 +1442,7 @@ function buildRaceResults(data){
     const finalRank=rm.rankAfterClock||rm.rank||null;
     const usedClock=rm.usedClock||false;
 
-    const itemsUsed=(t.bot_item_use_selected||[]).map(i=>i.name||ITEM[i.item_id]||'');
+    const itemsUsed=[...(t.bot_item_use_selected||[]),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name||ITEM[i.item_id]||''));
 
     results.push({turn:t.turn,name,grade,distance:dist+(surface?' '+surface:''),finalRank,usedClock,itemsUsed});
   }
@@ -1578,6 +1615,23 @@ function fmtRes(r){if(!r||!Object.keys(r).length)return'';if(r.skip)return`<span
 function fmtDur(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);if(h)return`${h}h ${m%60}m`;if(m)return`${m}m ${s%60}s`;return`${s}s`}
 function fmtNum(n){return n>=1000000?(n/1000000).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':String(n)}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtItem(n){
+  const s=String(n||'');
+  const rules=[
+    [/^(Master|Artisan) Cleat Hammer$/,'Hammer ($1 Cleat)'],
+    [/^(Speed|Stamina|Power|Guts|Wit) Scroll$/,'Scroll ($1)'],
+    [/^(Speed|Stamina|Power|Guts|Wit) Manual$/,'Manual ($1)'],
+    [/^(Speed|Stamina|Power|Guts|Wit) Notepad$/,'Notepad ($1)'],
+    [/^(Speed|Stamina|Power|Guts) Ankle Weights$/,'Ankle Weights ($1)'],
+    [/^(Speed|Stamina|Power|Guts|Wit) Training Application$/,'Training App ($1)'],
+    [/^(Coaching|Motivating|Empowering) Megaphone$/,'Megaphone ($1)'],
+    [/^Vita (\d+)$/,'Vita ($1)'],
+    [/^(Plain|Berry Sweet) Cupcake$/,'Cupcake ($1)'],
+    [/^Energy Drink (.+)$/,'Energy Drink ($1)'],
+  ];
+  for(const [re,rep] of rules){if(re.test(s))return s.replace(re,rep)}
+  return s;
+}
 function smTag(cls,val,prev,title){if(val==null)return'';const d=(prev!=null&&val!==prev)?val-prev:null;const delta=d!==null?`<span class="dp ${d>=0?'pos':'neg'}">${d>=0?'+':''}${d}</span>`:'';return`<span class="sm ${cls}" title="${title}">${val}${delta}</span>`}
 function itemGroup(id){if(id===11002)return 0;if(id===11001)return 1;if(id>=8001&&id<=8003)return 2;if(id>=1201&&id<=1205)return 3;if(id>=1101&&id<=1105)return 4;return 5}
 function friendlySkipReason(r){
