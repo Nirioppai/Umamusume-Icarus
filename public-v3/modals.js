@@ -139,8 +139,14 @@
   //  mant_config (target 'mant'); the whole preset is POSTed back.
   // ============================================================
   const SETTINGS_PRIO = { 'tr-main': 'training_stat_priority', 'tr-event': 'event_choice_stat_priority', 'tr-summer': 'summer_stat_priority' };
-  function presetGet(p, t, k) { const o = t === 'mant' ? (p.mant_config || {}) : p; return o ? o[k] : undefined; }
-  function presetSet(p, t, k, v) { if (t === 'mant') { p.mant_config = p.mant_config || {}; p.mant_config[k] = v; } else { p[k] = v; } }
+  function presetGet(p, t, k) {
+    if (t === 'dist') { return ((p.mant_config || {}).race_strategy_by_distance || {})[k]; }
+    const o = t === 'mant' ? (p.mant_config || {}) : p; return o ? o[k] : undefined;
+  }
+  function presetSet(p, t, k, v) {
+    if (t === 'dist') { p.mant_config = p.mant_config || {}; p.mant_config.race_strategy_by_distance = p.mant_config.race_strategy_by_distance || {}; p.mant_config.race_strategy_by_distance[k] = v; return; }
+    if (t === 'mant') { p.mant_config = p.mant_config || {}; p.mant_config[k] = v; } else { p[k] = v; }
+  }
   async function loadActivePreset() {
     try {
       const all = await api('/api/settings-presets');
@@ -158,7 +164,7 @@
       if (type === 'bool') el.classList.toggle('on', !!v);
       else if (type === 'num') { el.value = v; const out = document.getElementById(el.dataset.val); if (out) out.textContent = v + (el.dataset.suffix || ''); }
       else if (type === 'str') el.value = String(v);
-      else if (type === 'chips') { const arr = Array.isArray(v) ? v.map(String) : []; el.querySelectorAll('.chiptog').forEach((c) => c.classList.toggle('on', arr.includes(c.dataset.chip))); }
+      else if (type === 'chips') { const arr = Array.isArray(v) ? v.map((s) => String(s).toLowerCase()) : []; el.querySelectorAll('.chiptog').forEach((c) => c.classList.toggle('on', arr.includes(c.dataset.chip.toLowerCase()))); }
     });
     // Stat-target grids (arrays — not simple data-k scalar types)
     const _stbd = (p.mant_config || {}).stat_targets_by_distance || {};
@@ -186,7 +192,7 @@
       if (type === 'bool') v = el.classList.contains('on');
       else if (type === 'num') v = parseFloat(el.value);
       else if (type === 'str') v = el.value;
-      else if (type === 'chips') v = [...el.querySelectorAll('.chiptog.on')].map((c) => c.dataset.chip);
+      else if (type === 'chips') { v = [...el.querySelectorAll('.chiptog.on')].map((c) => c.dataset.chip); if (['training_blacklist', 'preferred_distances', 'preferred_surfaces'].includes(k)) v = v.map((s) => s.toLowerCase()); }
       else return;
       presetSet(p, t, k, v);
     });
@@ -829,7 +835,7 @@
         title: 'TRAINING SETTINGS', wide: true, foot: saveBtn('/api/settings-presets'),
         body: `
           ${sec('PRIORITIES',
-              chips('Blacklist', STATS.map((s) => [s, false]), 'Stats excluded from training unless the skill-hint override is enabled.'),
+              chips('Blacklist', STATS.map((s) => [s, false]), 'Stats excluded from training unless the skill-hint override is enabled.', 'mant.training_blacklist'),
               prio('tr-main', 'Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Main stat order used by the native training scorer.'),
               prio('tr-event', 'Event Choice Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Stat order used when scoring event choices.'),
               prio('tr-summer', 'Summer Training Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Stat order used during Summer Training.'))}
@@ -900,12 +906,12 @@
               slider('rc-orw', 'Outcome-Risk Weight', 0, 5, 1, 0.5, '', '', 'mant.outcome_risk_weight'))}
             ${sec('STRATEGY',
               toggle('Per-Distance Strategy', false, 'Use separate running styles by race distance.', 'mant.enable_per_distance_strategy'),
-              sel('Junior Year Strategy', STYLE_OPTS, 'auto', 'Running style used during Junior Year races.'),
-              sel('Original Strategy', STYLE_OPTS, 'end', 'Default running style for Year 2+ and fallback races.'),
-              sel('Sprint Strategy', STYLE_OPTS, 'auto', 'Running style to use for sprint races when per-distance strategy is enabled.'),
-              sel('Mile Strategy', STYLE_OPTS, 'auto', 'Running style to use for mile races when per-distance strategy is enabled.'),
-              sel('Medium Strategy', STYLE_OPTS, 'auto', 'Running style to use for medium races when per-distance strategy is enabled.'),
-              sel('Long Strategy', STYLE_OPTS, 'auto', 'Running style to use for long races when per-distance strategy is enabled.'),
+              sel('Junior Year Strategy', STYLE_OPTS, 'auto', 'Running style used during Junior Year races.', 'mant.junior_running_style'),
+              sel('Original Strategy', STYLE_OPTS, 'end', 'Default running style for Year 2+ and fallback races.', 'mant.original_running_style'),
+              sel('Sprint Strategy', STYLE_OPTS, 'auto', 'Running style to use for sprint races when per-distance strategy is enabled.', 'dist.sprint'),
+              sel('Mile Strategy', STYLE_OPTS, 'auto', 'Running style to use for mile races when per-distance strategy is enabled.', 'dist.mile'),
+              sel('Medium Strategy', STYLE_OPTS, 'auto', 'Running style to use for medium races when per-distance strategy is enabled.', 'dist.medium'),
+              sel('Long Strategy', STYLE_OPTS, 'auto', 'Running style to use for long races when per-distance strategy is enabled.', 'dist.long'),
               row('Per-Race Style Overrides', 'Override the running style for specific races, optionally only when Stamina is below a threshold (blank = always). Applies even in Manual mode and reverts to your main style on the next race. Requires a concrete Original Strategy (not Auto).',
                 `<div class="rovr-list">${RACE_OVR.map((r) => `<div class="rovr"><div class="rovr-race"><strong>${r[0]}</strong><span>${r[1]} \u00b7 ${r[2]}</span></div><div class="rovr-ctrl"><div class="rovr-stam"><label>Stamina &lt;</label><input class="numf" type="number" placeholder="any"></div><select class="self"><option>No override</option>${STYLE_NAMES.map((s) => `<option>${s}</option>`).join('')}</select></div></div>`).join('')}</div>`, true))}
 `,
@@ -919,8 +925,8 @@
         title: 'SCENARIO OVERRIDES', wide: true, foot: `<button class="abtn danger" type="button" data-close>RESET TRACKBLAZER</button>${saveBtn('/api/settings-presets')}`,
         body: `            ${sec('RACING',
               slider('sc-crl', 'Consecutive Races Limit', 3, 30, 3, 1, '', '', 'mant.race_chain_target'),
-              chips('Preferred Track Distances', DISTANCES.map((d) => [d, d === 'Medium' || d === 'Long'])),
-              chips('Preferred Track Surfaces', SURFACES.map((s) => [s, s === 'Turf'])))}
+              chips('Preferred Track Distances', DISTANCES.map((d) => [d, d === 'Medium' || d === 'Long']), '', 'mant.preferred_distances'),
+              chips('Preferred Track Surfaces', SURFACES.map((s) => [s, s === 'Turf']), '', 'mant.preferred_surfaces'))}
             ${sec('ENERGY & RESOURCES',
               slider('sc-ert', 'Energy Threshold to use Energy Items', 0, 100, 40, 1, '', '', 'mant.energy_recovery_threshold'),
               slider('sc-ftf', 'Force-Train Energy Floor', 0, 50, 20, 1, '', '', 'mant.force_train_energy_floor'),
@@ -933,8 +939,8 @@
               toggle('Reset Whistle Forces Training', true, '', 'mant.whistle_forces_training'))}
             ${sec('SHOP & ITEMS',
               slider('sc-scf', 'Shop Check Frequency', 1, 4, 1, 1, '', '1 = every opportunity, 2 = every other, …', 'mant.trackblazer_shop_check_frequency'),
-              chips('Race Grades to Check Shop After', ['G1', 'G2', 'G3'].map((g) => [g, true])),
-              `<div class="field"><div class="field-label"><span>ITEMS TO EXCLUDE FROM SHOP</span></div><div class="segrow" data-multi="1">${SHOP.map((n) => `<button class="chiptog" type="button">${esc(n)}</button>`).join('')}</div></div>`)}
+              chips('Race Grades to Check Shop After', ['G1', 'G2', 'G3'].map((g) => [g, true]), '', 'mant.trackblazer_shop_check_grades'),
+              chips('Items to Exclude from Shop', SHOP.map((n) => [n, false]), '', 'mant.exclude_shop_items'))}
             ${sec('SHOP PURCHASE LOGIC',
               slider('sc-coin', 'Coin Reserve Override', 0, 300, 0, 5, '', '0 = automatic finale-aware reserve curve.', 'mant.mant_coin_reserve'),
               slider('sc-bbq', 'BBQ Buy Threshold (unmaxxed cards)', 0, 6, 3, 1, '', '', 'mant.bbq_unmaxxed_cards'),
