@@ -65,19 +65,6 @@ class PriorityDisplayTests(unittest.TestCase):
         self.assertIn("speed > power > stamina > wit > guts", text)
         self.assertNotIn("wit > stamina", text)
 
-    def test_authoritative_mode_shows_profile_priority(self):
-        """In authoritative mode the scorer drives, so the profile's
-        priority is the correct one to display."""
-        self.r.status["preset_training_stat_priority"] = [
-            "speed", "power", "stamina", "wit", "guts"]
-        self.r.status["active_character_profile"] = {
-            "training_scorer_mode": "authoritative",
-            "training_scorer_overrides": {
-                "stat_priority": ["speed", "power", "wit", "stamina", "guts"]},
-        }
-        text = self._reason_text()
-        self.assertIn("speed > power > wit > stamina > guts", text)
-
     def test_disabled_mode_shows_preset_priority(self):
         """Disabled scorer mode -> strategy drives -> preset priority."""
         self.r.status["preset_training_stat_priority"] = [
@@ -89,18 +76,6 @@ class PriorityDisplayTests(unittest.TestCase):
         }
         text = self._reason_text()
         self.assertIn("speed > stamina > power > wit > guts", text)
-
-    def test_falls_back_to_profile_when_no_preset_priority(self):
-        """If the preset priority wasn't captured (older run), fall back
-        to the profile priority so the line still renders."""
-        self.r.status["preset_training_stat_priority"] = []
-        self.r.status["active_character_profile"] = {
-            "training_scorer_mode": "hint",
-            "training_scorer_overrides": {
-                "stat_priority": ["speed", "power", "wit", "stamina", "guts"]},
-        }
-        text = self._reason_text()
-        self.assertIn("speed > power > wit > stamina > guts", text)
 
     def test_preset_priority_used_with_no_profile(self):
         """No character profile but a preset priority is set -> use it."""

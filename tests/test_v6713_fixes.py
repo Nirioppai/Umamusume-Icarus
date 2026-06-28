@@ -45,8 +45,6 @@ class NameBasedResolutionTests(unittest.TestCase):
         )
         self.assertEqual(profile.profile_id, "oguri_cap")
         self.assertEqual(profile.matched_via, "name")
-        # The hand-curated Oguri profile is in hint mode
-        self.assertEqual(profile.training_scorer_mode, "hint")
 
     def test_name_resolution_is_case_insensitive(self):
         profile = self.cp.resolve_profile(

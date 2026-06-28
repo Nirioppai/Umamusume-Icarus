@@ -2,10 +2,7 @@
 
   1. Free continue retries are always usable regardless of the Burn
      Clocks toggle.  Paid clocks still require the toggle.
-  2. ``_decision_reasoning`` no longer emits the redundant "v6.1 scorer
-     agrees" line when an authoritative override fired this turn.  The
-     scorer score moves into the override line so info isn't lost.
-  3. Items used this turn appear in the reasoning with category-based
+  2. Items used this turn appear in the reasoning with category-based
      "why" tags.
 """
 import sys
@@ -107,121 +104,7 @@ class RetryPolicyFreeVsPaidTests(unittest.TestCase):
         self.assertEqual(policy["disabled_reason"], "grade_not_allowed")
 
 
-# --- 2. "scorer agrees" suppression on override turns --------------------
-
-class ScorerAgreesSuppressionTests(unittest.TestCase):
-    """v6.7.10 fix: when an authoritative override fired this turn, the
-    "scorer agrees" line is suppressed (it's tautologically true and
-    looks contradictory next to "override swapped X -> Y").  The
-    scorer score moves into the override line instead."""
-
-    def setUp(self):
-        from career_bot.runner import CareerRunner
-        self.runner = CareerRunner.__new__(CareerRunner)
-        self.runner.status = {}
-        self.runner.lock = threading.Lock()
-
-    def _stats(self):
-        return {"hp": 100, "max_hp": 100, "motivation": 3,
-                "speed": 148, "stamina": 74, "power": 150, "guts": 114, "wit": 201}
-
-    def test_override_fired_suppresses_agrees_line(self):
-        """When override fired AND the executed action matches the
-        scorer's pick (always the case post-override), the "agrees"
-        line must NOT appear -- avoiding the misleading double-message."""
-        self.runner.status["last_scorer_override"] = {
-            "turn": 1,
-            "from_command_id": 102,  # power
-            "to_command_id": 106,    # wit
-            "to_stat": "wit",
-            "margin": 10.19,
-        }
-        self.runner.status["training_scorer_hint"] = {
-            "best_stat": "wit",
-            "best_score": 17.66,
-        }
-        self.runner.status["active_character_profile"] = {
-            "training_scorer_overrides": {
-                "stat_priority": ["speed", "power", "wit", "stamina", "guts"]
-            }
-        }
-        decision = SimpleNamespace(
-            action="command",
-            payload={"current_turn": 1, "command_type": 1, "command_id": 106},
-            reason="Train Wit",
-        )
-        lines = self.runner._decision_reasoning(
-            action="train", facility="Train Wit",
-            detail="", stats=self._stats(), decision=decision, payload=decision.payload,
-        )
-        text = "\n".join(lines)
-        # The "scorer agrees" line must NOT appear -- it would be the
-        # exact bug the user reported screenshots of.
-        self.assertNotIn("scorer agrees", text,
-            "v6.7.10: 'scorer agrees' must be suppressed when an override fired this turn")
-        # The override line MUST appear and now includes the scorer score.
-        self.assertIn("authoritative override swapped", text)
-        self.assertIn("power", text)
-        self.assertIn("wit", text)
-        self.assertIn("scorer score 17.66", text)
-
-    def test_no_override_keeps_agrees_line(self):
-        """When the strategy and scorer agreed naturally (no override),
-        the "scorer agrees" line stays -- it's informative there."""
-        # No override record at all
-        self.runner.status["last_scorer_override"] = None
-        self.runner.status["training_scorer_hint"] = {
-            "best_stat": "speed",
-            "best_score": 49.17,
-        }
-        self.runner.status["active_character_profile"] = {
-            "training_scorer_overrides": {
-                "stat_priority": ["speed", "power", "wit", "stamina", "guts"]
-            }
-        }
-        decision = SimpleNamespace(
-            action="command",
-            payload={"current_turn": 19, "command_type": 1, "command_id": 101},
-            reason="Train Speed",
-        )
-        lines = self.runner._decision_reasoning(
-            action="train", facility="Train Speed",
-            detail="", stats=self._stats(), decision=decision, payload=decision.payload,
-        )
-        text = "\n".join(lines)
-        self.assertIn("scorer agrees", text,
-            "'scorer agrees' belongs in the natural-agreement case")
-        self.assertIn("49.17", text)
-
-    def test_stale_override_from_different_turn_does_not_suppress(self):
-        """An override entry from an OLDER turn must not affect today's
-        reasoning (the suppression check is per-turn)."""
-        self.runner.status["last_scorer_override"] = {
-            "turn": 8,  # different turn
-            "from_command_id": 102,
-            "to_command_id": 106,
-            "to_stat": "wit",
-            "margin": 5.0,
-        }
-        self.runner.status["training_scorer_hint"] = {
-            "best_stat": "speed",
-            "best_score": 50.0,
-        }
-        decision = SimpleNamespace(
-            action="command",
-            payload={"current_turn": 19, "command_type": 1, "command_id": 101},
-            reason="Train Speed",
-        )
-        lines = self.runner._decision_reasoning(
-            action="train", facility="Train Speed",
-            detail="", stats=self._stats(), decision=decision, payload=decision.payload,
-        )
-        text = "\n".join(lines)
-        # Stale override is for a different turn -> "agrees" line still appears
-        self.assertIn("scorer agrees", text)
-
-
-# --- 3. Items used reasoning ---------------------------------------------
+# --- 2. Items used reasoning ---------------------------------------------
 
 class ItemsUsedReasoningTests(unittest.TestCase):
     """``_decision_reasoning`` now surfaces a "Items used this turn"

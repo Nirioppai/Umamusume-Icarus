@@ -4,6 +4,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MAIN = (ROOT / "main.py").read_text(encoding="utf-8")
+# The item-count payload parser was extracted from main.py into
+# career_bot/item_helpers.py; the source-text assertions below must cover both
+# files so the live-payload-variant coverage is still enforced after the move.
+ITEM_HELPERS = (ROOT / "career_bot" / "item_helpers.py").read_text(encoding="utf-8")
+ITEM_PARSER_SOURCE = MAIN + "\n" + ITEM_HELPERS
 CLIENT = (ROOT / "uma_api" / "client.py").read_text(encoding="utf-8")
 
 
@@ -15,11 +20,11 @@ class SweepyModV517ToughnessDetectionTests(unittest.TestCase):
         self.assertIn('return canonical', MAIN)
 
     def test_item_count_parser_accepts_live_payload_variants(self):
-        self.assertIn('"item_num"', MAIN)
-        self.assertIn('"itemNum"', MAIN)
-        self.assertIn('"owned_num"', MAIN)
-        self.assertIn('"own_num"', MAIN)
-        self.assertIn('"item_count"', MAIN)
+        self.assertIn('"item_num"', ITEM_PARSER_SOURCE)
+        self.assertIn('"itemNum"', ITEM_PARSER_SOURCE)
+        self.assertIn('"owned_num"', ITEM_PARSER_SOURCE)
+        self.assertIn('"own_num"', ITEM_PARSER_SOURCE)
+        self.assertIn('"item_count"', ITEM_PARSER_SOURCE)
 
     def test_uma_client_refreshes_item_map_with_non_number_counts(self):
         self.assertIn('def _payload_item_count', CLIENT)

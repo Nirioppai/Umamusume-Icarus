@@ -110,6 +110,21 @@ class TrackblazerP0ItemTests(unittest.TestCase):
         self.assertEqual(targets, [("Vita 65", 1)])
 
     def test_kale_pairs_with_cupcake_when_safe(self):
+        # The kale+cupcake combo is locked to summer turns (2026-06-25). On a
+        # summer turn it still pairs kale with a Plain cupcake mood offset.
+        mgr = MantItemManager()
+        client = FakeClient()
+        mgr.use_items(
+            client,
+            state(turn=38, vital=30, motivation=4, owned={"Royal Kale Juice": 1, "Plain Cupcake": 1}),
+            {"mant_config": {}},
+        )
+        selected = {row["name"] for row in mgr.last_use_selected}
+        self.assertIn("Royal Kale Juice", selected)
+        self.assertIn("Plain Cupcake", selected)
+
+    def test_kale_locked_outside_summer_mid_career(self):
+        # Mid-career, non-summer (turn 30): the combo is held back even when safe.
         mgr = MantItemManager()
         client = FakeClient()
         mgr.use_items(
@@ -118,15 +133,14 @@ class TrackblazerP0ItemTests(unittest.TestCase):
             {"mant_config": {}},
         )
         selected = {row["name"] for row in mgr.last_use_selected}
-        self.assertIn("Royal Kale Juice", selected)
-        self.assertIn("Plain Cupcake", selected)
+        self.assertNotIn("Royal Kale Juice", selected)
 
     def test_race_items_spend_before_conservation_and_reserve_finals(self):
         mgr = MantItemManager()
         planner = FakeRacePlanner()
         planner.program[100] = {"grade": "G1", "fans": 30000, "name": "Big G1"}
         pre = mgr._trackblazer_race_item_targets(
-            {"Master Cleat Hammer": 1, "Glow Sticks": 1}, 64, 100, {"mant_config": {}}, planner
+            {"Master Cleat Hammer": 1, "Glow Sticks": 1}, 20, 100, {"mant_config": {}}, planner
         )
         self.assertIn(("Master Cleat Hammer", 1), pre)
         self.assertIn(("Glow Sticks", 1), pre)

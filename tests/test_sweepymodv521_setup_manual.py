@@ -10,6 +10,7 @@ APP = (ROOT / "public" / "app.js").read_text(encoding="utf-8")
 MAIN = (ROOT / "main.py").read_text(encoding="utf-8")
 RACES = (ROOT / "career_bot" / "races.py").read_text(encoding="utf-8")
 MANT = (ROOT / "career_bot" / "scenarios" / "mant.py").read_text(encoding="utf-8")
+TRACKBLAZER = (ROOT / "career_bot" / "scenarios" / "mant_trackblazer.py").read_text(encoding="utf-8")
 
 
 class SweepyModV521SetupAndManualRaceTests(unittest.TestCase):
@@ -79,11 +80,14 @@ class SweepyModV521SetupAndManualRaceTests(unittest.TestCase):
             self.assertEqual(planner.choose(state, preset), 2)
 
     def test_irregular_training_does_not_hijack_manual_races(self):
-        self.assertIn('extra_race_list_source") or "").strip().lower() == "manual"', MANT)
-        self.assertLess(
-            MANT.index('extra_race_list_source") or "").strip().lower() == "manual"'),
-            MANT.index('if not cfg.get("enable_irregular_training", True):')
-        )
+        # The manual-mode guard now lives in the Trackblazer engine (the only
+        # scorer); the dormant Classic ``_irregular_training_decision`` that
+        # used to hold it in mant.py was removed.  Verify the Trackblazer core
+        # detects manual mode and gates its irregular-training / race-override
+        # branches on it.
+        self.assertIn('extra_race_list_source") or "").strip().lower() == "manual"', TRACKBLAZER)
+        self.assertIn("manual = _is_manual_mode(preset)", TRACKBLAZER)
+        self.assertIn("if not manual and not marquee", TRACKBLAZER)
         self.assertIn("is_manual_race_list", RACES)
         self.assertIn("if valid_wanted and is_manual_race_list", RACES)
 

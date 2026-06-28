@@ -12,7 +12,16 @@ APP_JS = (ROOT / "public" / "app.js").read_text(encoding="utf-8", errors="replac
 INDEX = (ROOT / "public" / "index.html").read_text(encoding="utf-8", errors="replace")
 
 DYNAMIC_IDS = {
+    # v2.1: persistent BETA badge appended to <body> by applyBetaBadge().
+    "beta-build-badge",
     "career-pill",
+    # Character Profile panel — these nodes are built via innerHTML inside the
+    # active-profile renderer, not present statically in index.html.
+    "cp-autopick-cb",
+    "cp-autopick-save",
+    "cp-epithets-clear",
+    "cp-epithets-save",
+    "cp-refresh",
     "guest-parent-grid",
     "guest-parent-refresh-btn",
     "guest-parent-status",
@@ -36,6 +45,8 @@ DYNAMIC_IDS = {
     "skill-deselect-all-btn",
     "skill-filters",
     "skill-list",
+    # Built into the skill-settings section via a template string in renderSkillConfig.
+    "skill-optimizer-toggle",
     "skill-plan-body",
     "skill-search",
     "skill-select-all-btn",
@@ -54,6 +65,25 @@ DYNAMIC_IDS = {
     "v516-library-group",
     "v518-left-stack",
     "v520-setup-shortcut-btn",
+    # v2.1: the standalone "AI Learning" launch button was folded into the
+    # unified "DIAG / AI" page (v516-diagnostics-btn + [data-diagai-tab] tabs).
+    # app.js keeps the cached ref + click binding behind optional chaining so it
+    # no-ops when the static button is absent.
+    "v535-ai-learning-btn",
+    # Help-modal empty-state node, created via createElement in the help panel.
+    "v6719-help-empty",
+    # Userdata diagnostics fallback card injected into the Diagnostics modal.
+    "v71-userdata-diag-card",
+    "v71-userdata-diag-open-btn",
+    "v71-userdata-diag-warning",
+    # v7.3 Manual Skill Tiers section — built via a template string in app.js
+    # (renderManualTierSection / search results), not static in index.html.
+    "v73-dont-spend-extra",
+    "v73-manual-tier-mode-badge",
+    "v73-manual-tier-results",
+    "v73-manual-tier-rows",
+    "v73-manual-tier-search",
+    "v73-manual-tier-target",
     "weighted-blacklist",
     "weighted-forced-skills",
     "weighted-live-preview",
@@ -86,8 +116,13 @@ def test_static_appjs_ids_exist_in_index_html():
 def test_static_class_selectors_exist():
     for cls in ("navbar", "split-gutter-controls", "title"):
         assert f'class="{cls}' in INDEX or f' {cls}' in INDEX, f"missing static class: {cls}"
+    # v2.1: the navbar title brand was changed from a text <span> to the Icarus
+    # logo <img>. The contract is that .title still carries its brand content.
     title = re.search(r'class="title"[^>]*>(.*?)</h1>', INDEX, re.S)
-    assert title and "<span" in title.group(1), ".title must contain a <span>"
+    assert title, ".title (navbar brand) element must exist"
+    assert "<span" in title.group(1) or "<img" in title.group(1), (
+        ".title must contain its brand content (a <span> or the logo <img>)"
+    )
 
 
 def test_collapse_buttons_present():

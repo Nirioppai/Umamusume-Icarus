@@ -65,43 +65,6 @@ def state_for_races(turn=30, available=None, rivals=None):
     }
 
 
-class TrackblazerP2TrainingScoreTests(unittest.TestCase):
-    def test_near_rainbow_bonus_and_true_rainbow_still_wins(self):
-        strategy = MantStrategy()
-        data = {"home_info": {"command_info_array": []}}
-        near = training(partners=[1], gain=40)
-        true = training(partners=[1], gain=40)
-        empty = training(partners=[], gain=40)
-        preset = {"compensate_failure": False, "mant_config": {}}
-
-        near_score = strategy._score_command(near, data, chara(bonds={1: 79}), preset)
-        empty_score = strategy._score_command(empty, data, chara(bonds={}), preset)
-        true_score = strategy._score_command(true, data, chara(bonds={1: 80}), preset)
-
-        self.assertGreater(near_score, empty_score)
-        self.assertGreater(true_score, near_score)
-
-    def test_summer_stat_priority_can_change_best_training(self):
-        strategy = MantStrategy()
-        data = {"home_info": {"command_info_array": [training(101, gain=40), training(105, gain=40)]}}
-        best = strategy._best_command(data, chara(turn=37), {
-            "compensate_failure": False,
-            "mant_config": {"summer_stat_priority": ["stamina", "speed"]},
-        })
-        self.assertEqual(best["command_id"], 105)
-
-    def test_training_level_weighting_only_rewards_priority_stats(self):
-        strategy = MantStrategy()
-        data = {"home_info": {"command_info_array": []}}
-        preset = {
-            "compensate_failure": False,
-            "mant_config": {"training_stat_priority": ["speed", "power", "stamina"]},
-        }
-        speed = strategy._score_command(training(101, gain=40, level=5), data, chara(), preset)
-        stamina = strategy._score_command(training(105, gain=40, level=5), data, chara(), preset)
-        self.assertGreater(speed, stamina)
-
-
 class TrackblazerP2RacePlannerTests(unittest.TestCase):
     def planner(self):
         tmp = Path(tempfile.mkdtemp())

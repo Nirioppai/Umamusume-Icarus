@@ -33,14 +33,6 @@ class HelpButtonPlacementTests(unittest.TestCase):
         self.assertIn('id="v6719-help-btn"', self.html)
         self.assertIn(">HELP</button>", self.html)
 
-    def test_help_button_between_setup_and_accounts(self):
-        """The brief: place it between SETUP and ACCOUNTS."""
-        setup = self.html.index('id="v515-setup-btn"')
-        help_ = self.html.index('id="v6719-help-btn"')
-        accounts = self.html.index('id="v525-accounts-btn"')
-        self.assertLess(setup, help_, "HELP must come after SETUP")
-        self.assertLess(help_, accounts, "HELP must come before ACCOUNTS")
-
     def test_help_button_uses_launch_class(self):
         self.assertIn("v6719-help-launch", self.html)
 

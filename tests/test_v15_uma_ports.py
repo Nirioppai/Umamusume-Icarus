@@ -1,10 +1,10 @@
 """v1.5: ports from UmaAuto's MANT scenario.
 
-Covers the two genuine feature gaps -- energy-rescue and junior bond-rush --
-plus the capped diminishing hint bonus.  (The under-target stat-balance boost
-and cap-aware stat curve already existed in Icarus as
-``_target_pressure_multiplier`` / ``_cap_adjusted_stat_gain_score`` and are
-exercised by the existing trackblazer tests.)
+Covers the energy-rescue helpers (``_rescue_energy_value`` and
+``_can_rescue_training``) that the Trackblazer engine delegates to via
+``self.ref._can_rescue_training``.  The junior bond-rush and capped hint-bonus
+tests that exercised the now-removed dormant Classic scorer (``_best_command`` /
+``_score_command``) were deleted along with that scorer.
 """
 import unittest
 
@@ -61,44 +61,6 @@ def data_with(commands, owned=None):
 PRESET = {"compensate_failure": False, "mant_config": {}}
 
 
-class BondableCountTests(unittest.TestCase):
-    def test_counts_only_unbonded_deck_partners(self):
-        s = MantStrategy()
-        cmd = training(partners=[1, 2, 3])
-        # partner 1 already at 80 (bonded), 2 at 40, 3 absent -> 0
-        self.assertEqual(s._bondable_count(cmd, chara(bonds={1: 80, 2: 40})), 2)
-
-    def test_empty_command(self):
-        self.assertEqual(MantStrategy()._bondable_count(None, chara()), 0)
-
-
-class JuniorBondRushTests(unittest.TestCase):
-    # `bond_train` raises two still-unbonded partners (1, 2); `rainbow` is a
-    # higher raw-score turn (two bonded rainbow partners + bigger gain) but
-    # bonds nobody new.  Bond-rush should prefer the former in Junior.
-    def _data(self):
-        bond_train = training(101, gain=30, partners=[1, 2])      # 2 unbonded
-        rainbow = training(102, gain=50, partners=[3, 4])         # 0 unbonded, rainbow
-        return data_with([bond_train, rainbow])
-
-    def _chara(self, turn):
-        return chara(turn=turn, bonds={3: 80, 4: 80})  # 1,2 unbonded; 3,4 rainbow
-
-    def test_junior_prefers_more_unbonded_partners_over_higher_score(self):
-        best = MantStrategy()._best_command(self._data(), self._chara(10), PRESET)
-        self.assertEqual(best["command_id"], 101)
-
-    def test_outside_junior_highest_score_wins(self):
-        best = MantStrategy()._best_command(self._data(), self._chara(30), PRESET)
-        self.assertEqual(best["command_id"], 102)
-
-    def test_junior_bond_rush_can_be_disabled(self):
-        best = MantStrategy()._best_command(
-            self._data(), self._chara(10),
-            {"compensate_failure": False, "mant_config": {"junior_bond_rush": False}})
-        self.assertEqual(best["command_id"], 102)
-
-
 class RescueEnergyValueTests(unittest.TestCase):
     def test_picks_smallest_sufficient_item(self):
         s = MantStrategy()
@@ -153,51 +115,6 @@ class CanRescueTrainingTests(unittest.TestCase):
         off = {"compensate_failure": False, "mant_config": {"rescue_good_training": False}}
         self.assertFalse(self.s._can_rescue_training(
             data, self.ch, off, self.rainbow, 0.6, vital=40, failure=0, rest_threshold=48))
-
-
-class EnergyRescueInBestCommandTests(unittest.TestCase):
-    def test_low_vital_rainbow_runs_training_instead_of_rest(self):
-        s = MantStrategy()
-        strong = training(101, gain=40, failure=0, partners=[1])
-        data = data_with([rest_cmd(), strong], owned={2003: 2})
-        best = s._best_command(data, chara(turn=30, vital=40, bonds={1: 80}), PRESET)
-        self.assertEqual(best["command_type"], 1)
-        self.assertEqual(best["command_id"], 101)
-        self.assertTrue(best.get("_energy_rescue"))
-
-    def test_low_vital_no_item_rests(self):
-        s = MantStrategy()
-        strong = training(101, gain=40, failure=0, partners=[1])
-        data = data_with([rest_cmd(), strong], owned={})  # nothing to rescue with
-        best = s._best_command(data, chara(turn=30, vital=40, bonds={1: 80}), PRESET)
-        self.assertEqual(best["command_type"], 7)
-
-
-class HintScalingTests(unittest.TestCase):
-    def cfg(self):
-        return {"compensate_failure": False,
-                "mant_config": {"enable_prioritize_skill_hints": True}}
-
-    def test_more_hints_score_higher(self):
-        s = MantStrategy()
-        data = {"home_info": {"command_info_array": []}}
-        one = training(101, partners=[1, 2, 3, 4, 5], tips=[1])
-        four = training(101, partners=[1, 2, 3, 4, 5], tips=[1, 2, 3, 4])
-        self.assertGreater(
-            s._score_command(four, data, chara(), self.cfg()),
-            s._score_command(one, data, chara(), self.cfg()),
-        )
-
-    def test_hint_count_capped_at_four(self):
-        s = MantStrategy()
-        data = {"home_info": {"command_info_array": []}}
-        four = training(101, partners=[1, 2, 3, 4, 5], tips=[1, 2, 3, 4])
-        five = training(101, partners=[1, 2, 3, 4, 5], tips=[1, 2, 3, 4, 5])
-        self.assertAlmostEqual(
-            s._score_command(four, data, chara(), self.cfg()),
-            s._score_command(five, data, chara(), self.cfg()),
-            places=6,
-        )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,3 @@
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,13 +6,19 @@ from career_bot.events import EventManager
 from career_bot.presets import serialize_preset
 
 
-def choice_event(story_id="900001", count=2):
+def choice_event(rewards, story_id="900001"):
+    """Build a choice event whose options carry inline rewards (the form
+    _inline_choice_rewards reads from the live event payload). ``rewards`` is a
+    list, one entry per choice, of a ``params_inc_dec_info_array`` list (or None
+    for a choice with no reward). The event_outcomes KB was removed, so effect
+    data must come through the payload (or the game8 scrape fallback)."""
     return {
         "story_id": story_id,
         "event_id": int(story_id),
         "event_contents_info": {
             "choice_array": [
-                {"select_index": idx + 1} for idx in range(count)
+                {**{"select_index": idx + 1}, **({"params_inc_dec_info_array": r} if r else {})}
+                for idx, r in enumerate(rewards)
             ]
         },
     }
@@ -23,74 +28,42 @@ class TrackblazerP3EventScoringTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.base = Path(self.tmp.name)
-        (self.base / "data").mkdir()
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def manager_with_outcomes(self, outcomes):
-        (self.base / "data" / "event_outcomes.json").write_text(json.dumps(outcomes), encoding="utf-8")
-        return EventManager(self.base)
-
     def test_event_choice_stat_priority_overrides_training_priority(self):
-        manager = self.manager_with_outcomes({
-            "900001": {
-                "outcomes": {"1": "", "2": ""},
-                "details": {
-                    "1": {"params_inc_dec_info_array": [{"target_type": 1, "value": 10}]},
-                    "2": {"params_inc_dec_info_array": [{"target_type": 2, "value": 10}]},
-                },
-            }
-        })
+        manager = EventManager(self.base)
+        event = choice_event([
+            [{"target_type": 1, "value": 10}],   # choice 1: Speed
+            [{"target_type": 2, "value": 10}],   # choice 2: Stamina
+        ])
         preset = {
             "training_stat_priority": ["speed", "stamina"],
             "event_choice_stat_priority": ["stamina", "speed"],
         }
-        self.assertEqual(manager.choose(choice_event(), preset, 25, {"vital": 80, "motivation": 5}), 1)
+        self.assertEqual(manager.choose(event, preset, 25, {"vital": 80, "motivation": 5}), 1)
         trace = manager.last_choice_trace
         self.assertEqual(trace["event_priority"][:2], ["stamina", "speed"])
         self.assertIn("stat_stamina", trace["scores"][1]["reason"])
 
-    def test_prioritize_event_energy_can_beat_good_label(self):
-        manager = self.manager_with_outcomes({
-            "900001": {
-                "outcomes": {"1": "good", "2": ""},
-                "details": {
-                    "1": {"skill_point": 5},
-                    "2": {"vital": 5},
-                },
-            }
-        })
+    def test_prioritize_event_energy_beats_skill_points(self):
+        manager = EventManager(self.base)
+        event = choice_event([
+            [{"target_type": 30, "value": 5}],   # choice 1: Skill points +5
+            [{"target_type": 10, "value": 5}],   # choice 2: Vital +5
+        ])
         preset = {"prioritize_event_energy": True}
-        self.assertEqual(manager.choose(choice_event(), preset, 25, {"vital": 20, "motivation": 5}), 1)
+        self.assertEqual(manager.choose(event, preset, 25, {"vital": 20, "motivation": 5}), 1)
         self.assertTrue(manager.last_choice_trace["energy_priority"])
 
     def test_full_energy_reward_is_ignored_without_priority_mode(self):
-        manager = self.manager_with_outcomes({
-            "900001": {
-                "outcomes": {"1": "", "2": ""},
-                "details": {
-                    "1": {"vital": 30},
-                    "2": {"skill_point": 10},
-                },
-            }
-        })
-        self.assertEqual(manager.choose(choice_event(), {}, 25, {"vital": 100, "max_vital": 100, "motivation": 5}), 1)
-
-    def test_mood_loss_and_chain_end_are_penalized(self):
-        manager = self.manager_with_outcomes({
-            "900001": {
-                "outcomes": {"1": "event chain ended", "2": "mood up"},
-                "details": {
-                    "1": {"speed": 50},
-                    "2": {"motivation": 1},
-                },
-            }
-        })
-        self.assertEqual(manager.choose(choice_event(), {}, 25, {"vital": 50, "motivation": 2}), 1)
-        reasons = [row["reason"] for row in manager.last_choice_trace["scores"]]
-        self.assertIn("ends_chain", reasons[0])
-        self.assertIn("mood", reasons[1])
+        manager = EventManager(self.base)
+        event = choice_event([
+            [{"target_type": 10, "value": 30}],  # choice 1: Vital +30 (energy already full)
+            [{"target_type": 30, "value": 10}],  # choice 2: Skill points +10
+        ])
+        self.assertEqual(manager.choose(event, {}, 25, {"vital": 100, "max_vital": 100, "motivation": 5}), 1)
 
     def test_preset_serialization_preserves_p3_event_fields(self):
         serialized = serialize_preset({

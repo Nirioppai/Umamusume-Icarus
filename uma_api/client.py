@@ -16,7 +16,7 @@ import socket
 import shutil
 from datetime import datetime
 from pathlib import Path
-from career_bot.delay import dna_sleep, dna_uniform, dna_gauss, dna_randint
+from career_bot.delay import dna_sleep, dna_uniform, dna_gauss
 
 class StateRecoveryError(Exception):
     pass
@@ -234,36 +234,88 @@ def get_ip():
     s.close()
     return ip
 
+def _read_smbios_identity():
+    """Return (system_product_name, board_manufacturer) from SMBIOS.
+
+    Reads whichever source is available -- they all expose the SAME firmware
+    data, so the derived device_name / device_id is identical regardless of which
+    one answers:
+      1. HARDWARE\DESCRIPTION\System\BIOS         (volatile hive; absent on some Windows builds)
+      2. SYSTEM\CurrentControlSet\Control\SystemInformation  (persistent)
+      3. WMI (Win32_ComputerSystemProduct / Win32_BaseBoard)
+    Returns ("", "") only if every source fails.
+    """
+    import winreg
+
+    def _qv(key, name):
+        try:
+            return str(winreg.QueryValueEx(key, name)[0]).strip()
+        except OSError:
+            return ""
+
+    # 1) Volatile BIOS hive (the original source).
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\BIOS") as k:
+            name = _qv(k, "SystemProductName")
+            if name:
+                return name, _qv(k, "BaseBoardManufacturer")
+    except OSError:
+        pass
+
+    # 2) Persistent SystemInformation key (same SMBIOS values).
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\SystemInformation") as k:
+            name = _qv(k, "SystemProductName")
+            if name:
+                # BaseBoardManufacturer is often blank here; SystemManufacturer
+                # carries the value the BIOS hive exposes as the board maker.
+                return name, (_qv(k, "BaseBoardManufacturer") or _qv(k, "SystemManufacturer"))
+    except OSError:
+        pass
+
+    # 3) WMI fallback (same firmware data, different access path).
+    try:
+        out = subprocess.check_output(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "$p=Get-CimInstance Win32_ComputerSystemProduct;"
+             "$b=Get-CimInstance Win32_BaseBoard;"
+             "Write-Output $p.Name; Write-Output $b.Manufacturer"],
+            stderr=subprocess.DEVNULL, text=True, timeout=20,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        lines = [ln.strip() for ln in out.splitlines() if ln.strip()]
+        if lines:
+            return lines[0], (lines[1] if len(lines) > 1 else "")
+    except Exception:
+        pass
+
+    return "", ""
+
+
 def get_hwid(seed_string="default"):
     guid = str(uuid.uuid4()).lower()
-    
+
     if platform.system() != "Windows":
         raise RuntimeError(f"Unsupported OS: {platform.system()}. Only Windows is supported for HWID consistency.")
-    
+
+    # v2.1: read system identity from whichever SMBIOS source is available
+    # (BIOS hive -> SystemInformation -> WMI). All expose the same firmware data,
+    # so device_name -- and therefore device_id -- is identical regardless of
+    # which one answers; the bot no longer refuses to start when the volatile
+    # HARDWARE\DESCRIPTION\System\BIOS key is missing on newer Windows builds.
+    device_name, board_mfg = _read_smbios_identity()
+    if board_mfg:
+        device_name = f"{device_name} ({board_mfg})"
+    if not device_name:
+        raise RuntimeError("Failed to fetch system product name from registry or WMI. Refusing to start.")
+
+    machine_guid = ""
     try:
         import winreg
-
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\BIOS") as bios_key:
-            device_name, _ = winreg.QueryValueEx(bios_key, "SystemProductName")
-            device_name = str(device_name).strip()
-            try:
-                board_mfg, _ = winreg.QueryValueEx(bios_key, "BaseBoardManufacturer")
-                if board_mfg:
-                    device_name = f"{device_name} ({str(board_mfg).strip()})"
-            except OSError:
-                pass
-        if not device_name:
-            raise RuntimeError("System product name returned empty. Refusing to start.")
-            
-        machine_guid = ""
-        try:
-            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography") as crypto_key:
-                machine_guid, _ = winreg.QueryValueEx(crypto_key, "MachineGuid")
-        except OSError:
-            pass
-            
-    except Exception as e:
-        raise RuntimeError(f"Failed to fetch system product name: {e}. Refusing to start.")
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography") as crypto_key:
+            machine_guid, _ = winreg.QueryValueEx(crypto_key, "MachineGuid")
+    except OSError:
+        pass
 
     hardware_string = f"{device_name}_{machine_guid}_{seed_string}"
     device_id = hashlib.sha1(hardware_string.encode()).hexdigest()
@@ -390,7 +442,6 @@ class UmaClient:
              pass
 
         self.sid = bytes(16)
-        self.cached_load_data = {}
         self.tp_info = {}
         self.coin_info = {}
         self.item_map = {}
@@ -443,67 +494,8 @@ class UmaClient:
             except Exception as e:
                 print(f"Error writing to log: {e}")
 
-    def api_payload_summary(self, ep, payload):
-        payload = payload or {}
-        summary = {"current_turn": payload.get("current_turn")}
-        if ep == "single_mode_free/gain_skills":
-            summary["gain_skill_info_array"] = payload.get("gain_skill_info_array") or []
-        elif ep == "single_mode_free/multi_item_exchange":
-            summary["exchange_item_info_array"] = payload.get("exchange_item_info_array") or []
-        elif ep == "single_mode_free/multi_item_use":
-            summary["use_item_info_array"] = payload.get("use_item_info_array") or []
-        return summary
 
-    def safe_payload(self, payload):
-        return dict(payload or {})
 
-    def response_summary(self, res):
-        data = res.get("data") or {}
-        headers = res.get("data_headers") or {}
-        chara = data.get("chara_info") or data.get("single_mode_chara_light") or {}
-        home = data.get("home_info") or {}
-        events = data.get("unchecked_event_array") or []
-        race = data.get("race_start_info") or {}
-        summary = {
-            "result_code": headers.get("result_code"),
-            "keys": list(data.keys()),
-        }
-        if chara:
-            summary["chara"] = {
-                "turn": chara.get("turn"),
-                "vital": chara.get("vital"),
-                "max_vital": chara.get("max_vital"),
-                "skill_point": chara.get("skill_point"),
-                "fans": chara.get("fans"),
-                "playing_state": chara.get("playing_state"),
-            }
-        if home:
-            summary["commands"] = [
-                {
-                    "type": item.get("command_type"),
-                    "id": item.get("command_id"),
-                    "group": item.get("command_group_id"),
-                    "enable": item.get("is_enable"),
-                    "fail": item.get("failure_rate"),
-                }
-                for item in home.get("command_info_array") or []
-            ]
-        if events:
-            summary["events"] = [
-                {
-                    "event_id": item.get("event_id"),
-                    "chara_id": item.get("chara_id"),
-                    "choices": len(((item.get("event_contents_info") or {}).get("choice_array") or [])),
-                }
-                for item in events
-            ]
-        if race:
-            summary["race_start_info"] = {
-                "program_id": race.get("program_id"),
-                "race_instance_id": race.get("race_instance_id"),
-                "is_short": race.get("is_short"),
-            }
-        return summary
 
     def auth_bytes(self):
         if not self.auth_key_hex or self.auth_key_hex == 'YOUR_AUTH_KEY_HERE':
@@ -564,7 +556,6 @@ class UmaClient:
     def refresh_cached_account_state(self, data):
         if not data:
             return
-        self.cached_load_data.update(data)
         if data.get('tp_info'):
             self.tp_info = data['tp_info']
         if data.get('coin_info'):
@@ -598,7 +589,7 @@ class UmaClient:
         if not hasattr(self, '_last_raw_call_ts'):
             self._last_raw_call_ts = 0
 
-        floor = max(0.14, MIN_CALL_SPACING)
+        floor = MIN_CALL_SPACING
         if floor > 0:
             el = time.time() - self._last_raw_call_ts
             if el < floor:

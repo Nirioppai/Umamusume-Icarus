@@ -10,6 +10,13 @@ from career_bot.running_style import (
     resolve_skill_running_style,
     running_style_key,
 )
+try:
+    from career_bot import skill_intercept  # DEV-ONLY web skill-buy intercept
+except Exception:  # excluded from beta/public builds -> intercept always off
+    class skill_intercept:  # type: ignore
+        @staticmethod
+        def is_enabled():
+            return False
 MARK_WHITE_CIRCLE = "○"
 MARK_DOUBLE_CIRCLE = "◎"
 MARK_X = "×"
@@ -180,29 +187,52 @@ class SkillBuyer:
         self.current_turn = None
         self.last_candidates = []
         self.last_selected = []
+        self.last_actual_spent = 0
         self.last_attempt = []
         self.last_result = {}
         self.recover_after_error = False
         self.attempt_events = []
+        # Career-persistent union of every skill id ever owned or bought.
+        # chara_info.skill_array is a PARTIAL rotating view (a handful of skills),
+        # not the full owned set, so the only reliable "owned" set is the union
+        # accumulated across the whole career. Without this the bot re-buys skills
+        # that rotated out of the partial view (the Fast-Paced / 200542 re-buy bug:
+        # sent to gain_skills 15x in one career despite being owned early on).
+        self._acquired_skill_ids = set()
         self._load()
 
     def _load(self):
         path = self.base_dir / "data" / "skill_data.json"
+        # Initialize tables up front so a parse failure leaves consistent EMPTY
+        # tables (and these attrs always exist) rather than a half-populated or
+        # missing set that would silently disable ALL skill buying with no clue.
+        self.skill_names = {}
+        self.skill_rarities = {}
+        self.skill_costs = {}
+        self.skill_grade_values = {}
+        self.skill_tags = {}
+        self.skill_categories = {}
+        self.skill_icons = {}
+        self.official_skill_weights = {}
+        self.skill_to_group_id = {}
+        self.load_error = None
         if not path.exists():
+            self.load_error = "skill_data.json not found"
             return
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            self.skill_names = {}
-            self.skill_rarities = {}
-            self.skill_costs = {}
-            self.skill_grade_values = {}
-            self.skill_tags = {}
-            self.skill_categories = {}
-            self.skill_icons = {}
-            self.official_skill_weights = {}
-            self.skill_to_group_id = {}
-            for raw_id, raw_info in data.items():
+        except Exception as exc:
+            # A corrupt/truncated skill_data.json must not silently kill skill
+            # buying for the whole career. Record + log it, run with empty tables.
+            self.load_error = f"skill_data.json parse failed: {exc}"
+            print(f"[SkillBuyer] {self.load_error}")
+            return
+        for raw_id, raw_info in data.items():
+            try:
                 skill_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            try:
                 if isinstance(raw_info, dict):
                     self.skill_names[skill_id] = raw_info.get("name") or str(skill_id)
                     self.skill_rarities[skill_id] = int(raw_info.get("rarity") or 0)
@@ -219,8 +249,9 @@ class SkillBuyer:
                     self.skill_tags[skill_id] = set()
                     self.skill_categories[skill_id] = -1
                     self.skill_icons[skill_id] = ""
-        except Exception:
-            return
+            except Exception:
+                # One malformed row must not abort the whole ~8000-row table.
+                continue
         self._load_community_tiers()
         self._load_official_skill_weights()
         self.skill_id_exists = set(self.skill_names)
@@ -638,6 +669,8 @@ class SkillBuyer:
             "skip_red_skills": bool(preset.get("skip_red_skills", False)),
             "skip_unique_skills": bool(preset.get("skip_unique_skills", False)),
             "skill_spending_strategy": str(preset.get("skill_spending_strategy") or "best_skills_first"),
+            "skill_stop_after_recommended": bool(preset.get("skill_stop_after_recommended", False)),
+            "skill_manual_auto_fallback": bool(preset.get("skill_manual_auto_fallback", False)),
         }
 
     def _candidate_allowed_by_skill_config(self, candidate, preset):
@@ -795,7 +828,31 @@ class SkillBuyer:
         return self._priority(raw_priority)
 
     def _blacklist(self, preset):
-        return {norm(item) for item in preset.get("learn_skill_blacklist") or []}
+        # v2.1: read BOTH legacy top-level learn_skill_blacklist AND the newer
+        # skill_strategy.blacklist (the Configure Skills UI writes to the latter),
+        # and accept skill IDs as well as names so the blacklist works regardless
+        # of which form the UI stored. The returned set mixes normalized names and
+        # integer skill ids; resolve_skill_tip checks both.
+        entries = list(preset.get("learn_skill_blacklist") or [])
+        strategy = preset.get("skill_strategy")
+        if isinstance(strategy, dict):
+            entries.extend(strategy.get("blacklist") or [])
+        result = set()
+        for item in entries:
+            if item is None:
+                continue
+            if isinstance(item, bool):
+                continue
+            if isinstance(item, int):
+                result.add(item)
+                continue
+            s = str(item).strip()
+            if not s:
+                continue
+            if s.isdigit():
+                result.add(int(s))
+            result.add(norm(s))
+        return result
 
     def _infer_skill_profile(self, chara, preset):
         raw = preset.get("skill_profile") or {}
@@ -897,6 +954,25 @@ class SkillBuyer:
         selected_id = STYLE_KEY_TO_ID.get(str(selected_style_key or "").lower())
         selected_label = STYLE_LABELS.get(selected_id or 0, str(selected_style_key or "selected style"))
         return True, f"style_mismatch:{selected_label}"
+
+    def _skill_distance_mismatch(self, skill_id, profile):
+        """Hard distance filter for the auto plan: a distance-exclusive skill whose
+        distance(s) are all outside the trainee's primary+secondary distances should
+        never be bought (e.g. a Long-only skill on a Miler). Returns (False, "") for
+        skills that carry no distance tag, or when the profile has no distance data
+        (so we never brick purchasing when aptitudes are unknown)."""
+        tags = set(self.skill_tags.get(int(skill_id or 0)) or set())
+        distance_tags = tags & IRRELEVANT_DISTANCE_TAGS
+        if not distance_tags:
+            return False, ""
+        allowed = {DISTANCE_TAGS.get(str(d).lower()) for d in (profile.get("primary_distances") or [])}
+        allowed |= {DISTANCE_TAGS.get(str(d).lower()) for d in (profile.get("secondary_distances") or [])}
+        allowed.discard(None)
+        if not allowed:
+            return False, ""
+        if distance_tags & allowed:
+            return False, ""
+        return True, "distance_mismatch"
 
     # Aptitude multiplier.  The reference optimiser scales a skill's
     # raw evaluation points by the trainee's aptitude grade for the dimension the
@@ -1099,8 +1175,26 @@ class SkillBuyer:
             return -9999
         return float(preset.get("smart_skill_min_score", 18))
 
+    def _recommended_skill_names(self, preset, profile):
+        """Base names of the character's recommended/best skills (the profile's
+        preferred_skill_names plus community SS/S tiers). Drives the auto
+        stop-after-recommended gate."""
+        names = set()
+        for n in (profile or {}).get("preferred_skill_names") or []:
+            names.add(norm(strip_mark(str(n))))
+        for tier in ("SS", "S"):
+            for n in self.community_tiers.get(tier, []):
+                names.add(norm(strip_mark(str(n))))
+        return names
+
     def _candidates(self, chara, preset):
-        owned = {int(item.get("skill_id") or 0) for item in chara.get("skill_array") or []}
+        current_owned = {int(item.get("skill_id") or 0) for item in chara.get("skill_array") or []}
+        # skill_array is a PARTIAL rotating view (a few skills), NOT the full owned
+        # set, so union it into a career-persistent acquired set and treat the union
+        # as owned. This is what stops the bot re-buying a skill that rotated out of
+        # the partial view (e.g. Fast-Paced/200542 re-bought 15x in one career).
+        self._acquired_skill_ids |= current_owned
+        owned = current_owned | self._acquired_skill_ids
         owned_groups = {self.skill_to_group_id.get(skill_id, skill_id // 10) for skill_id in owned}
         priority = self._priority_context(preset)
         blacklist = self._blacklist(preset)
@@ -1111,12 +1205,28 @@ class SkillBuyer:
             priority = {}
         smart_min_score = self._smart_min_score(preset, profile)
         result = []
+        # DIAGNOSTIC (2026-06-26): trace why the candidate set ends up empty — the
+        # bot evaluates affordable skills but selects 0, hoards SP, buys nothing.
+        # Logs ONLY when the final set is empty, so it's silent on healthy turns.
+        _dbg = {"turn": int(chara.get("turn") or 0), "tips": len(chara.get("skill_tips_array") or []),
+                "resolved": 0, "resolve_skipped": 0, "smart_dropped": 0, "min_score": smart_min_score,
+                "profile": bool(profile), "style": (profile or {}).get("running_style"),
+                "prim_dist": (profile or {}).get("primary_distances")}
+        def _log_funnel(reason, n_final):
+            if n_final == 0:
+                print(f"[skill-candidates] t{_dbg['turn']} EMPTY ({reason}): tips={_dbg['tips']} "
+                      f"resolved={_dbg['resolved']} resolve_skipped={_dbg['resolve_skipped']} "
+                      f"smart_dropped={_dbg['smart_dropped']} min_score={_dbg['min_score']} "
+                      f"profile={_dbg['profile']} style={_dbg['style']} prim_dist={_dbg['prim_dist']}")
         for tip in chara.get("skill_tips_array") or []:
             resolved = self.resolve_skill_tip(tip, owned, owned_groups, priority, blacklist, preset, profile)
             if not resolved or resolved.get("skip_reason"):
+                _dbg["resolve_skipped"] += 1
                 continue
             if profile and resolved.get("priority", 999) >= 999 and float(resolved.get("smart_score") or 0) < smart_min_score:
+                _dbg["smart_dropped"] += 1
                 continue
+            _dbg["resolved"] += 1
             result.append({
                 "skill_id": resolved["resolved_skill_id"],
                 "group_id": resolved["group_id"],
@@ -1155,6 +1265,16 @@ class SkillBuyer:
                 deduped.append(item)
         result = deduped
 
+        # v2.1 - Owned-by-name backstop. A skill already owned (by base name,
+        # ignoring rarity/tier marks) can never be re-selected: skills are
+        # single-purchase, so a re-selection is a redundant, never-charged
+        # attempt that pollutes the per-skill spend log (the "1,890 on one
+        # skill" symptom). resolve_skill_tip already drops owned ids; this
+        # catches name/group mismatches.
+        if owned:
+            owned_base_names = {norm(strip_mark(self.skill_names.get(sid, ""))) for sid in owned if sid}
+            result = [item for item in result if norm(strip_mark(item.get("name", ""))) not in owned_base_names]
+
         # v7.3 — Manual skill tier override.
         #
         # When the user has disabled "Enable Skill Point Check Plan (Beta)"
@@ -1170,24 +1290,59 @@ class SkillBuyer:
         # block silently no-ops and the smart-scorer ordering above is used —
         # so flipping the toggle never bricks skill purchasing if the user
         # hasn't built a tier list yet.
-        plan_check_enabled = bool(preset.get("enable_skill_point_check_plan", True))
-        if not plan_check_enabled:
-            tier_map = self._manual_tier_lookup(preset)
-            if tier_map:
-                filtered = [item for item in result if item.get("name") in tier_map]
-                if filtered:
-                    filtered.sort(key=lambda item: (
-                        tier_map.get(item.get("name"), 999),  # tier ascending
-                        -float(item.get("smart_score") or 0),
-                        int(item.get("cost") or 9999),
-                        item["skill_id"],
-                    ))
-                    result = filtered
+        # v2.1: manual skill tiers are now MANUAL MODE and no longer require the
+        # "Enable Skill Point Check Plan" toggle to be off (that gating silently
+        # ignored the user's tier list under the default). When the user has
+        # populated manual_skill_tiers, those are the skills to buy, ordered by
+        # tier. The "don't spend extra skill points" toggle (default ON) then
+        # makes the bot STOP after the listed skills, leaving remaining SP unspent;
+        # turn it OFF to let the auto plan spend the rest (distance/style filtered).
+        tier_map = self._manual_tier_lookup(preset)
+        if tier_map:
+            manual_items = [item for item in result if item.get("name") in tier_map]
+            manual_items.sort(key=lambda item: (
+                tier_map.get(item.get("name"), 999),  # tier ascending (tier 1 first)
+                -float(item.get("smart_score") or 0),
+                int(item.get("cost") or 9999),
+                item["skill_id"],
+            ))
+            # v2.1 - Manual mode buys ONLY the listed skills. Once every listed
+            # skill is owned, the bot stops -- unless the user enabled the
+            # auto-fallback toggle (then the auto plan spends the rest). Legacy
+            # manual_skill_tiers_dont_spend_extra=False also enables fallback.
+            auto_fallback = bool(preset.get("skill_manual_auto_fallback", False))
+            if not auto_fallback and preset.get("manual_skill_tiers_dont_spend_extra", True) is False:
+                auto_fallback = True
+            if manual_items:
+                result = manual_items
+            elif not auto_fallback:
+                result = []
+            # else: auto_fallback + no listed skills left -> keep the full auto result
         
+        # v2.1 - Auto stop-after-recommended. Once the character's recommended /
+        # best skills (preferred_skill_names + community SS/S) are all owned,
+        # stop generating candidates so SP isn't dumped into marginal skills.
+        # Bypassed pre-finals (turn >= pre_finals_skill_turn) so the trainee
+        # still gets kitted for the climax, and skipped in manual / user-list mode.
+        if cfg["skill_stop_after_recommended"]:
+            _turn_now = int(chara.get("turn") or 0)
+            _pre_finals = int(preset.get("pre_finals_skill_turn") or 73)
+            if _turn_now < _pre_finals and not tier_map:
+                _recommended = self._recommended_skill_names(preset, profile)
+                if _recommended and result and not any(
+                    norm(strip_mark(item.get("name", ""))) in _recommended for item in result
+                ):
+                    _log_funnel("stop_after_recommended: none of the resolved skills are character-recommended", 0)
+                    return []
+
         if preset.get("learn_skill_only_user_provided"):
             if not any(row for row in (preset.get("learn_skill_list") or [])):
+                _log_funnel("learn_skill_only_user_provided but learn_skill_list is empty", 0)
                 return []
-            return [item for item in result if item["priority"] < 999]
+            _user = [item for item in result if item["priority"] < 999]
+            _log_funnel("learn_skill_only_user_provided filter", len(_user))
+            return _user
+        _log_funnel("smart-score gate / post-resolve filters", len(result))
         return result
 
     def _manual_tier_lookup(self, preset):
@@ -1267,13 +1422,18 @@ class SkillBuyer:
             return row
 
         normal.sort(key=self._tier_sort_key)
+        # Skills the user explicitly placed in manual_skill_tiers are honored even
+        # if they are off-distance/off-style -- a manual choice overrides the auto
+        # hard filters (but never the blacklist).
+        manual_names = {norm(n) for n in self._manual_tier_lookup(preset or {})}
         valid_ranked = []
         for sid in normal:
             s_name = self.skill_names.get(sid, "")
             base_name = strip_mark(s_name)
-            if norm(s_name) in blacklist or norm(base_name) in blacklist:
+            if sid in blacklist or norm(s_name) in blacklist or norm(base_name) in blacklist:
                 row["skip_reason"] = "blacklist"
                 return row
+            manually_listed = norm(s_name) in manual_names or norm(base_name) in manual_names
             p_val = self._priority_value(sid, s_name, base_name, priority)
             profile_order = self._profile_name_priority(s_name, base_name, profile or {})
             if profile_order < 999:
@@ -1283,10 +1443,15 @@ class SkillBuyer:
                 p_val = min(p_val, self._community_priority_bucket(s_name, base_name))
             selected_style = self._selected_style_key(preset or {}, profile or {})
             mismatch, mismatch_reason = self._skill_style_mismatch(sid, selected_style)
-            if mismatch:
+            if mismatch and not manually_listed:
                 # Style-exclusive skills that contradict Racing Settings should
                 # never be purchased.  Neutral skills and matching-style skills
-                # remain eligible.
+                # remain eligible.  Manually-tiered skills bypass this filter.
+                continue
+            dist_mismatch, dist_reason = self._skill_distance_mismatch(sid, profile or {})
+            if dist_mismatch and not manually_listed:
+                # Off-distance exclusive skills (e.g. a Long-only skill on a Miler)
+                # are never auto-bought.  Manually-tiered skills bypass this filter.
                 continue
             smart_score, smart_reasons = self._skill_smart_score(sid, s_name, base_name, hint_level, profile or {}, preset)
             if mismatch_reason:
@@ -1402,20 +1567,204 @@ class SkillBuyer:
         }
         self.attempt_events.append(event)
 
+        # DEV-ONLY web skill intercept (broker). When enabled (dev dashboard
+        # toggle), block until the user confirms / edits / skips in the browser;
+        # when disabled (the default), proceed with the computed payload.
+        intercept_used = False
+        if skill_intercept.is_enabled():
+            cost_by_id = {int(c.get("skill_id") or 0): int(c.get("cost") or 0) for c in valid_candidates}
+            cands = [{"id": int(it["skill_id"]),
+                      "name": self.skill_names.get(it["skill_id"], "Unknown"),
+                      "cost": cost_by_id.get(int(it["skill_id"]), 0)} for it in payload]
+            # Catalog of every skill the trainee can buy this turn (all variants of
+            # each available tip group) with name + cost, so the popup can show what
+            # a typed-in ID is / costs and warn before the SP budget is exceeded.
+            catalog = self._intercept_catalog(chara, valid_candidates, cost_by_id)
+            decision = skill_intercept.request_decision(cands, turn, skill_point=points, catalog=catalog)
+            action = decision.get("action")
+            if action == "skip":
+                self.last_result = {"skip": "user_skipped", "turn": turn, "points": points}
+                event["result"] = self.last_result
+                return state, 0
+            # A confirm/proceed means the user spent time in the modal, so the
+            # runner thread was blocked (possibly for minutes). That stales the
+            # per-turn skill-buy state and the game then refuses the late buy with
+            # result_code 205 -> refresh the state before buying (below).
+            intercept_used = True
+            if action == "confirm":
+                # Keep the user's chosen ids that are real/buyable this turn AND fit
+                # the SP budget. ids arrive ticked-first then typed-last, so the
+                # affordability trim drops the typed extras first. This fixes
+                # "ticked a skill + typed the gold's ID -> bought NEITHER": gain_skills
+                # is all-or-nothing, so one unaffordable/un-buyable extra used to fail
+                # the WHOLE purchase. Now we drop it and still buy the rest.
+                _cost = {int(k): int(v.get("cost") or 0) for k, v in (catalog or {}).items()}
+                _cost.update(cost_by_id)
+                _buyable = set(_cost.keys())
+                kept_ids, dropped, running = [], [], 0
+                for raw in (decision.get("ids") or []):
+                    sid = int(raw or 0)
+                    if sid <= 0 or sid in kept_ids:
+                        continue
+                    if sid not in _buyable:
+                        dropped.append([sid, "not_buyable_this_turn"]); continue
+                    c = _cost.get(sid, 0)
+                    if running + c > points:
+                        dropped.append([sid, "over_budget"]); continue
+                    running += c
+                    kept_ids.append(sid)
+                if dropped:
+                    print(f"[skill-intercept] turn {turn}: SP {points}; buying {kept_ids} "
+                          f"(~{running} SP); skipped {dropped}")
+                payload = [{"skill_id": i, "level": 1} for i in kept_ids]
+                payload_ids = set(kept_ids)
+                event["payload"] = payload
+                if not payload:
+                    self.last_result = {"skip": "empty_payload", "turn": turn, "points": points, "dropped": dropped}
+                    event["result"] = self.last_result
+                    return state, 0
+            # action == "proceed": keep the bot's computed payload unchanged.
+
+        # Refresh-then-buy (fix #1): the web intercept can block the runner for
+        # minutes while the user decides; a gain_skills issued that long after the
+        # skill phase opened is refused by the game (result_code 205). When the
+        # intercept was used, reload the single-mode state so the buy is fresh.
+        if intercept_used:
+            state = self._reload_state(client, state)
+            ref_chara = (state.get("data") or {}).get("chara_info") or (state.get("data") or {}).get("single_mode_chara_light") or {}
+            points = int(ref_chara.get("skill_point") or points)
+
+        # Verify-and-retry (fix #2): gain_skills can return a 205 refusal or a 208
+        # 'busy' envelope that grants nothing yet looks non-fatal (client.py returns
+        # the 208 res for gain_skills instead of raising). The old code then recorded
+        # "ok" with 0 skills AND marked them acquired -> a silent failure that also
+        # blocked any retry. Now: confirm the grant against the reloaded state, retry
+        # on a genuine non-grant, and only record "ok" / mark acquired once confirmed.
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result = client.gain_skills(payload, turn)
+            except Exception as exc:
+                if attempt < max_attempts and any(code in str(exc) for code in ("201", "205", "208")):
+                    print(f"[skill-buy] gain_skills raised '{exc}' (attempt {attempt}/{max_attempts}); refreshing + retrying")
+                    state = self._reload_state(client, state)
+                    continue
+                print(f"Skill Purchase Error at turn {turn}: {exc}")
+                if any(code in str(exc) for code in ("201", "205", "208")):
+                    self.recover_after_error = True
+                self._failed_for_turn(turn).update(int(item["skill_id"]) for item in valid_candidates)
+                self.last_result = {"result": "failed", "turn": turn, "error": str(exc), "payload": payload}
+                event["result"] = self.last_result
+                return state, 0
+
+            rc = int(((result or {}).get("data_headers") or {}).get("result_code") or 0) if isinstance(result, dict) else 0
+            merged = self._merge_state(state, result)
+            confirmed, sp_after, actual_spent = self._confirm_purchases(merged, valid_candidates, points)
+
+            # Clean success that the (possibly partial) skill_array didn't list yet:
+            # reload once to get the authoritative owned set before recording.
+            if rc == 1 and not confirmed:
+                merged = self._reload_state(client, merged)
+                confirmed, sp_after, actual_spent = self._confirm_purchases(merged, valid_candidates, points)
+
+            if rc == 1 or confirmed:
+                self._acquired_skill_ids |= payload_ids   # mark only on a real buy
+                self.last_selected = [dict(item) for item in confirmed]
+                self.last_actual_spent = actual_spent
+                self.last_result = {"result": "ok", "turn": turn, "count": len(confirmed),
+                                    "requested": len(valid_candidates), "actual_spent": actual_spent,
+                                    "payload": payload, "attempts": attempt}
+                event["result"] = self.last_result
+                event["actual_spent"] = actual_spent
+                event["confirmed_count"] = len(confirmed)
+                self._failed_for_turn(turn).clear()
+                return merged, len(confirmed)
+
+            # Nothing granted (e.g. 205 refusal / 208 busy envelope): reload to be
+            # sure it truly didn't go through, then retry the buy against fresh state.
+            print(f"[skill-buy] turn {turn}: gain_skills granted nothing (rc={rc}), attempt {attempt}/{max_attempts}")
+            state = self._reload_state(client, state)
+            confirmed, sp_after, actual_spent = self._confirm_purchases(state, valid_candidates, points)
+            if confirmed:
+                self._acquired_skill_ids |= payload_ids
+                self.last_selected = [dict(item) for item in confirmed]
+                self.last_actual_spent = actual_spent
+                self.last_result = {"result": "ok", "turn": turn, "count": len(confirmed),
+                                    "requested": len(valid_candidates), "actual_spent": actual_spent,
+                                    "payload": payload, "attempts": attempt}
+                event["result"] = self.last_result
+                event["actual_spent"] = actual_spent
+                event["confirmed_count"] = len(confirmed)
+                self._failed_for_turn(turn).clear()
+                return state, len(confirmed)
+
+        # Exhausted all attempts without a confirmed grant: record a CLEAR failure
+        # and do NOT mark acquired, so these skills are retried on a later turn.
+        self.recover_after_error = True
+        self._failed_for_turn(turn).update(int(item["skill_id"]) for item in valid_candidates)
+        self.last_result = {"result": "failed", "turn": turn,
+                            "error": f"no skills granted after {max_attempts} attempts (likely 205/stale skill state)",
+                            "requested": len(valid_candidates), "payload": payload, "attempts": max_attempts}
+        event["result"] = self.last_result
+        return state, 0
+
+    def _intercept_catalog(self, chara, valid_candidates, cost_by_id=None):
+        """DEV intercept: {str(skill_id): {"name","cost"}} for every skill the
+        trainee can buy this turn (all variants of each available tip group), so the
+        popup can resolve a typed-in ID to its name + cost and check the SP budget.
+        Costs are estimated at each tip's hint level; the bot's own picks carry their
+        authoritative cost."""
+        catalog = {}
+        cost_by_id = cost_by_id or {}
+        for tip in (chara.get("skill_tips_array") or []):
+            gid = int(tip.get("group_id") or 0)
+            hint = int(tip.get("level") or tip.get("hint_level") or 0)
+            for sid in (self.group_to_skill_ids.get(gid, []) or []):
+                sid = int(sid or 0)
+                if sid <= 0 or str(sid) in catalog:
+                    continue
+                name = self.skill_names.get(sid, "")
+                try:
+                    cost = int(self._estimate_cost({"skill_id": sid, "name": name, "hint_level": hint}))
+                except Exception:
+                    cost = int(self.skill_costs.get(sid, 0) or 0)
+                catalog[str(sid)] = {"name": name or f"Skill {sid}", "cost": cost}
+        for c in (valid_candidates or []):
+            sid = int(c.get("skill_id") or 0)
+            if sid > 0:
+                catalog[str(sid)] = {"name": self.skill_names.get(sid, f"Skill {sid}"),
+                                     "cost": int(cost_by_id.get(sid, c.get("cost") or 0))}
+        return catalog
+
+    def _reload_state(self, client, state):
+        """Best-effort reload of the single-mode state (single_mode_free/load) so a
+        following gain_skills is issued against a fresh server context. The web
+        intercept can block the runner for minutes, staling the per-turn skill-buy
+        state and making the game refuse the purchase with result_code 205. Mirrors
+        the runner's reload-and-reconcile pattern for race_entry 205/208."""
+        loader = getattr(client, "load_career", None)
+        if not callable(loader):
+            return state
         try:
-            result = client.gain_skills(payload, turn)
-            self.last_result = {"result": "ok", "turn": turn, "count": len(valid_candidates), "payload": payload}
-            event["result"] = self.last_result
-            self._failed_for_turn(turn).clear()
-            return self._merge_state(state, result), len(valid_candidates)
+            return self._merge_state(state, loader())
         except Exception as exc:
-            print(f"Skill Purchase Error at turn {turn}: {exc}")
-            if any(code in str(exc) for code in ("201", "205", "208")):
-                self.recover_after_error = True
-            self._failed_for_turn(turn).update(int(item["skill_id"]) for item in valid_candidates)
-            self.last_result = {"result": "failed", "turn": turn, "error": str(exc), "payload": payload}
-            event["result"] = self.last_result
-            return state, 0
+            print(f"[skill-buy] state refresh failed (continuing with cached state): {exc}")
+            return state
+
+    def _confirm_purchases(self, state_after, valid_candidates, points_before):
+        """Return (confirmed_items, sp_after, actual_spent): which of the attempted
+        skills the server actually granted. Skills are single-purchase, so the server
+        silently no-ops already-owned ids; only confirmed grants are recorded."""
+        after_chara = (state_after.get("data") or {}).get("chara_info") or (state_after.get("data") or {}).get("single_mode_chara_light") or {}
+        sp_after = int(after_chara.get("skill_point") or 0)
+        actual_spent = max(0, int(points_before) - sp_after)
+        owned_after = {int(item.get("skill_id") or 0) for item in (after_chara.get("skill_array") or [])}
+        confirmed = [
+            item for item in valid_candidates
+            if int(item["skill_id"]) in owned_after
+            or any(int(b) in owned_after for b in (item.get("bundled_skill_ids") or []))
+        ]
+        return confirmed, sp_after, actual_spent
 
     def _merge_state(self, state, res):
         if res and isinstance(res, dict) and "data" in res:
@@ -1429,10 +1778,6 @@ class SkillBuyer:
         return state
 
 
-    def _select_skill_id(self, group_id, priority, owned, rarity=0):
-        owned_groups = {self.skill_to_group_id.get(sid, sid // 10) for sid in owned}
-        resolved = self.resolve_skill_tip({"group_id": group_id, "rarity": rarity, "level": 0}, set(owned), owned_groups, priority, set(), {}, None)
-        return int((resolved or {}).get("resolved_skill_id") or 0)
 
     def _estimate_cost(self, candidate):
         name = candidate.get("name") or ""

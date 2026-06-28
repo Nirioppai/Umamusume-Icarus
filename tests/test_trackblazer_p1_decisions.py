@@ -104,9 +104,10 @@ class TrackblazerP1DecisionTests(unittest.TestCase):
         self.assertEqual(decision.action, "race")
 
     def test_race_chain_break_recovers_on_critical_vital(self):
-        # This exercises the legacy ("Classic") engine's guide race-chain-break
-        # gate, which only runs when the Classic engine is selected. (The default
-        # Trackblazer engine has its own energy guard with different reasoning.)
+        # decision_mode "legacy" is now an alias for the Trackblazer engine
+        # (the dormant Classic race-chain-break gate was removed).  The
+        # Trackblazer engine has its own energy guard; with a long race
+        # streak and critical HP it substitutes a recovery command.
         strategy = MantStrategy(FakeRacePlanner())
         history = [
             {"turn": 27, "action": "race"},
@@ -115,9 +116,10 @@ class TrackblazerP1DecisionTests(unittest.TestCase):
         ]
         st = state(vital=8, commands=[training(gain=5, failure=0), recreation(), rest()], history=history)
         decision = strategy.next_decision(st, {"mant_config": {"decision_mode": "legacy"}, "compensate_failure": False})
+        # The Trackblazer engine must produce a recovery command (rest or
+        # recreation), never proceed to a 4th consecutive race at critical HP.
         self.assertEqual(decision.action, "command")
-        self.assertEqual(decision.payload["command_type"], 3)
-        self.assertIn("race-streak safety", decision.reason)
+        self.assertIn(decision.payload["command_type"], (3, 7))
 
 
 class TrackblazerP1WhistleTests(unittest.TestCase):
@@ -125,9 +127,12 @@ class TrackblazerP1WhistleTests(unittest.TestCase):
         mgr = MantItemManager()
         client = FakeClient()
         dead = training(gain=5, failure=0)
+        # v2.1 (#22): whistles are held for summer camp / late career and no
+        # longer burned on random mid-career turns. Use a summer turn so the
+        # whistle is actually allowed to fire on a dead training turn.
         mgr.use_items(
             client,
-            state(vital=70, owned={"Reset Whistle": 1}, commands=[dead]),
+            state(turn=38, vital=70, owned={"Reset Whistle": 1}, commands=[dead]),
             {"mant_config": {}},
             best_command=dead,
             status={"current_chara": {"vital": 70, "motivation": 4}},
@@ -138,7 +143,7 @@ class TrackblazerP1WhistleTests(unittest.TestCase):
         # Same turn: do not spend a second Whistle on the stale pre-shuffle command.
         mgr.use_items(
             client,
-            state(vital=70, owned={"Reset Whistle": 1}, commands=[dead]),
+            state(turn=38, vital=70, owned={"Reset Whistle": 1}, commands=[dead]),
             {"mant_config": {}},
             best_command=dead,
             status={"current_chara": {"vital": 70, "motivation": 4}},

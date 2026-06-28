@@ -6,11 +6,8 @@ Covers:
     file is missing
   - Per-scenario overrides: scenario block stomps base values, lists are
     replaced (not appended), dict fields shallow-merge
-  - ``training_scorer_config`` builds a real ``TrainingScorerConfig`` from
-    the override dict and silently ignores unknown keys
   - ``solver_weight_overrides`` returns a flat dict suitable for the solver
   - ``epithet_goals`` returns ``(target, forced)`` lists
-  - Mode normalization (hint / authoritative / disabled / unknown -> hint)
   - End-to-end resolution against the shipped Oguri Cap profile
 """
 
@@ -23,7 +20,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 from career_bot import character_profiles
-from career_bot import training_scorer as ts
 
 
 # --------------------------------------------------------------------------
@@ -53,7 +49,6 @@ class ResolveProfileTests(unittest.TestCase):
             profile = character_profiles.resolve_profile(card_id=12345, base_dir=base)
             self.assertEqual(profile.profile_id, "default")
             self.assertEqual(profile.matched_via, "default")
-            self.assertEqual(profile.training_scorer_overrides, {})
             self.assertEqual(profile.solver_overrides, {})
 
     def test_default_fallback_when_matched_file_missing(self):
@@ -188,66 +183,6 @@ class ScenarioOverrideTests(unittest.TestCase):
 # --------------------------------------------------------------------------
 
 
-class TrainingScorerConfigTests(unittest.TestCase):
-    def test_overrides_apply_to_config(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            write_profile_set(
-                base,
-                {"by_card_id": {"1": "x"}},
-                {
-                    "x": {
-                        "training_scorer_overrides": {
-                            "stat_priority": ["wit", "speed", "stamina", "power", "guts"],
-                            "rainbow_bonus_enabled": True,
-                            "max_failure_chance": 35,
-                        },
-                    },
-                    "default": {},
-                },
-            )
-            profile = character_profiles.resolve_profile(card_id=1, base_dir=base)
-            cfg = profile.training_scorer_config()
-            self.assertEqual(cfg.stat_priority[0], "wit")
-            self.assertTrue(cfg.rainbow_bonus_enabled)
-            self.assertEqual(cfg.max_failure_chance, 35)
-            # Untouched fields keep their defaults
-            self.assertEqual(cfg.weight_stat_efficiency, 0.60)
-
-    def test_unknown_override_keys_are_silently_ignored(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            write_profile_set(
-                base,
-                {"by_card_id": {"1": "x"}},
-                {
-                    "x": {"training_scorer_overrides": {"this_field_does_not_exist": 12345}},
-                    "default": {},
-                },
-            )
-            profile = character_profiles.resolve_profile(card_id=1, base_dir=base)
-            cfg = profile.training_scorer_config()  # Must not raise
-            self.assertFalse(hasattr(cfg, "this_field_does_not_exist"))
-
-    def test_stat_targets_override_propagates_to_config(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            tuned = {
-                "long": {"speed": 1050, "stamina": 1100, "power": 1000, "guts": 400, "wit": 1000},
-            }
-            write_profile_set(
-                base,
-                {"by_card_id": {"1": "x"}},
-                {
-                    "x": {"training_scorer_overrides": {"stat_targets": tuned}},
-                    "default": {},
-                },
-            )
-            profile = character_profiles.resolve_profile(card_id=1, base_dir=base)
-            cfg = profile.training_scorer_config()
-            self.assertEqual(cfg.stat_targets["long"]["stamina"], 1100)
-
-
 class SolverWeightOverridesTests(unittest.TestCase):
     def test_returns_flat_dict_for_solver(self):
         with tempfile.TemporaryDirectory() as td:
@@ -300,71 +235,6 @@ class EpithetGoalsTests(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------
-# Mode normalization
-# --------------------------------------------------------------------------
-
-
-class TrainingScorerModeTests(unittest.TestCase):
-    def test_default_mode_is_hint(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            profile = character_profiles.resolve_profile(card_id=0, base_dir=base)
-            self.assertEqual(profile.training_scorer_mode, "hint")
-
-    def test_authoritative_mode_loads(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            write_profile_set(
-                base,
-                {"by_card_id": {"1": "x"}},
-                {"x": {"training_scorer_mode": "authoritative"}, "default": {}},
-            )
-            profile = character_profiles.resolve_profile(card_id=1, base_dir=base)
-            self.assertEqual(profile.training_scorer_mode, "authoritative")
-
-    def test_unknown_mode_falls_back_to_hint(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            write_profile_set(
-                base,
-                {"by_card_id": {"1": "x"}},
-                {"x": {"training_scorer_mode": "yolo"}, "default": {}},
-            )
-            profile = character_profiles.resolve_profile(card_id=1, base_dir=base)
-            self.assertEqual(profile.training_scorer_mode, "hint")
-
-    def test_disabled_mode_loads(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            write_profile_set(
-                base,
-                {"by_card_id": {"1": "x"}},
-                {"x": {"training_scorer_mode": "disabled"}, "default": {}},
-            )
-            profile = character_profiles.resolve_profile(card_id=1, base_dir=base)
-            self.assertEqual(profile.training_scorer_mode, "disabled")
-
-    def test_per_scenario_mode_override(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            write_profile_set(
-                base,
-                {"by_card_id": {"1": "x"}},
-                {
-                    "x": {
-                        "training_scorer_mode": "hint",
-                        "scenarios": {"4": {"training_scorer_mode": "authoritative"}},
-                    },
-                    "default": {},
-                },
-            )
-            scen1 = character_profiles.resolve_profile(card_id=1, scenario_id=1, base_dir=base)
-            scen4 = character_profiles.resolve_profile(card_id=1, scenario_id=4, base_dir=base)
-            self.assertEqual(scen1.training_scorer_mode, "hint")
-            self.assertEqual(scen4.training_scorer_mode, "authoritative")
-
-
-# --------------------------------------------------------------------------
 # Shipped-profile regression
 # --------------------------------------------------------------------------
 
@@ -396,11 +266,6 @@ class ShippedProfilesRegressionTests(unittest.TestCase):
         self.assertEqual(weights["epithetValue"], 3.0)
         self.assertEqual(weights["raceCostPct"], 75.0)
         self.assertEqual(weights["lateSeniorRacePressure"], 20.0)
-        # Base training_scorer overrides reach the config
-        cfg = profile.training_scorer_config()
-        self.assertEqual(cfg.stat_priority, ["speed", "power", "stamina", "wit", "guts"])
-        self.assertTrue(cfg.rainbow_bonus_enabled)
-        self.assertEqual(cfg.stat_targets["long"]["stamina"], 1100)
         # Preferred distances reach through
         self.assertIn("mile", profile.preferred_distances)
         self.assertIn("medium", profile.preferred_distances)
@@ -409,37 +274,7 @@ class ShippedProfilesRegressionTests(unittest.TestCase):
         base_dir = Path(__file__).resolve().parent.parent
         profile = character_profiles.resolve_profile(card_id=999999, chara_id=999999, scenario_id=4, base_dir=base_dir)
         self.assertEqual(profile.profile_id, "default")
-        self.assertEqual(profile.training_scorer_overrides, {})
         self.assertEqual(profile.solver_overrides, {})
-        self.assertEqual(profile.training_scorer_mode, "hint")
-
-    def test_oguri_cap_produces_usable_training_scorer(self):
-        """End-to-end: load Oguri profile, get a TrainingScorerConfig, run
-        the scorer on a realistic command payload, verify it doesn't crash
-        and produces sensible output."""
-        base_dir = Path(__file__).resolve().parent.parent
-        profile = character_profiles.resolve_profile(card_id=100601, scenario_id=4, base_dir=base_dir)
-        cfg = profile.training_scorer_config()
-        chara = {
-            "speed": 600, "stamina": 250, "power": 500, "guts": 200, "wiz": 400,
-            "evaluation_info_array": [{"support_card_id": 4, "evaluation": 85}],
-            "proper_distance_mile": 8,  # S
-            "proper_distance_middle": 7,
-            "proper_distance_short": 5,
-            "proper_distance_long": 6,
-        }
-        home_info = {
-            "command_info_array": [
-                {"command_type": 1, "command_id": 101, "is_enable": 1,
-                 "training_partner_array": [4], "tips_event_partner_array": [],
-                 "params_inc_dec_info_array": [{"target_type": 1, "value": 12}],
-                 "failure_rate": 0, "level": 3},
-            ]
-        }
-        scores = ts.score_trainings(home_info, chara, config=cfg)
-        self.assertEqual(len(scores), 1)
-        self.assertGreater(scores[0].score, 0)
-        self.assertIsNone(scores[0].skipped_reason)
 
 
 # --------------------------------------------------------------------------
@@ -494,7 +329,6 @@ class AutoDerivationTests(unittest.TestCase):
             )
             self.assertEqual(profile.matched_via, "auto")
             self.assertEqual(profile.derivation, "auto_derived")
-            self.assertEqual(profile.training_scorer_overrides["stat_priority"][0], "stamina")
 
     def test_miler_gets_speed_priority(self):
         with tempfile.TemporaryDirectory() as td:
@@ -504,18 +338,6 @@ class AutoDerivationTests(unittest.TestCase):
                 card_id=99999, scenario_id=4, base_dir=base, chara_info=chara
             )
             self.assertEqual(profile.matched_via, "auto")
-            self.assertEqual(profile.training_scorer_overrides["stat_priority"][0], "speed")
-            self.assertEqual(profile.training_scorer_overrides["stat_priority"][1], "power")
-
-    def test_sprinter_gets_speed_power_priority(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            chara = make_chara(name="Test Sprinter", sprint=8, mile=6, medium=3, long_=1)
-            profile = character_profiles.resolve_profile(
-                card_id=99999, scenario_id=4, base_dir=base, chara_info=chara
-            )
-            self.assertEqual(profile.training_scorer_overrides["stat_priority"][0], "speed")
-            self.assertEqual(profile.training_scorer_overrides["stat_priority"][1], "power")
 
     def test_stamina_floor_scales_with_long_aptitude(self):
         with tempfile.TemporaryDirectory() as td:
@@ -545,30 +367,6 @@ class AutoDerivationTests(unittest.TestCase):
             self.assertIn("long", profile.preferred_distances)
             self.assertNotIn("sprint", profile.preferred_distances)
 
-    def test_per_distance_targets_scale_with_aptitude(self):
-        """A weak-distance target should be lower than a strong-distance one."""
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            chara = make_chara(long_=8, medium=7, mile=5, sprint=2)
-            profile = character_profiles.resolve_profile(
-                card_id=99999, scenario_id=4, base_dir=base, chara_info=chara
-            )
-            targets = profile.training_scorer_overrides["stat_targets"]
-            # Sprint (rank 2 = E) is much weaker than Long (rank 8 = S)
-            self.assertLess(targets["sprint"]["speed"], targets["long"]["speed"])
-
-    def test_rainbow_bonus_enabled_for_s_aptitude(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            # S-grade Mile aptitude (rank 8)
-            chara_s = make_chara(mile=8, medium=7, sprint=5, long_=4)
-            # A-grade Mile aptitude (rank 7) -- still strong but not S
-            chara_a = make_chara(mile=7, medium=7, sprint=5, long_=4)
-            s_prof = character_profiles.resolve_profile(card_id=99999, scenario_id=4, base_dir=base, chara_info=chara_s)
-            a_prof = character_profiles.resolve_profile(card_id=99999, scenario_id=4, base_dir=base, chara_info=chara_a)
-            self.assertTrue(s_prof.training_scorer_overrides.get("rainbow_bonus_enabled"))
-            self.assertNotIn("rainbow_bonus_enabled", a_prof.training_scorer_overrides)
-
     def test_letter_grade_aptitudes_also_work(self):
         """Aptitudes can come in as letter grades ('A', 'B', ...) or as
         numeric ranks; both should be handled."""
@@ -585,7 +383,6 @@ class AutoDerivationTests(unittest.TestCase):
                 card_id=99999, scenario_id=4, base_dir=base, chara_info=chara
             )
             self.assertEqual(profile.matched_via, "auto")
-            self.assertEqual(profile.training_scorer_overrides["stat_priority"][0], "speed")  # Mile=S
 
     def test_falls_back_to_default_when_no_aptitudes(self):
         with tempfile.TemporaryDirectory() as td:
@@ -665,15 +462,6 @@ class SpecialWeekProfileTests(unittest.TestCase):
         self.assertEqual(profile.profile_id, "special_week")
         self.assertEqual(profile.matched_via, "card_id")
 
-    def test_special_week_has_stamina_priority(self):
-        base_dir = Path(__file__).resolve().parent.parent
-        profile = character_profiles.resolve_profile(card_id=100101, scenario_id=4, base_dir=base_dir)
-        cfg = profile.training_scorer_config()
-        self.assertEqual(cfg.stat_priority[0], "stamina")
-        # Long should have very high stamina target
-        self.assertEqual(cfg.stat_targets["long"]["stamina"], 1200)
-
-
 # --------------------------------------------------------------------------
 # v6.5 -- the three new hand-curated profiles
 # --------------------------------------------------------------------------
@@ -694,12 +482,6 @@ class SakuraBakushinOProfileTests(unittest.TestCase):
     def test_sprinter_tuning(self):
         base_dir = Path(__file__).resolve().parent.parent
         profile = character_profiles.resolve_profile(card_id=104101, scenario_id=4, base_dir=base_dir)
-        cfg = profile.training_scorer_config()
-        # Pure sprinter -> Speed/Power top, low Stamina target
-        self.assertEqual(cfg.stat_priority[0], "speed")
-        self.assertEqual(cfg.stat_priority[1], "power")
-        # Sprint target should be full strength
-        self.assertEqual(cfg.stat_targets["sprint"]["speed"], 1200)
         # Long-distance stamina floor lowered for a sprinter
         self.assertEqual(profile.solver_overrides["longDistanceStaminaFloor"], 300)
         # Preferred distances are sprint + mile only
@@ -715,8 +497,6 @@ class DaiwaScarletProfileTests(unittest.TestCase):
     def test_mile_med_tuning(self):
         base_dir = Path(__file__).resolve().parent.parent
         profile = character_profiles.resolve_profile(card_id=100901, scenario_id=4, base_dir=base_dir)
-        cfg = profile.training_scorer_config()
-        self.assertEqual(cfg.stat_priority[0], "speed")
         # Mile/Medium specialist
         self.assertEqual(set(profile.preferred_distances), {"mile", "medium"})
         # Long-distance stamina floor between Sakura's 300 and Oguri's 450
@@ -737,8 +517,6 @@ class TokaiTeioProfileTests(unittest.TestCase):
     def test_medium_long_tuning(self):
         base_dir = Path(__file__).resolve().parent.parent
         profile = character_profiles.resolve_profile(card_id=100301, scenario_id=4, base_dir=base_dir)
-        cfg = profile.training_scorer_config()
-        self.assertEqual(cfg.stat_priority[0], "stamina")
         self.assertEqual(set(profile.preferred_distances), {"medium", "long"})
 
 

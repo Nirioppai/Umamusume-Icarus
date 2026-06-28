@@ -8,7 +8,12 @@ APP = (ROOT / "public" / "app.js").read_text(encoding="utf-8")
 INDEX = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
 STYLES = (ROOT / "public" / "styles.css").read_text(encoding="utf-8")
 MAIN = (ROOT / "main.py").read_text(encoding="utf-8")
-BUNDLED = json.loads((ROOT / "data" / "settings_presets.json").read_text(encoding="utf-8"))
+# v7.6: the bundled monolithic data/settings_presets.json was replaced by a
+# per-file preset store (data/presets/<slug>.json) plus an active pointer at
+# data/active_preset.json. The bundled "Default" preset now lives in its own
+# file, so read it from there instead of the retired monolithic file.
+BUNDLED_ACTIVE = json.loads((ROOT / "data" / "active_preset.json").read_text(encoding="utf-8"))
+BUNDLED_PRESET_FILES = sorted((ROOT / "data" / "presets").glob("*.json"))
 
 
 def test_settings_presets_can_store_team_selection_without_skill_config(tmp_path):
@@ -37,7 +42,9 @@ def test_settings_presets_can_store_team_selection_without_skill_config(tmp_path
 
 
 def test_bundled_default_has_empty_selection():
-    preset = BUNDLED["presets"][0]
+    assert BUNDLED_ACTIVE["active"] == "Default"
+    assert [p.stem for p in BUNDLED_PRESET_FILES] == ["Default"]
+    preset = json.loads(BUNDLED_PRESET_FILES[0].read_text(encoding="utf-8"))
     assert preset["name"] == "Default"
     assert preset.get("selection") == {}
 
@@ -66,6 +73,6 @@ def test_career_history_major_wins_are_snapshotted():
 
 
 def test_compact_controls_override_old_large_sync_layout():
-    assert "SweepyModv5.28: compact operator controls" in STYLES
+    assert "Pre Icarus v5.28: compact operator controls" in STYLES
     assert ".v520-sync-btn { display: none !important; }" in STYLES
     assert ".v526-pause-btn { grid-column: 3" in STYLES
