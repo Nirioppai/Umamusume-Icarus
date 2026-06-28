@@ -85,48 +85,6 @@
       "need_rank": 4
     },
     {
-      "available_skill_set_id": 100103,
-      "skill_id": 200332,
-      "skill_name": "Corner Adept ○",
-      "need_rank": 0
-    },
-    {
-      "available_skill_set_id": 100103,
-      "skill_id": 200612,
-      "skill_name": "Outer Swell",
-      "need_rank": 0
-    },
-    {
-      "available_skill_set_id": 100103,
-      "skill_id": 201172,
-      "skill_name": "Long Straightaways ○",
-      "need_rank": 2
-    },
-    {
-      "available_skill_set_id": 100103,
-      "skill_id": 201182,
-      "skill_name": "Long Corners ○",
-      "need_rank": 4
-    },
-    {
-      "available_skill_set_id": 100103,
-      "skill_id": 201211,
-      "skill_name": "Overwhelming Pressure",
-      "need_rank": 3
-    },
-    {
-      "available_skill_set_id": 100103,
-      "skill_id": 201212,
-      "skill_name": "Pressure",
-      "need_rank": 0
-    },
-    {
-      "available_skill_set_id": 100103,
-      "skill_id": 202061,
-      "skill_name": "Best in Japan",
-      "need_rank": 5
-    },
-    {
       "available_skill_set_id": 100201,
       "skill_id": 200022,
       "skill_name": "Left-Handed ○",
@@ -8117,1973 +8075,6 @@
           "skill_id": 200351,
           "skill_level": 1,
           "skill_name": "Swinging Maestro"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100050,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200154,
-          "skill_level": 1,
-          "skill_name": "Firm Course Menace"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200491,
-          "skill_level": 1,
-          "skill_name": "No Stopping Me!"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200572,
-          "skill_level": 1,
-          "skill_name": "Preferred Position"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200762,
-          "skill_level": 1,
-          "skill_name": "Extra Tank"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201172,
-          "skill_level": 1,
-          "skill_name": "Long Straightaways ○"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201201,
-          "skill_level": 1,
-          "skill_name": "VIP Pass"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201362,
-          "skill_level": 1,
-          "skill_name": "Tactical Tweak"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100051,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 201172,
-          "skill_level": 1,
-          "skill_name": "Long Straightaways ○"
-        },
-        {
-          "slot": 2,
-          "skill_id": 201532,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Savvy ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100052,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200331,
-          "skill_level": 1,
-          "skill_name": "Professor of Curvature"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200511,
-          "skill_level": 1,
-          "skill_name": "In Body and Mind"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200612,
-          "skill_level": 1,
-          "skill_name": "Outer Swell"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200742,
-          "skill_level": 1,
-          "skill_name": "Deep Breaths"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201351,
-          "skill_level": 1,
-          "skill_name": "Gourmand"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201542,
-          "skill_level": 1,
-          "skill_name": "Late Surger Savvy ○"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201611,
-          "skill_level": 1,
-          "skill_name": "Tail Held High"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100053,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200602,
-          "skill_level": 1,
-          "skill_name": "Slick Surge"
-        },
-        {
-          "slot": 2,
-          "skill_id": 201382,
-          "skill_level": 1,
-          "skill_name": "Late Surger Straightaways ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100054,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200012,
-          "skill_level": 1,
-          "skill_name": "Right-Handed ○"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200502,
-          "skill_level": 1,
-          "skill_name": "Go with the Flow"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201432,
-          "skill_level": 1,
-          "skill_name": "Studious"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100055,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200372,
-          "skill_level": 1,
-          "skill_name": "Straightaway Acceleration"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100056,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200382,
-          "skill_level": 1,
-          "skill_name": "Straightaway Recovery"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200601,
-          "skill_level": 1,
-          "skill_name": "On Your Left!"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200741,
-          "skill_level": 1,
-          "skill_name": "Cooldown"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200751,
-          "skill_level": 1,
-          "skill_name": "Innate Experience"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200901,
-          "skill_level": 1,
-          "skill_name": "Flustered Late Surgers"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201412,
-          "skill_level": 1,
-          "skill_name": "1,500,000 CC"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201432,
-          "skill_level": 1,
-          "skill_name": "Studious"
-        },
-        {
-          "slot": 8,
-          "skill_id": 300141,
-          "skill_level": 1,
-          "skill_name": "Indomitable"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100057,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200152,
-          "skill_level": 1,
-          "skill_name": "Firm Conditions ○"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200462,
-          "skill_level": 1,
-          "skill_name": "Ramp Up"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100058,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200441,
-          "skill_level": 1,
-          "skill_name": "Iron Will"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200561,
-          "skill_level": 1,
-          "skill_name": "Calm and Collected"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201102,
-          "skill_level": 1,
-          "skill_name": "Medium Straightaways ○"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201211,
-          "skill_level": 1,
-          "skill_name": "Overwhelming Pressure"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201312,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Straightaways ○"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201621,
-          "skill_level": 1,
-          "skill_name": "Shake It Out"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201902,
-          "skill_level": 1,
-          "skill_name": "Head-On"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100059,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100151,
-          "skill_level": 1,
-          "skill_name": "This Dance Is for Vittoria!"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200142,
-          "skill_level": 1,
-          "skill_name": "Non-Standard Distance ○"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200342,
-          "skill_level": 1,
-          "skill_name": "Corner Acceleration ○"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200351,
-          "skill_level": 1,
-          "skill_name": "Swinging Maestro"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200721,
-          "skill_level": 1,
-          "skill_name": "Killer Tunes"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201342,
-          "skill_level": 1,
-          "skill_name": "Straight Descent"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201651,
-          "skill_level": 1,
-          "skill_name": "Slipstream"
-        },
-        {
-          "slot": 8,
-          "skill_id": 202011,
-          "skill_level": 1,
-          "skill_name": "Headliner"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100060,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200282,
-          "skill_level": 1,
-          "skill_name": "Competitive Spirit ○"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200332,
-          "skill_level": 1,
-          "skill_name": "Corner Adept ○"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201422,
-          "skill_level": 1,
-          "skill_name": "A Small Breather"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100061,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100741,
-          "skill_level": 1,
-          "skill_name": "Lovely Spring Breeze"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200372,
-          "skill_level": 1,
-          "skill_name": "Straightaway Acceleration"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200442,
-          "skill_level": 1,
-          "skill_name": "Lay Low"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200591,
-          "skill_level": 1,
-          "skill_name": "Fast & Furious"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201542,
-          "skill_level": 1,
-          "skill_name": "Late Surger Savvy ○"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201601,
-          "skill_level": 1,
-          "skill_name": "Groundwork"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201691,
-          "skill_level": 1,
-          "skill_name": "Lie in Wait"
-        },
-        {
-          "slot": 8,
-          "skill_id": 202071,
-          "skill_level": 1,
-          "skill_name": "Of Calm Mind"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100062,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200352,
-          "skill_level": 1,
-          "skill_name": "Corner Recovery ○"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200442,
-          "skill_level": 1,
-          "skill_name": "Lay Low"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200452,
-          "skill_level": 1,
-          "skill_name": "Prudent Positioning"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200472,
-          "skill_level": 1,
-          "skill_name": "Pace Strategy"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100063,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200042,
-          "skill_level": 1,
-          "skill_name": "Nakayama Racecourse ○"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200362,
-          "skill_level": 1,
-          "skill_name": "Straightaway Adept"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100067,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100161,
-          "skill_level": 2,
-          "skill_name": "Shadow Break"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200511,
-          "skill_level": 1,
-          "skill_name": "In Body and Mind"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200611,
-          "skill_level": 1,
-          "skill_name": "Rising Dragon"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200722,
-          "skill_level": 1,
-          "skill_name": "Up-Tempo"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200562,
-          "skill_level": 1,
-          "skill_name": "Stamina to Spare"
-        },
-        {
-          "slot": 6,
-          "skill_id": 200592,
-          "skill_level": 1,
-          "skill_name": "Position Pilfer"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201641,
-          "skill_level": 1,
-          "skill_name": "Lone Wolf"
-        },
-        {
-          "slot": 8,
-          "skill_id": 200011,
-          "skill_level": 1,
-          "skill_name": "Right-Handed ◎"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100069,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100131,
-          "skill_level": 2,
-          "skill_name": "The Duty of Dignity Calls"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200332,
-          "skill_level": 1,
-          "skill_name": "Corner Adept ○"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200561,
-          "skill_level": 1,
-          "skill_name": "Calm and Collected"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200581,
-          "skill_level": 1,
-          "skill_name": "Speed Star"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200362,
-          "skill_level": 1,
-          "skill_name": "Straightaway Adept"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201902,
-          "skill_level": 1,
-          "skill_name": "Head-On"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200572,
-          "skill_level": 1,
-          "skill_name": "Preferred Position"
-        },
-        {
-          "slot": 8,
-          "skill_id": 201311,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Straightaways ◎"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100071,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100301,
-          "skill_level": 2,
-          "skill_name": "Blue Rose Closer"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200351,
-          "skill_level": 1,
-          "skill_name": "Swinging Maestro"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201341,
-          "skill_level": 1,
-          "skill_name": "Determined Descent"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201372,
-          "skill_level": 1,
-          "skill_name": "Disorient"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201581,
-          "skill_level": 1,
-          "skill_name": "Highlander"
-        },
-        {
-          "slot": 6,
-          "skill_id": 200372,
-          "skill_level": 1,
-          "skill_name": "Straightaway Acceleration"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200562,
-          "skill_level": 1,
-          "skill_name": "Stamina to Spare"
-        },
-        {
-          "slot": 8,
-          "skill_id": 200452,
-          "skill_level": 1,
-          "skill_name": "Prudent Positioning"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100072,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100351,
-          "skill_level": 2,
-          "skill_name": "Our Ticket to Win!"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200591,
-          "skill_level": 1,
-          "skill_name": "Fast & Furious"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201402,
-          "skill_level": 1,
-          "skill_name": "Fighter"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200511,
-          "skill_level": 1,
-          "skill_name": "In Body and Mind"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200732,
-          "skill_level": 1,
-          "skill_name": "Steadfast"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201102,
-          "skill_level": 1,
-          "skill_name": "Medium Straightaways ○"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200612,
-          "skill_level": 1,
-          "skill_name": "Outer Swell"
-        },
-        {
-          "slot": 8,
-          "skill_id": 200032,
-          "skill_level": 1,
-          "skill_name": "Tokyo Racecourse ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100073,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100071,
-          "skill_level": 5,
-          "skill_name": "Anchors Aweigh!"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200341,
-          "skill_level": 1,
-          "skill_name": "Corner Connoisseur"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201481,
-          "skill_level": 1,
-          "skill_name": "Go-Home Specialist"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201471,
-          "skill_level": 1,
-          "skill_name": "The Coast Is Clear!"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200372,
-          "skill_level": 1,
-          "skill_name": "Straightaway Acceleration"
-        },
-        {
-          "slot": 6,
-          "skill_id": 200051,
-          "skill_level": 1,
-          "skill_name": "Hanshin Racecourse ◎"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200622,
-          "skill_level": 1,
-          "skill_name": "Standing By"
-        },
-        {
-          "slot": 8,
-          "skill_id": 201551,
-          "skill_level": 1,
-          "skill_name": "End Closer Savvy ◎"
-        },
-        {
-          "slot": 9,
-          "skill_id": 200641,
-          "skill_level": 1,
-          "skill_name": "Encroaching Shadow"
-        },
-        {
-          "slot": 10,
-          "skill_id": 200462,
-          "skill_level": 1,
-          "skill_name": "Ramp Up"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100075,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 201352,
-          "skill_level": 1,
-          "skill_name": "Hydrate"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200771,
-          "skill_level": 1,
-          "skill_name": "Trick (Front)"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201581,
-          "skill_level": 1,
-          "skill_name": "Highlander"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200512,
-          "skill_level": 1,
-          "skill_name": "Homestretch Haste"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100076,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100611,
-          "skill_level": 1,
-          "skill_name": "Prideful King"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200601,
-          "skill_level": 1,
-          "skill_name": "On Your Left!"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201431,
-          "skill_level": 1,
-          "skill_name": "The Bigger Picture"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200612,
-          "skill_level": 1,
-          "skill_name": "Outer Swell"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200492,
-          "skill_level": 1,
-          "skill_name": "Nimble Navigator"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201072,
-          "skill_level": 1,
-          "skill_name": "Unyielding Spirit"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100077,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200722,
-          "skill_level": 1,
-          "skill_name": "Up-Tempo"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200581,
-          "skill_level": 1,
-          "skill_name": "Speed Star"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200562,
-          "skill_level": 1,
-          "skill_name": "Stamina to Spare"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200332,
-          "skill_level": 1,
-          "skill_name": "Corner Adept ○"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200032,
-          "skill_level": 1,
-          "skill_name": "Tokyo Racecourse ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100078,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 201322,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Corners ○"
-        },
-        {
-          "slot": 2,
-          "skill_id": 201162,
-          "skill_level": 1,
-          "skill_name": "Murmur"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200841,
-          "skill_level": 1,
-          "skill_name": "Flustered Front Runners"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201142,
-          "skill_level": 1,
-          "skill_name": "Soft Step"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201661,
-          "skill_level": 1,
-          "skill_name": "Playtime's Over!"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100079,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 201601,
-          "skill_level": 1,
-          "skill_name": "Groundwork"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200712,
-          "skill_level": 1,
-          "skill_name": "Rosy Outlook"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200432,
-          "skill_level": 1,
-          "skill_name": "Focus"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200162,
-          "skill_level": 1,
-          "skill_name": "Wet Conditions ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100080,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 201692,
-          "skill_level": 1,
-          "skill_name": "Be Still"
-        },
-        {
-          "slot": 2,
-          "skill_id": 202152,
-          "skill_level": 1,
-          "skill_name": "Full Throttle"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200602,
-          "skill_level": 1,
-          "skill_name": "Slick Surge"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201152,
-          "skill_level": 1,
-          "skill_name": "Tether"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201442,
-          "skill_level": 1,
-          "skill_name": "Sharp Gaze"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100081,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200631,
-          "skill_level": 1,
-          "skill_name": "Sturm und Drang"
-        },
-        {
-          "slot": 2,
-          "skill_id": 202122,
-          "skill_level": 1,
-          "skill_name": "Fearless"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201461,
-          "skill_level": 1,
-          "skill_name": "End Closer Corners ◎"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201651,
-          "skill_level": 1,
-          "skill_name": "Slipstream"
-        },
-        {
-          "slot": 5,
-          "skill_id": 202022,
-          "skill_level": 1,
-          "skill_name": "Early Start"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100082,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200611,
-          "skill_level": 1,
-          "skill_name": "Rising Dragon"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200602,
-          "skill_level": 1,
-          "skill_name": "Slick Surge"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200592,
-          "skill_level": 1,
-          "skill_name": "Position Pilfer"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200732,
-          "skill_level": 1,
-          "skill_name": "Steadfast"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100083,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 201902,
-          "skill_level": 1,
-          "skill_name": "Head-On"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200562,
-          "skill_level": 1,
-          "skill_name": "Stamina to Spare"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201122,
-          "skill_level": 1,
-          "skill_name": "Hawkeye"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201311,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Straightaways ◎"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201531,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Savvy ◎"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100084,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200631,
-          "skill_level": 1,
-          "skill_name": "Sturm und Drang"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200622,
-          "skill_level": 1,
-          "skill_name": "Standing By"
-        },
-        {
-          "slot": 3,
-          "skill_id": 202082,
-          "skill_level": 1,
-          "skill_name": "Take the Chance"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201142,
-          "skill_level": 1,
-          "skill_name": "Soft Step"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201152,
-          "skill_level": 1,
-          "skill_name": "Tether"
-        },
-        {
-          "slot": 6,
-          "skill_id": 200342,
-          "skill_level": 1,
-          "skill_name": "Corner Acceleration ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100085,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100201,
-          "skill_level": 1,
-          "skill_name": "Angling and Scheming"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200541,
-          "skill_level": 1,
-          "skill_name": "Escape Artist"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201191,
-          "skill_level": 1,
-          "skill_name": "Vanguard Spirit"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200552,
-          "skill_level": 1,
-          "skill_name": "Final Push"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200741,
-          "skill_level": 1,
-          "skill_name": "Cooldown"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201272,
-          "skill_level": 1,
-          "skill_name": "Leader's Pride"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200251,
-          "skill_level": 1,
-          "skill_name": "Inner Post Proficiency ◎"
-        },
-        {
-          "slot": 8,
-          "skill_id": 200301,
-          "skill_level": 1,
-          "skill_name": "Long Shot ◎"
-        },
-        {
-          "slot": 9,
-          "skill_id": 200712,
-          "skill_level": 1,
-          "skill_name": "Rosy Outlook"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100086,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 201411,
-          "skill_level": 1,
-          "skill_name": "15,000,000 CC"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200382,
-          "skill_level": 1,
-          "skill_name": "Straightaway Recovery"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200612,
-          "skill_level": 1,
-          "skill_name": "Outer Swell"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200502,
-          "skill_level": 1,
-          "skill_name": "Go with the Flow"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200462,
-          "skill_level": 1,
-          "skill_name": "Ramp Up"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100087,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200362,
-          "skill_level": 1,
-          "skill_name": "Straightaway Adept"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200372,
-          "skill_level": 1,
-          "skill_name": "Straightaway Acceleration"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200462,
-          "skill_level": 1,
-          "skill_name": "Ramp Up"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200172,
-          "skill_level": 1,
-          "skill_name": "Spring Runner ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100088,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200581,
-          "skill_level": 1,
-          "skill_name": "Speed Star"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200571,
-          "skill_level": 1,
-          "skill_name": "Race Planner"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200301,
-          "skill_level": 1,
-          "skill_name": "Long Shot ◎"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200512,
-          "skill_level": 1,
-          "skill_name": "Homestretch Haste"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201111,
-          "skill_level": 1,
-          "skill_name": "Medium Corners ◎"
-        },
-        {
-          "slot": 6,
-          "skill_id": 200732,
-          "skill_level": 1,
-          "skill_name": "Steadfast"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100089,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200641,
-          "skill_level": 1,
-          "skill_name": "Encroaching Shadow"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200631,
-          "skill_level": 1,
-          "skill_name": "Sturm und Drang"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200622,
-          "skill_level": 1,
-          "skill_name": "Standing By"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200352,
-          "skill_level": 1,
-          "skill_name": "Corner Recovery ○"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201101,
-          "skill_level": 1,
-          "skill_name": "Medium Straightaways ◎"
-        },
-        {
-          "slot": 6,
-          "skill_id": 202022,
-          "skill_level": 1,
-          "skill_name": "Early Start"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100090,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200602,
-          "skill_level": 1,
-          "skill_name": "Slick Surge"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200591,
-          "skill_level": 1,
-          "skill_name": "Fast & Furious"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201402,
-          "skill_level": 1,
-          "skill_name": "Fighter"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200781,
-          "skill_level": 1,
-          "skill_name": "Trick (Rear)"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200612,
-          "skill_level": 1,
-          "skill_name": "Outer Swell"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100091,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200622,
-          "skill_level": 1,
-          "skill_name": "Standing By"
-        },
-        {
-          "slot": 2,
-          "skill_id": 201591,
-          "skill_level": 1,
-          "skill_name": "Uma Stan"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200332,
-          "skill_level": 1,
-          "skill_name": "Corner Adept ○"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200632,
-          "skill_level": 1,
-          "skill_name": "Masterful Gambit"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100092,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100301,
-          "skill_level": 3,
-          "skill_name": "Blue Rose Closer"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200351,
-          "skill_level": 1,
-          "skill_name": "Swinging Maestro"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201341,
-          "skill_level": 1,
-          "skill_name": "Determined Descent"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200772,
-          "skill_level": 1,
-          "skill_name": "Tantalizing Trick"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201372,
-          "skill_level": 1,
-          "skill_name": "Disorient"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201581,
-          "skill_level": 1,
-          "skill_name": "Highlander"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200861,
-          "skill_level": 1,
-          "skill_name": "Subdued Pace Chasers"
-        },
-        {
-          "slot": 8,
-          "skill_id": 200562,
-          "skill_level": 1,
-          "skill_name": "Stamina to Spare"
-        },
-        {
-          "slot": 9,
-          "skill_id": 200151,
-          "skill_level": 1,
-          "skill_name": "Firm Conditions ◎"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100093,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100351,
-          "skill_level": 3,
-          "skill_name": "Our Ticket to Win!"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200591,
-          "skill_level": 1,
-          "skill_name": "Fast & Furious"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201401,
-          "skill_level": 1,
-          "skill_name": "Hard Worker"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200601,
-          "skill_level": 1,
-          "skill_name": "On Your Left!"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200512,
-          "skill_level": 1,
-          "skill_name": "Homestretch Haste"
-        },
-        {
-          "slot": 6,
-          "skill_id": 200732,
-          "skill_level": 1,
-          "skill_name": "Steadfast"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201101,
-          "skill_level": 1,
-          "skill_name": "Medium Straightaways ◎"
-        },
-        {
-          "slot": 8,
-          "skill_id": 201391,
-          "skill_level": 1,
-          "skill_name": "Late Surger Corners ◎"
-        },
-        {
-          "slot": 9,
-          "skill_id": 200151,
-          "skill_level": 1,
-          "skill_name": "Firm Conditions ◎"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100094,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100161,
-          "skill_level": 3,
-          "skill_name": "Shadow Break"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200511,
-          "skill_level": 1,
-          "skill_name": "In Body and Mind"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200361,
-          "skill_level": 1,
-          "skill_name": "Beeline Burst"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200611,
-          "skill_level": 1,
-          "skill_name": "Rising Dragon"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200722,
-          "skill_level": 1,
-          "skill_name": "Up-Tempo"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201111,
-          "skill_level": 1,
-          "skill_name": "Medium Corners ◎"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201101,
-          "skill_level": 1,
-          "skill_name": "Medium Straightaways ◎"
-        },
-        {
-          "slot": 8,
-          "skill_id": 201321,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Corners ◎"
-        },
-        {
-          "slot": 9,
-          "skill_id": 201641,
-          "skill_level": 1,
-          "skill_name": "Lone Wolf"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100095,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200371,
-          "skill_level": 1,
-          "skill_name": "Rushing Gale!"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200572,
-          "skill_level": 1,
-          "skill_name": "Preferred Position"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201332,
-          "skill_level": 1,
-          "skill_name": "Shrewd Step"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200352,
-          "skill_level": 1,
-          "skill_name": "Corner Recovery ○"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200032,
-          "skill_level": 1,
-          "skill_name": "Tokyo Racecourse ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100096,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100131,
-          "skill_level": 3,
-          "skill_name": "The Duty of Dignity Calls"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200361,
-          "skill_level": 1,
-          "skill_name": "Beeline Burst"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200561,
-          "skill_level": 1,
-          "skill_name": "Calm and Collected"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200581,
-          "skill_level": 1,
-          "skill_name": "Speed Star"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200332,
-          "skill_level": 1,
-          "skill_name": "Corner Adept ○"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201902,
-          "skill_level": 1,
-          "skill_name": "Head-On"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200572,
-          "skill_level": 1,
-          "skill_name": "Preferred Position"
-        },
-        {
-          "slot": 8,
-          "skill_id": 201311,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Straightaways ◎"
-        },
-        {
-          "slot": 9,
-          "skill_id": 200171,
-          "skill_level": 1,
-          "skill_name": "Spring Runner ◎"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100097,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100021,
-          "skill_level": 3,
-          "skill_name": "The View from the Lead Is Mine!"
-        },
-        {
-          "slot": 2,
-          "skill_id": 202051,
-          "skill_level": 1,
-          "skill_name": "Runaway"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200531,
-          "skill_level": 1,
-          "skill_name": "Taking the Lead"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200551,
-          "skill_level": 1,
-          "skill_name": "Unrestrained"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200431,
-          "skill_level": 1,
-          "skill_name": "Concentration"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201251,
-          "skill_level": 1,
-          "skill_name": "Front Runner Corners ◎"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200712,
-          "skill_level": 1,
-          "skill_name": "Rosy Outlook"
-        },
-        {
-          "slot": 8,
-          "skill_id": 201241,
-          "skill_level": 1,
-          "skill_name": "Front Runner Straightaways ◎"
-        },
-        {
-          "slot": 9,
-          "skill_id": 200021,
-          "skill_level": 1,
-          "skill_name": "Left-Handed ◎"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100098,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200451,
-          "skill_level": 1,
-          "skill_name": "Center Stage"
-        },
-        {
-          "slot": 2,
-          "skill_id": 201292,
-          "skill_level": 1,
-          "skill_name": "Second Wind"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201272,
-          "skill_level": 1,
-          "skill_name": "Leader's Pride"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200432,
-          "skill_level": 1,
-          "skill_name": "Focus"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200192,
-          "skill_level": 1,
-          "skill_name": "Fall Runner ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100099,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200581,
-          "skill_level": 1,
-          "skill_name": "Speed Star"
-        },
-        {
-          "slot": 2,
-          "skill_id": 201352,
-          "skill_level": 1,
-          "skill_name": "Hydrate"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201312,
-          "skill_level": 1,
-          "skill_name": "Pace Chaser Straightaways ○"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200342,
-          "skill_level": 1,
-          "skill_name": "Corner Acceleration ○"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200262,
-          "skill_level": 1,
-          "skill_name": "Outer Post Proficiency ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100100,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200441,
-          "skill_level": 1,
-          "skill_name": "Iron Will"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200642,
-          "skill_level": 1,
-          "skill_name": "Straightaway Spurt"
-        },
-        {
-          "slot": 3,
-          "skill_id": 202022,
-          "skill_level": 1,
-          "skill_name": "Early Start"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200492,
-          "skill_level": 1,
-          "skill_name": "Nimble Navigator"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200252,
-          "skill_level": 1,
-          "skill_name": "Inner Post Proficiency ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100101,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200341,
-          "skill_level": 1,
-          "skill_name": "Corner Connoisseur"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200632,
-          "skill_level": 1,
-          "skill_name": "Masterful Gambit"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200622,
-          "skill_level": 1,
-          "skill_name": "Standing By"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200472,
-          "skill_level": 1,
-          "skill_name": "Pace Strategy"
-        },
-        {
-          "slot": 5,
-          "skill_id": 201552,
-          "skill_level": 1,
-          "skill_name": "End Closer Savvy ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100102,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200491,
-          "skill_level": 1,
-          "skill_name": "No Stopping Me!"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200602,
-          "skill_level": 1,
-          "skill_name": "Slick Surge"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201402,
-          "skill_level": 1,
-          "skill_name": "Fighter"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200512,
-          "skill_level": 1,
-          "skill_name": "Homestretch Haste"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200262,
-          "skill_level": 1,
-          "skill_name": "Outer Post Proficiency ○"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100103,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100071,
-          "skill_level": 3,
-          "skill_name": "Anchors Aweigh!"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200341,
-          "skill_level": 1,
-          "skill_name": "Corner Connoisseur"
-        },
-        {
-          "slot": 3,
-          "skill_id": 201481,
-          "skill_level": 1,
-          "skill_name": "Go-Home Specialist"
-        },
-        {
-          "slot": 4,
-          "skill_id": 201471,
-          "skill_level": 1,
-          "skill_name": "The Coast Is Clear!"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200642,
-          "skill_level": 1,
-          "skill_name": "Straightaway Spurt"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201591,
-          "skill_level": 1,
-          "skill_name": "Uma Stan"
-        },
-        {
-          "slot": 7,
-          "skill_id": 200622,
-          "skill_level": 1,
-          "skill_name": "Standing By"
-        },
-        {
-          "slot": 8,
-          "skill_id": 201551,
-          "skill_level": 1,
-          "skill_name": "End Closer Savvy ◎"
-        },
-        {
-          "slot": 9,
-          "skill_id": 201461,
-          "skill_level": 1,
-          "skill_name": "End Closer Corners ◎"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 100104,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 100011,
-          "skill_level": 3,
-          "skill_name": "Shooting Star"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200511,
-          "skill_level": 1,
-          "skill_name": "In Body and Mind"
-        },
-        {
-          "slot": 3,
-          "skill_id": 200591,
-          "skill_level": 1,
-          "skill_name": "Fast & Furious"
-        },
-        {
-          "slot": 4,
-          "skill_id": 200611,
-          "skill_level": 1,
-          "skill_name": "Rising Dragon"
-        },
-        {
-          "slot": 5,
-          "skill_id": 200732,
-          "skill_level": 1,
-          "skill_name": "Steadfast"
-        },
-        {
-          "slot": 6,
-          "skill_id": 201402,
-          "skill_level": 1,
-          "skill_name": "Fighter"
-        },
-        {
-          "slot": 7,
-          "skill_id": 201702,
-          "skill_level": 1,
-          "skill_name": "All I've Got"
-        },
-        {
-          "slot": 8,
-          "skill_id": 201541,
-          "skill_level": 1,
-          "skill_name": "Late Surger Savvy ◎"
-        },
-        {
-          "slot": 9,
-          "skill_id": 200031,
-          "skill_level": 1,
-          "skill_name": "Tokyo Racecourse ◎"
         }
       ]
     },
@@ -21539,39 +19530,6 @@
           "skill_id": 110611,
           "skill_level": 3,
           "skill_name": "Louder! Tracen Cheer!"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 12010103,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 120011,
-          "skill_level": 1,
-          "skill_name": "Dreams Donned with Pride!"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 12010104,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 120011,
-          "skill_level": 2,
-          "skill_name": "Dreams Donned with Pride!"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 12010105,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 120011,
-          "skill_level": 3,
-          "skill_name": "Dreams Donned with Pride!"
         }
       ]
     },
@@ -36710,108 +34668,6 @@
           "skill_name": "Updrafters"
         }
       ]
-    },
-    {
-      "skill_set_id": 61800130,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200452,
-          "skill_level": 1,
-          "skill_name": "Prudent Positioning"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200532,
-          "skill_level": 1,
-          "skill_name": "Early Lead"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 61805930,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200572,
-          "skill_level": 1,
-          "skill_name": "Preferred Position"
-        },
-        {
-          "slot": 2,
-          "skill_id": 201142,
-          "skill_level": 1,
-          "skill_name": "Soft Step"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 61808530,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200592,
-          "skill_level": 1,
-          "skill_name": "Position Pilfer"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200602,
-          "skill_level": 1,
-          "skill_name": "Slick Surge"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 61812730,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200542,
-          "skill_level": 1,
-          "skill_name": "Fast-Paced"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200712,
-          "skill_level": 1,
-          "skill_name": "Rosy Outlook"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 61829230,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200462,
-          "skill_level": 1,
-          "skill_name": "Ramp Up"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200622,
-          "skill_level": 1,
-          "skill_name": "Standing By"
-        }
-      ]
-    },
-    {
-      "skill_set_id": 61851530,
-      "skills": [
-        {
-          "slot": 1,
-          "skill_id": 200462,
-          "skill_level": 1,
-          "skill_name": "Ramp Up"
-        },
-        {
-          "slot": 2,
-          "skill_id": 200572,
-          "skill_level": 1,
-          "skill_name": "Preferred Position"
-        }
-      ]
     }
   ],
   "trainee_sources": [
@@ -40366,56 +38222,6 @@
       ]
     },
     {
-      "card_id": 100103,
-      "chara_id": 1001,
-      "name": "Special Week",
-      "available_skill_set_id": 100103,
-      "skills": [
-        {
-          "available_skill_set_id": 100103,
-          "skill_id": 200332,
-          "skill_name": "Corner Adept ○",
-          "need_rank": 0
-        },
-        {
-          "available_skill_set_id": 100103,
-          "skill_id": 201212,
-          "skill_name": "Pressure",
-          "need_rank": 0
-        },
-        {
-          "available_skill_set_id": 100103,
-          "skill_id": 200612,
-          "skill_name": "Outer Swell",
-          "need_rank": 0
-        },
-        {
-          "available_skill_set_id": 100103,
-          "skill_id": 201172,
-          "skill_name": "Long Straightaways ○",
-          "need_rank": 2
-        },
-        {
-          "available_skill_set_id": 100103,
-          "skill_id": 201211,
-          "skill_name": "Overwhelming Pressure",
-          "need_rank": 3
-        },
-        {
-          "available_skill_set_id": 100103,
-          "skill_id": 201182,
-          "skill_name": "Long Corners ○",
-          "need_rank": 4
-        },
-        {
-          "available_skill_set_id": 100103,
-          "skill_id": 202061,
-          "skill_name": "Best in Japan",
-          "need_rank": 5
-        }
-      ]
-    },
-    {
       "card_id": 104501,
       "chara_id": 1045,
       "name": "Super Creek",
@@ -41866,15 +39672,6 @@
       "skills": []
     },
     {
-      "support_card_id": 10081,
-      "name": "Tsurumaru Tsuyoshi",
-      "rarity": 1,
-      "command_id": 103,
-      "command_label": "power",
-      "skill_set_id": 9081073,
-      "skills": []
-    },
-    {
       "support_card_id": 10051,
       "name": "Twin Turbo",
       "rarity": 1,
@@ -42016,15 +39813,6 @@
       "command_id": 101,
       "command_label": "speed",
       "skill_set_id": 9081037,
-      "skills": []
-    },
-    {
-      "support_card_id": 20033,
-      "name": "El Condor Pasa",
-      "rarity": 2,
-      "command_id": 101,
-      "command_label": "speed",
-      "skill_set_id": 9081014,
       "skills": []
     },
     {
@@ -42559,15 +40347,6 @@
       "skills": []
     },
     {
-      "support_card_id": 30067,
-      "name": "Heirs to the Throne",
-      "rarity": 3,
-      "command_id": 0,
-      "command_label": "friend",
-      "skill_set_id": 9081017,
-      "skills": []
-    },
-    {
       "support_card_id": 30040,
       "name": "Hishi Akebono",
       "rarity": 3,
@@ -43045,15 +40824,6 @@
       "skills": []
     },
     {
-      "support_card_id": 30105,
-      "name": "Special Week",
-      "rarity": 3,
-      "command_id": 103,
-      "command_label": "power",
-      "skill_set_id": 9081001,
-      "skills": []
-    },
-    {
       "support_card_id": 30016,
       "name": "Super Creek",
       "rarity": 3,
@@ -43420,11 +41190,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100104,
-        "skill_level": 3
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1100101,
         "skill_level": 1
       },
@@ -43470,11 +41235,6 @@
       }
     ],
     "100021": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 3
-      },
       {
         "source_type": "skill_set",
         "source_id": 300002,
@@ -43672,16 +41432,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 5
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
-        "skill_level": 3
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1100701,
         "skill_level": 1
       },
@@ -43874,16 +41624,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100069,
-        "skill_level": 2
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100096,
-        "skill_level": 3
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1101301,
         "skill_level": 1
       },
@@ -43958,11 +41698,6 @@
     "100151": [
       {
         "source_type": "skill_set",
-        "source_id": 100059,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1101502,
         "skill_level": 1
       },
@@ -43997,16 +41732,6 @@
         "source_type": "skill_set",
         "source_id": 100048,
         "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100067,
-        "skill_level": 2
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100094,
-        "skill_level": 3
       },
       {
         "source_type": "skill_set",
@@ -44144,11 +41869,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100041,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100085,
         "skill_level": 1
       },
       {
@@ -44386,16 +42106,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100071,
-        "skill_level": 2
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100092,
-        "skill_level": 3
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1103001,
         "skill_level": 1
       },
@@ -44523,16 +42233,6 @@
         "source_type": "skill_set",
         "source_id": 100046,
         "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100072,
-        "skill_level": 2
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100093,
-        "skill_level": 3
       },
       {
         "source_type": "skill_set",
@@ -44987,11 +42687,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100076,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1106101,
         "skill_level": 1
       },
@@ -45144,11 +42839,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100044,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100061,
         "skill_level": 1
       },
       {
@@ -45656,29 +43346,7 @@
         "skill_level": 3
       }
     ],
-    "120011": [
-      {
-        "source_type": "skill_set",
-        "source_id": 12010103,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 12010104,
-        "skill_level": 2
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 12010105,
-        "skill_level": 3
-      }
-    ],
     "200011": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100067,
-        "skill_level": 1
-      },
       {
         "source_type": "skill_set",
         "source_id": 40812804,
@@ -45784,11 +43452,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100044,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100054,
         "skill_level": 1
       },
       {
@@ -45915,13 +43578,6 @@
         "need_rank": 5
       }
     ],
-    "200021": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 1
-      }
-    ],
     "200022": [
       {
         "source_type": "available_skill_set",
@@ -46031,13 +43687,6 @@
         "need_rank": 0
       }
     ],
-    "200031": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100104,
-        "skill_level": 1
-      }
-    ],
     "200032": [
       {
         "source_type": "available_skill_set",
@@ -46092,21 +43741,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100046,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100072,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100077,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100095,
         "skill_level": 1
       },
       {
@@ -46254,11 +43888,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100063,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200003,
         "skill_level": 1
       },
@@ -46344,11 +43973,6 @@
       }
     ],
     "200051": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
       {
         "source_type": "skill_set",
         "source_id": 32100702,
@@ -47157,11 +44781,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100059,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200004,
         "skill_level": 1
       },
@@ -47256,16 +44875,6 @@
     "200151": [
       {
         "source_type": "skill_set",
-        "source_id": 100092,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100093,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 300002,
         "skill_level": 1
       },
@@ -47304,11 +44913,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100038,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100057,
         "skill_level": 1
       },
       {
@@ -47440,13 +45044,6 @@
         "need_rank": 4
       }
     ],
-    "200154": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100050,
-        "skill_level": 1
-      }
-    ],
     "200161": [
       {
         "source_type": "skill_set",
@@ -47518,11 +45115,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100002,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100079,
         "skill_level": 1
       },
       {
@@ -47721,11 +45313,6 @@
     "200171": [
       {
         "source_type": "skill_set",
-        "source_id": 100096,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 205201,
         "skill_level": 1
       },
@@ -47774,11 +45361,6 @@
       {
         "source_type": "skill_set",
         "source_id": 8119,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100087,
         "skill_level": 1
       },
       {
@@ -47957,11 +45539,6 @@
       {
         "source_type": "skill_set",
         "source_id": 8106,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100098,
         "skill_level": 1
       },
       {
@@ -48434,11 +46011,6 @@
     "200251": [
       {
         "source_type": "skill_set",
-        "source_id": 100085,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 40836504,
         "skill_level": 1
       }
@@ -48467,11 +46039,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100009,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100100,
         "skill_level": 1
       },
       {
@@ -48639,16 +46206,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100040,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100099,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100102,
         "skill_level": 1
       },
       {
@@ -48965,11 +46522,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100060,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200004,
         "skill_level": 1
       },
@@ -49115,16 +46667,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100029,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100085,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100088,
         "skill_level": 1
       },
       {
@@ -49332,11 +46874,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100052,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1101501,
         "skill_level": 1
       },
@@ -49415,11 +46952,6 @@
         "need_rank": 0
       },
       {
-        "source_type": "available_skill_set",
-        "source_id": 100103,
-        "need_rank": 0
-      },
-      {
         "source_type": "skill_set",
         "source_id": 8017,
         "skill_level": 1
@@ -49462,31 +46994,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100032,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100060,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100069,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100077,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100091,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100096,
         "skill_level": 1
       },
       {
@@ -49621,12 +47128,6 @@
       },
       {
         "source_type": "trainee",
-        "source_id": 100103,
-        "source_name": "Special Week",
-        "need_rank": 0
-      },
-      {
-        "source_type": "trainee",
         "source_id": 101701,
         "source_name": "Symboli Rudolf",
         "need_rank": 0
@@ -49658,21 +47159,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100045,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100101,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
         "skill_level": 1
       },
       {
@@ -49807,21 +47293,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100049,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100059,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100084,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100099,
         "skill_level": 1
       },
       {
@@ -50052,21 +47523,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100059,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100071,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100092,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1200301,
         "skill_level": 1
       },
@@ -50233,21 +47689,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100033,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100062,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100089,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100095,
         "skill_level": 1
       },
       {
@@ -50510,16 +47951,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100094,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100096,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 201701,
         "skill_level": 1
       },
@@ -50691,21 +48122,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100042,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100063,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100069,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100087,
         "skill_level": 1
       },
       {
@@ -50904,11 +48320,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100095,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200301,
         "skill_level": 1
       },
@@ -51062,31 +48473,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100049,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100055,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100061,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100071,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100087,
         "skill_level": 1
       },
       {
@@ -51354,16 +48740,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100038,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100056,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100086,
         "skill_level": 1
       },
       {
@@ -51643,11 +49019,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32100201,
         "skill_level": 1
       },
@@ -51798,16 +49169,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100047,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100079,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100098,
         "skill_level": 1
       },
       {
@@ -52117,16 +49478,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100058,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100100,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1101802,
         "skill_level": 1
       },
@@ -52215,16 +49566,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100061,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100062,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200004,
         "skill_level": 1
       },
@@ -52295,11 +49636,6 @@
         "source_type": "available_skill_set",
         "source_id": 105202,
         "need_rank": 3
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100098,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -52393,16 +49729,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100027,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100062,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100071,
         "skill_level": 1
       },
       {
@@ -52543,11 +49869,6 @@
       {
         "source_type": "skill_set",
         "source_id": 53841820,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 61800130,
         "skill_level": 1
       },
       {
@@ -52703,26 +50024,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100046,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100057,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100086,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100087,
         "skill_level": 1
       },
       {
@@ -52893,16 +50194,6 @@
       {
         "source_type": "skill_set",
         "source_id": 53844220,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 61829230,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 61851530,
         "skill_level": 1
       },
       {
@@ -53077,16 +50368,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100044,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100062,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100101,
         "skill_level": 1
       },
       {
@@ -53469,16 +50750,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100050,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100102,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200801,
         "skill_level": 1
       },
@@ -53600,16 +50871,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100043,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100076,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100100,
         "skill_level": 1
       },
       {
@@ -53935,16 +51196,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100054,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100086,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 400003,
         "skill_level": 1
       },
@@ -54153,31 +51404,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100038,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100052,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100067,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100072,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100094,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100104,
         "skill_level": 1
       },
       {
@@ -54414,26 +51640,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100048,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100075,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100088,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100093,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100102,
         "skill_level": 1
       },
       {
@@ -54834,11 +52040,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200201,
         "skill_level": 1
       },
@@ -55127,11 +52328,6 @@
         "skill_level": 1
       },
       {
-        "source_type": "skill_set",
-        "source_id": 61800130,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 100401,
         "source_name": "Maruzensky",
@@ -55191,11 +52387,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100041,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100085,
         "skill_level": 1
       },
       {
@@ -55494,11 +52685,6 @@
         "skill_level": 1
       },
       {
-        "source_type": "skill_set",
-        "source_id": 61812730,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 100201,
         "source_name": "Silence Suzuka",
@@ -55528,11 +52714,6 @@
         "source_type": "available_skill_set",
         "source_id": 100201,
         "need_rank": 5
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -55655,11 +52836,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100041,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100085,
         "skill_level": 1
       },
       {
@@ -55832,21 +53008,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100058,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100069,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100096,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32101001,
         "skill_level": 1
       },
@@ -55990,31 +53151,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100008,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100067,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100071,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100077,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100083,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100092,
         "skill_level": 1
       },
       {
@@ -56354,11 +53490,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100088,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1107101,
         "skill_level": 1
       },
@@ -56513,26 +53644,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100008,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100050,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100069,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100095,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100096,
         "skill_level": 1
       },
       {
@@ -56741,16 +53852,6 @@
         "skill_level": 1
       },
       {
-        "source_type": "skill_set",
-        "source_id": 61805930,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 61851530,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 100302,
         "source_name": "Tokai Teio",
@@ -56855,31 +53956,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100049,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100069,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100077,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100088,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100096,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100099,
         "skill_level": 1
       },
       {
@@ -57535,31 +54611,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100061,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100072,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100090,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100093,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100104,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32102101,
         "skill_level": 1
       },
@@ -57716,16 +54767,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100019,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100067,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100082,
         "skill_level": 1
       },
       {
@@ -57959,11 +55000,6 @@
         "skill_level": 1
       },
       {
-        "source_type": "skill_set",
-        "source_id": 61808530,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 100102,
         "source_name": "Special Week",
@@ -58013,21 +55049,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100022,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100056,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100076,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100093,
         "skill_level": 1
       },
       {
@@ -58218,31 +55239,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100040,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100053,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100080,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100082,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100090,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100102,
         "skill_level": 1
       },
       {
@@ -58446,11 +55442,6 @@
         "skill_level": 1
       },
       {
-        "source_type": "skill_set",
-        "source_id": 61808530,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 100801,
         "source_name": "Vodka",
@@ -58511,26 +55502,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100002,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100067,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100082,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100094,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100104,
         "skill_level": 1
       },
       {
@@ -58675,11 +55646,6 @@
         "need_rank": 0
       },
       {
-        "source_type": "available_skill_set",
-        "source_id": 100103,
-        "need_rank": 0
-      },
-      {
         "source_type": "skill_set",
         "source_id": 8013,
         "skill_level": 1
@@ -58732,31 +55698,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100046,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100052,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100072,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100076,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100086,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100090,
         "skill_level": 1
       },
       {
@@ -58992,12 +55933,6 @@
       },
       {
         "source_type": "trainee",
-        "source_id": 100103,
-        "source_name": "Special Week",
-        "need_rank": 0
-      },
-      {
-        "source_type": "trainee",
         "source_id": 101402,
         "source_name": "El Condor Pasa",
         "need_rank": 0
@@ -59118,36 +56053,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100045,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100084,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100089,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100091,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100101,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
         "skill_level": 1
       },
       {
@@ -59291,11 +56196,6 @@
         "skill_level": 1
       },
       {
-        "source_type": "skill_set",
-        "source_id": 61829230,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 100701,
         "source_name": "Gold Ship",
@@ -59318,21 +56218,6 @@
         "source_type": "available_skill_set",
         "source_id": 103301,
         "need_rank": 5
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100081,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100084,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100089,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -59441,16 +56326,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100035,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100091,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100101,
         "skill_level": 1
       },
       {
@@ -59594,16 +56469,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100089,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1104401,
         "skill_level": 1
       },
@@ -59708,16 +56573,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100045,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100100,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
         "skill_level": 1
       },
       {
@@ -60890,21 +57745,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100079,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100085,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200024,
         "skill_level": 1
       },
@@ -61054,11 +57894,6 @@
         "skill_level": 1
       },
       {
-        "source_type": "skill_set",
-        "source_id": 61812730,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 100201,
         "source_name": "Silence Suzuka",
@@ -61116,11 +57951,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100043,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100059,
         "skill_level": 1
       },
       {
@@ -61261,21 +58091,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100047,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100067,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100077,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100094,
         "skill_level": 1
       },
       {
@@ -61677,31 +58492,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100072,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100082,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100088,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100093,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100104,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200006,
         "skill_level": 1
       },
@@ -62013,16 +58803,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100056,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100085,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 201301,
         "skill_level": 1
       },
@@ -62164,11 +58944,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100052,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200021,
         "skill_level": 1
       },
@@ -62284,11 +59059,6 @@
         "source_type": "available_skill_set",
         "source_id": 100602,
         "need_rank": 5
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100056,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -62453,11 +59223,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100050,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200026,
         "skill_level": 1
       },
@@ -62552,11 +59317,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100041,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100075,
         "skill_level": 1
       },
       {
@@ -62666,11 +59426,6 @@
         "need_rank": 3
       },
       {
-        "source_type": "skill_set",
-        "source_id": 100092,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 100502,
         "source_name": "Fuji Kiseki",
@@ -62693,11 +59448,6 @@
         "source_type": "available_skill_set",
         "source_id": 104401,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100090,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -62844,11 +59594,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100078,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1106801,
         "skill_level": 1
       },
@@ -62913,11 +59658,6 @@
         "source_type": "available_skill_set",
         "source_id": 103301,
         "need_rank": 4
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100092,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -63081,13 +59821,6 @@
         "source_id": 101701,
         "source_name": "Symboli Rudolf",
         "need_rank": 2
-      }
-    ],
-    "200901": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100056,
-        "skill_level": 1
       }
     ],
     "200911": [
@@ -64358,11 +61091,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100076,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200005,
         "skill_level": 1
       },
@@ -64616,21 +61344,6 @@
     "201101": [
       {
         "source_type": "skill_set",
-        "source_id": 100089,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100093,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100094,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32103201,
         "skill_level": 1
       },
@@ -64730,16 +61443,6 @@
         "source_type": "available_skill_set",
         "source_id": 105902,
         "need_rank": 2
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100058,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100072,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -64914,16 +61617,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100030,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100088,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100094,
         "skill_level": 1
       },
       {
@@ -65177,11 +61870,6 @@
         "source_type": "available_skill_set",
         "source_id": 101401,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100083,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -65524,16 +62212,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100078,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100084,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200025,
         "skill_level": 1
       },
@@ -65620,11 +62298,6 @@
       {
         "source_type": "skill_set",
         "source_id": 53821730,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 61805930,
         "skill_level": 1
       },
       {
@@ -65788,16 +62461,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100080,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100084,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200011,
         "skill_level": 1
       },
@@ -65931,11 +62594,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100078,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200008,
         "skill_level": 1
       },
@@ -66011,23 +62669,8 @@
         "need_rank": 0
       },
       {
-        "source_type": "available_skill_set",
-        "source_id": 100103,
-        "need_rank": 2
-      },
-      {
         "source_type": "skill_set",
         "source_id": 100048,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100050,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100051,
         "skill_level": 1
       },
       {
@@ -66044,12 +62687,6 @@
         "source_type": "skill_set",
         "source_id": 32835502,
         "skill_level": 1
-      },
-      {
-        "source_type": "trainee",
-        "source_id": 100103,
-        "source_name": "Special Week",
-        "need_rank": 2
       },
       {
         "source_type": "trainee",
@@ -66089,11 +62726,6 @@
         "need_rank": 2
       },
       {
-        "source_type": "available_skill_set",
-        "source_id": 100103,
-        "need_rank": 4
-      },
-      {
         "source_type": "skill_set",
         "source_id": 200022,
         "skill_level": 1
@@ -66130,12 +62762,6 @@
       },
       {
         "source_type": "trainee",
-        "source_id": 100103,
-        "source_name": "Special Week",
-        "need_rank": 4
-      },
-      {
-        "source_type": "trainee",
         "source_id": 101301,
         "source_name": "Mejiro McQueen",
         "need_rank": 2
@@ -66156,11 +62782,6 @@
         "source_type": "available_skill_set",
         "source_id": 106401,
         "need_rank": 5
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100085,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -66264,11 +62885,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100050,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1107701,
         "skill_level": 1
       },
@@ -66340,16 +62956,6 @@
         "need_rank": 5
       },
       {
-        "source_type": "available_skill_set",
-        "source_id": 100103,
-        "need_rank": 3
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100058,
-        "skill_level": 1
-      },
-      {
         "source_type": "skill_set",
         "source_id": 1107401,
         "skill_level": 1
@@ -66368,12 +62974,6 @@
         "source_type": "skill_set",
         "source_id": 32107401,
         "skill_level": 1
-      },
-      {
-        "source_type": "trainee",
-        "source_id": 100103,
-        "source_name": "Special Week",
-        "need_rank": 3
       },
       {
         "source_type": "trainee",
@@ -66408,11 +63008,6 @@
         "source_type": "available_skill_set",
         "source_id": 107401,
         "need_rank": 2
-      },
-      {
-        "source_type": "available_skill_set",
-        "source_id": 100103,
-        "need_rank": 0
       },
       {
         "source_type": "skill_set",
@@ -66478,12 +63073,6 @@
         "source_type": "skill_set",
         "source_id": 32838201,
         "skill_level": 1
-      },
-      {
-        "source_type": "trainee",
-        "source_id": 100103,
-        "source_name": "Special Week",
-        "need_rank": 0
       },
       {
         "source_type": "trainee",
@@ -66636,11 +63225,6 @@
     "201241": [
       {
         "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 40100204,
         "skill_level": 1
       },
@@ -66710,11 +63294,6 @@
       }
     ],
     "201251": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 1
-      },
       {
         "source_type": "skill_set",
         "source_id": 40100204,
@@ -66914,16 +63493,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100085,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100098,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200025,
         "skill_level": 1
       },
@@ -67102,11 +63671,6 @@
     "201292": [
       {
         "source_type": "skill_set",
-        "source_id": 100098,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200009,
         "skill_level": 1
       },
@@ -67154,21 +63718,6 @@
       }
     ],
     "201311": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100069,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100083,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100096,
-        "skill_level": 1
-      },
       {
         "source_type": "skill_set",
         "source_id": 40100904,
@@ -67254,16 +63803,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100043,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100058,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100099,
         "skill_level": 1
       },
       {
@@ -67385,11 +63924,6 @@
     "201321": [
       {
         "source_type": "skill_set",
-        "source_id": 100094,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 40817904,
         "skill_level": 1
       },
@@ -67454,11 +63988,6 @@
         "source_type": "available_skill_set",
         "source_id": 101002,
         "need_rank": 4
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100078,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -67679,11 +64208,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100095,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200011,
         "skill_level": 1
       },
@@ -67864,16 +64388,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100071,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100092,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32101002,
         "skill_level": 1
       },
@@ -67935,11 +64449,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100049,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100059,
         "skill_level": 1
       },
       {
@@ -68100,11 +64609,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100052,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1102801,
         "skill_level": 1
       },
@@ -68188,16 +64692,6 @@
         "source_type": "available_skill_set",
         "source_id": 100602,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100075,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100099,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -68382,11 +64876,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100050,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1200302,
         "skill_level": 1
       },
@@ -68560,16 +65049,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100071,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100092,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 203201,
         "skill_level": 1
       },
@@ -68679,11 +65158,6 @@
         "source_type": "available_skill_set",
         "source_id": 106102,
         "need_rank": 4
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100053,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -68831,11 +65305,6 @@
       }
     ],
     "201391": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100093,
-        "skill_level": 1
-      },
       {
         "source_type": "skill_set",
         "source_id": 40100104,
@@ -69106,11 +65575,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100093,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32100102,
         "skill_level": 1
       },
@@ -69181,26 +65645,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100034,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100072,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100090,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100102,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100104,
         "skill_level": 1
       },
       {
@@ -69409,11 +65853,6 @@
     "201411": [
       {
         "source_type": "skill_set",
-        "source_id": 100086,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32102116,
         "skill_level": 1
       },
@@ -69467,11 +65906,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100032,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100056,
         "skill_level": 1
       },
       {
@@ -69714,11 +66148,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100060,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200006,
         "skill_level": 1
       },
@@ -69936,11 +66365,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100076,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1104701,
         "skill_level": 1
       },
@@ -70016,16 +66440,6 @@
         "source_type": "available_skill_set",
         "source_id": 106101,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100054,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100056,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -70173,11 +66587,6 @@
         "source_type": "available_skill_set",
         "source_id": 105901,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100080,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -70381,16 +66790,6 @@
     "201461": [
       {
         "source_type": "skill_set",
-        "source_id": 100081,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 40810704,
         "skill_level": 1
       }
@@ -70512,16 +66911,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1101302,
         "skill_level": 1
       },
@@ -70624,16 +67013,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100045,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
         "skill_level": 1
       },
       {
@@ -71101,11 +67480,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100083,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1102301,
         "skill_level": 1
       },
@@ -71170,11 +67544,6 @@
         "source_type": "available_skill_set",
         "source_id": 103802,
         "need_rank": 4
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100051,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -71280,11 +67649,6 @@
     "201541": [
       {
         "source_type": "skill_set",
-        "source_id": 100104,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32103701,
         "skill_level": 1
       },
@@ -71344,16 +67708,6 @@
         "source_type": "available_skill_set",
         "source_id": 106002,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100052,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100061,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -71435,27 +67789,10 @@
         "need_rank": 0
       }
     ],
-    "201551": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100073,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
-        "skill_level": 1
-      }
-    ],
     "201552": [
       {
         "source_type": "skill_set",
         "source_id": 100031,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100101,
         "skill_level": 1
       },
       {
@@ -71603,21 +67940,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100071,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100075,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100092,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200019,
         "skill_level": 1
       },
@@ -71727,16 +68049,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100091,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100103,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200008,
         "skill_level": 1
       },
@@ -71824,16 +68136,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100061,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100079,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 400005,
         "skill_level": 1
       },
@@ -71884,11 +68186,6 @@
         "source_type": "available_skill_set",
         "source_id": 103401,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100052,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -71968,11 +68265,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100025,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100058,
         "skill_level": 1
       },
       {
@@ -72199,16 +68491,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100067,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100094,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 200020,
         "skill_level": 1
       },
@@ -72285,16 +68567,6 @@
         "source_type": "available_skill_set",
         "source_id": 103101,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100059,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100081,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -72379,11 +68651,6 @@
         "source_type": "available_skill_set",
         "source_id": 106401,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100078,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -72535,11 +68802,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100061,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 52104031,
         "skill_level": 1
       },
@@ -72571,11 +68833,6 @@
         "source_type": "available_skill_set",
         "source_id": 106701,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100080,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -72651,11 +68908,6 @@
       },
       {
         "source_type": "skill_set",
-        "source_id": 100104,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 1107101,
         "skill_level": 1
       },
@@ -72716,26 +68968,6 @@
         "source_type": "available_skill_set",
         "source_id": 101002,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100058,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100069,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100083,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100096,
-        "skill_level": 1
       },
       {
         "source_type": "skill_set",
@@ -72804,11 +69036,6 @@
         "need_rank": 5
       },
       {
-        "source_type": "skill_set",
-        "source_id": 100059,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 101502,
         "source_name": "T.M. Opera O",
@@ -72854,21 +69081,6 @@
     "202022": [
       {
         "source_type": "skill_set",
-        "source_id": 100081,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100089,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100100,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 32107401,
         "skill_level": 1
       }
@@ -72883,26 +69095,8 @@
     "202051": [
       {
         "source_type": "skill_set",
-        "source_id": 100097,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
         "source_id": 40100204,
         "skill_level": 1
-      }
-    ],
-    "202061": [
-      {
-        "source_type": "available_skill_set",
-        "source_id": 100103,
-        "need_rank": 5
-      },
-      {
-        "source_type": "trainee",
-        "source_id": 100103,
-        "source_name": "Special Week",
-        "need_rank": 5
       }
     ],
     "202071": [
@@ -72914,11 +69108,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100044,
-        "skill_level": 1
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100061,
         "skill_level": 1
       },
       {
@@ -72979,11 +69168,6 @@
         "source_type": "available_skill_set",
         "source_id": 105902,
         "need_rank": 0
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100084,
-        "skill_level": 1
       },
       {
         "source_type": "trainee",
@@ -73070,11 +69254,6 @@
         "need_rank": 0
       },
       {
-        "source_type": "skill_set",
-        "source_id": 100081,
-        "skill_level": 1
-      },
-      {
         "source_type": "trainee",
         "source_id": 105902,
         "source_name": "Mejiro Dober",
@@ -73112,11 +69291,6 @@
         "source_type": "available_skill_set",
         "source_id": 105902,
         "need_rank": 4
-      },
-      {
-        "source_type": "skill_set",
-        "source_id": 100080,
-        "skill_level": 1
       },
       {
         "source_type": "trainee",
@@ -73174,13 +69348,6 @@
       {
         "source_type": "skill_set",
         "source_id": 100024,
-        "skill_level": 1
-      }
-    ],
-    "300141": [
-      {
-        "source_type": "skill_set",
-        "source_id": 100056,
         "skill_level": 1
       }
     ]
