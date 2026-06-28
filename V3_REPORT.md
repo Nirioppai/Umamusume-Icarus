@@ -435,8 +435,6 @@ The entire Classic/Legacy training scorer was deleted from `mant.py` (~800 lines
 | Finale bonus gating (turn >= 73 only) | `mant_trackblazer.py` | Bug: stat cap was shrunken from turn 0 |
 | Year-end energy waste prevention | `trackblazer_rules.py`, `items.py` | Don't waste recovery items on year-end turns |
 | Manager restart budget | `manager.py` | Prevents infinite restart loops |
-| Skill purchase retry + verification | `skills.py` | Fixes silent 205/208 purchase failures and re-buy bug |
-| Distance mismatch skill filter | `skills.py` | Prevents wasting SP on off-distance skills |
 | HWID 3-tier fallback | `uma_api/client.py` | Fixes startup failures on newer Windows builds |
 
 ### 4.2 SHOULD Cherry-Pick
@@ -457,10 +455,6 @@ The entire Classic/Legacy training scorer was deleted from `mant.py` (~800 lines
 | Rival overwrite support | `races.py` | Manual mode handles rival races |
 | Server rejection tracking | `runner.py` | Dashboard health visibility |
 | Async snapshot reading | `main.py` | Non-blocking file reads |
-| New skill config keys | `config_store.py` | Manual tier controls |
-| Manual skill tiers as first-class mode | `skills.py` | Users' tier lists were silently ignored under defaults |
-| Stop-after-recommended skill gate | `skills.py` | Prevents SP dump into marginal skills |
-| Skill loading robustness | `skills.py` | Per-row errors don't abort entire skill table |
 | Sirius/Throne group outing system | `mant.py` | Full outing scheduling for group cards |
 | Legacy UI improvements | `public/app.js` | Tab bar, per-race styles, export logs, throttle indicator |
 | Multi-account health improvements | `main.py` | TCP fallback, self-detection, auto-insert |
@@ -477,7 +471,7 @@ The entire Classic/Legacy training scorer was deleted from `mant.py` (~800 lines
 | Higher-res images | `data/images/*` | ~400 files, purely cosmetic upgrade |
 | Berry Sweet cupcake skip-recreation | `mant_trackblazer.py` | Saves a recreation turn |
 | Finalize single runs | `runner.py` | Plays through URA finale instead of bailing at turn 77; lets new career start without restart |
-| Skill intercept (DEV-ONLY) | `main.py`, `skills.py` | Development tool, not user-facing |
+| Skill intercept (DEV-ONLY) | `main.py` | Development tool, not user-facing |
 | Log export endpoint | `main.py` | Nice for debugging, low priority |
 | Recreation minimum turn | `mant_trackblazer.py` | Early turns better for bonds |
 | Summer all-out energy rescue | `mant.py` | Group deck specific improvement |
@@ -491,6 +485,13 @@ The entire Classic/Legacy training scorer was deleted from `mant.py` (~800 lines
 | Remove event outcome KB | Master's fork doesn't use this heavily; low impact either way |
 | Remove policy guards | Master's fork doesn't use this heavily |
 | Revert `auto_buy_items` priority | Master's fork change is user-facing; keep it |
+| Skill purchase retry + verification | `skills.py` — v3-raw has a known bug where skills are not being bought at all. Do not cherry-pick until root cause is identified and fixed. |
+| Distance mismatch skill filter | `skills.py` — part of the broken skill system; may be over-filtering valid skills |
+| Stop-after-recommended skill gate | `skills.py` — was disabled post-release after "bot buys almost nothing" bug; likely a contributor to the regression |
+| Manual skill tiers as first-class mode | `skills.py` — `skill_manual_auto_fallback` defaults OFF, causing bot to buy nothing when manual tiers are stale |
+| New skill config keys | `config_store.py` — tied to the broken skill gating logic (`skill_stop_after_recommended`, `skill_manual_auto_fallback`) |
+| Skill loading robustness | `skills.py` — low-risk standalone fix, but entangled with the rest of the broken skill rewrite |
+| Skill intercept (DEV-ONLY) | `skills.py` — entangled with the broken skill rewrite |
 
 ### 4.5 REAPPLY on Top of v3-raw Changes
 
@@ -569,8 +570,9 @@ These are master fork fixes that v3-raw reverted. They must be re-applied after 
 | New features identified | 33 |
 | Improved features identified | 21 |
 | Master features removed/reverted | 12 |
-| MUST cherry-pick items | 15 |
-| SHOULD cherry-pick items | 24 |
+| MUST cherry-pick items | 13 |
+| SHOULD cherry-pick items | 20 |
+| SKIP (broken skill system) | 7 |
 | REAPPLY fork fixes | 5 |
 
 ---
