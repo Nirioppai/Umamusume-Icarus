@@ -6712,6 +6712,7 @@ const els = {
             const primaryDistances = [...new Set([...(presetDistances || []), ...(profileDistances || [])].filter(Boolean))];
             return {
                 aptitudes,
+                manual_aptitude_overrides: { ...solverManualAptitudes(current) },
                 trainee_name: traineeName,
                 trainee_id: traineeId,
                 running_style: (skillProfile && (skillProfile.recommended_style || skillProfile.running_style)) || (strategy && strategy.running_style) || '',

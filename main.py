@@ -3557,6 +3557,7 @@ def api_trackblazer_sync(force: bool = False):
 
 class TrackblazerPlanRequest(BaseModel):
     aptitudes: dict = Field(default_factory=dict)
+    manual_aptitude_overrides: dict = Field(default_factory=dict)
     trainee_name: str = ""
     trainee_id: str = ""
     running_style: str = ""
@@ -3620,9 +3621,18 @@ def _trackblazer_profile_aptitudes(req):
         except Exception:
             pass
 
-    # 2) Fall back to caller-supplied aptitudes only when no base profile
-    #    resolved (e.g. an unknown trainee with no master-data entry).
-    if not aptitudes and req.aptitudes:
+    # 2) Apply only the user's Manual Start overrides on top of the base
+    #    profile.  These are the specific dimensions the user changed in the
+    #    UI -- NOT the full effective aptitudes (which include estimated spark
+    #    bonuses for every dimension and would inflate un-touched values).
+    #    Fall back to the full aptitudes dict only when no base profile was
+    #    found (e.g. unknown trainee with no master-data entry).
+    manual = getattr(req, "manual_aptitude_overrides", None) or {}
+    if manual:
+        for key, value in dict(manual).items():
+            if value:
+                aptitudes[key_map.get(str(key).lower(), str(key))] = value
+    elif not aptitudes and req.aptitudes:
         for key, value in dict(req.aptitudes).items():
             if value:
                 aptitudes[key_map.get(str(key).lower(), str(key))] = value

@@ -3157,6 +3157,10 @@ class CareerRunner:
                 with self.lock:
                     self.status["items_used"] += used
                     self._log_locked("items_use", payload["current_turn"], f"pre-race {used}")
+            debug_turns = self.status.get("debug_turns")
+            if debug_turns:
+                debug_turns[-1]["bot_pre_race_use_selected"] = list(self.item_manager.last_pre_race_use_selected)
+                debug_turns[-1]["bot_pre_race_use_result"] = dict(self.item_manager.last_pre_race_use_result)
 
         program_id = payload.get("program_id")
         current_turn = payload["current_turn"]

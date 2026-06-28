@@ -1165,6 +1165,13 @@ function renderItemsTab(){
       itemUseTotals[nm].count+=(u.use_num||1);
       itemUseTotals[nm].turns.push(t.turn);
     }
+    for(const u of(t.bot_pre_race_use_selected||[])){
+      const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
+      useLog.push({turn:t.turn,name:nm,itemId:u.item_id,useNum:u.use_num||1,preRace:true});
+      if(!itemUseTotals[nm])itemUseTotals[nm]={count:0,turns:[],itemId:u.item_id};
+      itemUseTotals[nm].count+=(u.use_num||1);
+      itemUseTotals[nm].turns.push(t.turn);
+    }
   }
 
   // Build skip data
@@ -1240,7 +1247,7 @@ function renderItemsTab(){
   const timeline=[...purchaseLog.map(p=>({...p,type:'buy'})),...useLog.map(u=>({...u,type:'use'}))].sort((a,b)=>a.turn-b.turn);
   html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Full Timeline (${timeline.length} events)</h3><div class="s-arrow">▾</div></div><div class="section-body">
     <table class="tbl"><thead><tr><th class="sortable" onclick="sortTable(this)">Turn</th><th>Type</th><th class="sortable" onclick="sortTable(this)">Item</th><th class="r">Detail</th></tr></thead><tbody>
-    ${timeline.map(e=>`<tr><td style="font-weight:700;color:var(--text3)">${e.turn}</td><td>${e.type==='buy'?'<span style="color:var(--yellow)">🛒 Buy</span>':'<span style="color:var(--blue)">✨ Use</span>'}</td><td>${esc(e.name)}</td><td class="r">${e.type==='buy'?`<span class="cost-cell">🪙${e.cost}</span>`:`<span class="il-uses">×${e.useNum||1}</span>`}</td></tr>`).join('')}
+    ${timeline.map(e=>`<tr><td style="font-weight:700;color:var(--text3)">${e.turn}</td><td>${e.type==='buy'?'<span style="color:var(--yellow)">🛒 Buy</span>':e.preRace?'<span style="color:var(--cyan)">⚔ Pre-Race</span>':'<span style="color:var(--blue)">✨ Use</span>'}</td><td>${esc(e.name)}</td><td class="r">${e.type==='buy'?`<span class="cost-cell">🪙${e.cost}</span>`:`<span class="il-uses">×${e.useNum||1}</span>`}</td></tr>`).join('')}
     </tbody></table></div></div>`;
 
   el.innerHTML=html;

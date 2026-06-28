@@ -1282,9 +1282,9 @@ class MantItemManager:
         cfg.setdefault("tier_count", 8)
         cfg.setdefault("tier_thresholds", {"3": 31, "7": 100, "8": 99999999999})
         cfg.setdefault("charm_failure_rate", tb_rules.DEFAULT_CHARM_FAILURE_THRESHOLD)
-        cfg.setdefault("mega_small_threshold", 11)
-        cfg.setdefault("mega_medium_threshold", 21)
-        cfg.setdefault("mega_large_threshold", 35)
+        cfg.setdefault("mega_small_threshold", 8)
+        cfg.setdefault("mega_medium_threshold", 15)
+        cfg.setdefault("mega_large_threshold", 25)
         cfg.setdefault("mega_late_buy_buffer", 5)
         cfg.setdefault("training_weights_threshold", 40)
         cfg.setdefault("energy_recovery_threshold", tb_rules.DEFAULT_ENERGY_RECOVERY_THRESHOLD)
@@ -1702,7 +1702,7 @@ class MantItemManager:
                 return None
 
         score = self._command_stat_gain(best_command, sp_weight=0.5)
-        threshold = 40 * (1 - (0.2 * self._active_megaphone_tier(state)))
+        threshold = 30 * (1 - (0.2 * self._active_megaphone_tier(state)))
         turn = int(((state.get("data") or {}).get("chara_info") or {}).get("turn") or 0)
         if turn in {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}:
             threshold *= 0.80
