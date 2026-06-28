@@ -207,10 +207,21 @@
     if (Object.keys(_stbd).length) presetSet(p, 'mant', 'stat_targets_by_distance', _stbd);
     const _gin = o.querySelectorAll('.gstg-input');
     if (_gin.length === 5) presetSet(p, 'mant', 'global_stat_target', [..._gin].map((el) => Math.max(1, parseInt(el.value, 10) || 0)));
-    // Per-race style overrides must NOT persist: the v3 controls are display-only
-    // (no data-k), and saving the racing modal clears any stored overrides (e.g.
-    // ones left by the old UI) so they never take effect.
-    if (o.querySelector('.rovr')) presetSet(p, 'mant', 'per_race_style_overrides', []);
+    if (o.querySelector('.rovr')) {
+      const rules = [];
+      o.querySelectorAll('.rovr').forEach((row) => {
+        const name = (row.querySelector('strong') || {}).textContent || '';
+        const sel = row.querySelector('select.self');
+        const stam = row.querySelector('input.numf');
+        const style = sel ? sel.value : '';
+        if (!style || style === 'No override') return;
+        const rule = { match: name.toLowerCase(), style: style.toLowerCase().replace(/\s+/g, ' ') };
+        const sv = stam ? stam.value.trim() : '';
+        if (sv) rule.stamina_below = parseInt(sv, 10);
+        rules.push(rule);
+      });
+      presetSet(p, 'mant', 'per_race_style_overrides', rules);
+    }
     // Priority-order arrays: persist the user's reorder. Written LOWERCASE to match
     // the engine's stat-name format (config_store defaults + items.py lower-cases).
     // Scoped to this overlay (only when the prio control exists) so other settings
@@ -224,11 +235,25 @@
     });
     return p;
   }
+  const STYLE_NAME_MAP = { 'front runner': 'Front Runner', 'front': 'Front Runner', 'pace chaser': 'Pace Chaser', 'pace': 'Pace Chaser', 'late surger': 'Late Surger', 'late': 'Late Surger', 'end closer': 'End Closer', 'end': 'End Closer' };
   async function initSettingsModal(o) {
     const p = await loadActivePreset();
     if (!p) return;
     o._preset = p;
     applyPreset(o, p);
+    const rovrs = o.querySelectorAll('.rovr');
+    if (rovrs.length) {
+      const rules = ((p.mant_config || {}).per_race_style_overrides || []);
+      rovrs.forEach((row) => {
+        const name = ((row.querySelector('strong') || {}).textContent || '').toLowerCase();
+        const rule = rules.find((r) => r && String(r.match || '').toLowerCase() === name);
+        if (!rule) return;
+        const sel = row.querySelector('select.self');
+        const stam = row.querySelector('input.numf');
+        if (sel) { const label = STYLE_NAME_MAP[String(rule.style || '').toLowerCase()]; if (label) sel.value = label; }
+        if (stam && rule.stamina_below != null) stam.value = rule.stamina_below;
+      });
+    }
   }
   SAVE_COLLECTORS['/api/settings-presets'] = (o) => (o && o._preset) ? { preset: collectPreset(o, o._preset) } : null;
 
