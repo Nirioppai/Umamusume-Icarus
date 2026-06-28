@@ -1747,6 +1747,15 @@ function generateAISummary(){
   o+='Total Turns: '+turns.length+'/'+(d.final_turn||'—')+'\n';
   o+='Run: '+(rs.loop_index||'—')+' / '+(rs.loop_target||'—')+'\n\n';
 
+  // (nirio) fork tuning snapshot
+  const nirio=(d.runtime_settings||{}).nirio||{};
+  const nirioKeys=Object.keys(nirio).sort();
+  if(nirioKeys.length){
+    o+='--- (NIRIO) FORK TUNING ---\n';
+    for(const k of nirioKeys)o+=k+': '+nirio[k]+'\n';
+    o+='\n';
+  }
+
   // Metric confidence
   const rr=buildRaceResults(d);
   const rClocks=rr.filter(r=>r.usedClock).length;

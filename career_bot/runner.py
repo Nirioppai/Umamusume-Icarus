@@ -616,6 +616,8 @@ class CareerRunner:
                     "run_id": self.status.get("run_id"),
                     "loop_index": self.status.get("loop_index"),
                     "loop_target": self.status.get("loop_target"),
+                    # FORK: snapshot nirio tuning values active for this run
+                    "nirio": {k: v for k, v in _mc_start.items() if str(k).startswith("nirio_")},
                 }
             except Exception:
                 pass
