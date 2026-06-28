@@ -109,6 +109,16 @@ Quick-reference table for each upstream update. Detailed context is in the entri
 | `log_viewer.html` | NO COLLISION |
 
 ### 2026-06-29 — Fix headless bypass ticket consumed before pre-load
-**Commit:** (pending) **File(s):** `main.py`
+**Commit:** `86aecd3` **File(s):** `main.py`
 **Context:** `check_saved_auth()` creates a UmaClient and calls `c.login()` to test the headless bypass. This consumes the Steam session ticket. But `saved_cfg` (returned to the caller) still holds the old ticket. The startup pre-load then creates a second UmaClient with the stale ticket, causing 394 errors on `load/index`. Fixed by syncing the client's (possibly refreshed) ticket back into `saved_cfg` before returning it.
+**Status:** ACTIVE
+
+### 2026-06-29 — (nirio) fork tuning: skill, mood, charm, megaphone, anklet, whistle, cash-out
+**Commit:** `112f0f3` **File(s):** `career_bot/trackblazer_rules.py`, `career_bot/items.py`, `career_bot/skills.py`
+**Context:** Bot ended runs with 2362 SP unspent, mood 1 at climax, 322 leftover coins, 3 Good-Luck Charms, 4 megaphones, 3 whistles, and ankle weights unused. Added 16 configurable `nirio_*` keys to `mant_config` that lower late-game thresholds: skill buying forced at turn 60 (was 73), mood floor at motivation 2 after turn 50, charm/mega/anklet thresholds halved after turn 60-65, shop conservation lifted at turn 60, whistle usage from turn 60. All saved per-preset.
+**Status:** ACTIVE
+
+### 2026-06-29 — (nirio) UI section in Scenario Override Settings
+**Commit:** `6f1a3d3` **File(s):** `public-v3/modals.js`
+**Context:** Adds a "(NIRIO) FORK TUNING" section to the Scenario Overrides modal with sliders for all nirio_* config keys. Gives the user visibility and control over fork-specific behavior tuning.
 **Status:** ACTIVE
