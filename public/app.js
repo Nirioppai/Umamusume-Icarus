@@ -6712,7 +6712,7 @@ const els = {
             const primaryDistances = [...new Set([...(presetDistances || []), ...(profileDistances || [])].filter(Boolean))];
             return {
                 aptitudes,
-                manual_aptitude_overrides: { ...solverManualAptitudes(current) },
+                manual_aptitude_overrides: { ...solverManualAptitudes(current) }, // FORK: send raw manual overrides separately so backend doesn't inflate all dimensions with spark bonuses
                 trainee_name: traineeName,
                 trainee_id: traineeId,
                 running_style: (skillProfile && (skillProfile.recommended_style || skillProfile.running_style)) || (strategy && strategy.running_style) || '',

@@ -3621,12 +3621,9 @@ def _trackblazer_profile_aptitudes(req):
         except Exception:
             pass
 
-    # 2) Apply only the user's Manual Start overrides on top of the base
-    #    profile.  These are the specific dimensions the user changed in the
-    #    UI -- NOT the full effective aptitudes (which include estimated spark
-    #    bonuses for every dimension and would inflate un-touched values).
-    #    Fall back to the full aptitudes dict only when no base profile was
-    #    found (e.g. unknown trainee with no master-data entry).
+    # FORK: Apply only the user's Manual Start overrides, not spark-inflated values.
+    # Original code had `if not aptitudes and req.aptitudes:` which made UI overrides a
+    # fallback that never fired when a master-data profile existed.
     manual = getattr(req, "manual_aptitude_overrides", None) or {}
     if manual:
         for key, value in dict(manual).items():

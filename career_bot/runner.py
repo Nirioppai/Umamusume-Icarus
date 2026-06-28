@@ -3157,6 +3157,8 @@ class CareerRunner:
                 with self.lock:
                     self.status["items_used"] += used
                     self._log_locked("items_use", payload["current_turn"], f"pre-race {used}")
+            # FORK: Log pre-race item usage (hammers/glow sticks) to the career report.
+            # Original code never captured handle_pre_race results in the turn snapshot.
             if self.report and self.item_manager.last_pre_race_use_selected:
                 race_turn = int(payload.get("current_turn") or 0)
                 target = None

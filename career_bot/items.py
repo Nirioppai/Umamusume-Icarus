@@ -126,6 +126,7 @@ ITEM_INVENTORY_CAPS = {
     "Coaching Megaphone": 5,
     "Motivating Megaphone": 5,
     "Empowering Megaphone": 5,
+    # FORK: lowered from 3→2; original left 3-4 unused per run.
     "Speed Ankle Weights": 2,
     "Stamina Ankle Weights": 2,
     "Power Ankle Weights": 2,
@@ -852,9 +853,8 @@ class MantItemManager:
                 return "Artisan Cleat Hammer"
             return None
 
-        # Pre-climax dump window (turns 65-73): spend down Artisan hammers
-        # on any G1/G2/G3 race since they won't be used on climax races
-        # (Masters are preferred there). Also spend excess Masters on G1s.
+        # FORK: Pre-climax dump window (turns 65-73). Original code had no dump
+        # mechanism, leaving 4-8 Artisan hammers unused at career end.
         dump_window_start = _cfg_num(cfg, "trackblazer_hammer_dump_start_turn", 65)
         in_dump_window = dump_window_start <= turn < min(tb_rules.TRACKBLAZER_FINALE_RACE_TURNS)
         if in_dump_window and grade in {"G1", "G2", "G3"}:
@@ -1286,6 +1286,7 @@ class MantItemManager:
         cfg.setdefault("tier_count", 8)
         cfg.setdefault("tier_thresholds", {"3": 31, "7": 100, "8": 99999999999})
         cfg.setdefault("charm_failure_rate", tb_rules.DEFAULT_CHARM_FAILURE_THRESHOLD)
+        # FORK: lowered from 11/21/35 to reduce leftover megaphones per run.
         cfg.setdefault("mega_small_threshold", 8)
         cfg.setdefault("mega_medium_threshold", 15)
         cfg.setdefault("mega_large_threshold", 25)
@@ -1706,6 +1707,7 @@ class MantItemManager:
                 return None
 
         score = self._command_stat_gain(best_command, sp_weight=0.5)
+        # FORK: lowered from 40→18; original fired on ~1 training per run.
         threshold = 18 * (1 - (0.2 * self._active_megaphone_tier(state)))
         turn = int(((state.get("data") or {}).get("chara_info") or {}).get("turn") or 0)
         if turn in {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}:
