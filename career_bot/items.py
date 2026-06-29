@@ -933,6 +933,14 @@ class MantItemManager:
     def _race_name_key(self, name):
         return "".join(ch.lower() for ch in str(name or "") if ch.isalnum())
 
+    def _nirio_remaining_climax_races(self, turn):
+        """FORK: (nirio) count remaining Climax races based on expected schedule."""
+        remaining = 0
+        for ct in tb_rules.TRACKBLAZER_FINALE_RACE_TURNS:
+            if turn < ct:
+                remaining += 1
+        return remaining
+
     def _hammer_target_for_race(self, owned, turn, grade, cfg, is_climax=False):
         master_qty = int(owned.get("Master Cleat Hammer", 0) or 0)
         artisan_qty = int(owned.get("Artisan Cleat Hammer", 0) or 0)
@@ -956,6 +964,13 @@ class MantItemManager:
 
         total = master_qty + artisan_qty
 
+        # FORK: (nirio) dynamic MCH reserve — protect exactly as many Master
+        # hammers as there are remaining Climax races (T74/T76/T78). This
+        # replaces the static finale_reserve for Master hammer decisions.
+        nirio_mch_reserve = _cfg_num(cfg, "nirio_mch_reserve", tb_rules.DEFAULT_NIRIO_MCH_RESERVE)
+        remaining_climax = self._nirio_remaining_climax_races(turn)
+        protected_mch = min(nirio_mch_reserve, remaining_climax)
+
         # Before conservation opens (or on the final race):
         # G1 always swings the best it has (Artisan is always considered for a G1).
         # G2/G3 respect the configured per-grade Artisan min-stock threshold (spec,
@@ -964,10 +979,11 @@ class MantItemManager:
         # for the climax / G1s).
         if not conservation or is_final_race:
             if grade == "G1":
-                if master_qty > 0:
-                    return "Master Cleat Hammer"
+                # FORK: (nirio) prefer Artisan; only use Master if above protected reserve.
                 if artisan_qty > 0:
                     return "Artisan Cleat Hammer"
+                if master_qty > protected_mch:
+                    return "Master Cleat Hammer"
                 return None
             if artisan_qty > 0:
                 if grade == "G2" and artisan_qty < _cfg_num(cfg, "trackblazer_artisan_hammer_min_stock_for_g2", 0):
@@ -981,13 +997,9 @@ class MantItemManager:
         # (Master-preferred) for the 3 climax races; spend any SURPLUS on regular
         # graded races, weakest (Artisan) first, so Masters stay for the climax and
         # nothing is stranded unused at career end.
-        # v2.1: the finale reserve + per-grade Artisan gates are configurable via
-        # the Item Conservation sliders. Defaults preserve v2.0 behavior (reserve
-        # DEFAULT_HAMMER_FINALE_RESERVE; no per-grade Artisan minimum). The legacy
-        # trackblazer_hammer_finale_reserve key is still honored as a fallback.
-        finale_reserve = _cfg_num(cfg, "trackblazer_master_hammer_finale_reserve",
-                                  _cfg_num(cfg, "trackblazer_hammer_finale_reserve",
-                                           tb_rules.DEFAULT_HAMMER_FINALE_RESERVE))
+        # FORK: (nirio) use dynamic protected_mch instead of static finale_reserve
+        # so the reserve shrinks as Climax races are consumed.
+        finale_reserve = protected_mch
         # Spec (High): Artisan Hammers are ALWAYS considered for a G1, independent
         # of BOTH the G3/G2 min-stock threshold AND this finale-reserve bank that
         # gates G2/G3 below. Spend an Artisan if any is owned (banking Masters for
@@ -997,7 +1009,7 @@ class MantItemManager:
         if grade == "G1":
             if artisan_qty > 0:
                 return "Artisan Cleat Hammer"
-            if total > finale_reserve and master_qty > 0:
+            if master_qty > protected_mch:
                 return "Master Cleat Hammer"
             return None
         if total <= finale_reserve:
