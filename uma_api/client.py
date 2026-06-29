@@ -17,6 +17,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from career_bot.delay import dna_sleep, dna_uniform, dna_gauss
+from career_bot import event_bus
 
 class StateRecoveryError(Exception):
     pass
@@ -446,6 +447,11 @@ class UmaClient:
         self.coin_info = {}
         self.item_map = {}
         self.current_scenario_id = None
+        # Last full response payloads, cached so the local /api/latent route can
+        # surface under-used fields with NO extra game call (API capability map).
+        self.last_account_data = {}    # load/index `data`
+        self.last_career_data = {}     # single_mode_free/{load,start} `data`
+        self.last_data_headers = {}    # data_headers (server_time / maintenance flag)
         self.session = requests.Session()
         self.update_headers()
         self.api_jitter = dna_uniform(-0.02, 0.02)
@@ -482,6 +488,18 @@ class UmaClient:
             except Exception:
                 pass
 
+        # Publish a compact, SECRET-FREE event to the live stream bus (SSE
+        # /api/stream). Independent of on_api_log so it survives the runner owning
+        # that slot. Never the request payload (which carries the steam ticket).
+        try:
+            evt = {"ts": log_entry["ts"], "dir": direction, "ep": ep, "req_id": req_id}
+            if direction == "RES" and isinstance(data, dict):
+                evt["rc"] = (data.get("data_headers") or {}).get("result_code")
+            elif direction == "ERR" and isinstance(data, dict):
+                evt["err"] = data.get("http_status") or data.get("error") or True
+            event_bus.publish(evt)
+        except Exception:
+            pass
 
         if self.trace_file:
             try:
@@ -564,6 +582,62 @@ class UmaClient:
 
         item_list = data.get('user_item') or data.get('user_item_array') or data.get('item_list')
         self._refresh_item_map(item_list)
+
+    def _cache_response(self, ep, res):
+        """Stash the last full response data so /api/latent can read it without a
+        new game call. data_headers (server_time / maintenance) is kept for every
+        endpoint; the heavy `data` blocks only for the account/career loads."""
+        if not isinstance(res, dict):
+            return
+        dh = res.get('data_headers')
+        if isinstance(dh, dict):
+            self.last_data_headers = dh
+        data = res.get('data')
+        if not isinstance(data, dict):
+            return
+        if ep == 'load/index':
+            self.last_account_data = data
+        elif ep in ('single_mode_free/load', 'single_mode_free/start'):
+            self.last_career_data = data
+
+    # --- Out-of-career endpoints not previously wrapped (API capability map). The
+    # payloads marked INFERRED are derived by analogy to wrapped calls / community
+    # knowledge; verify against a live capture before relying on a write succeeding.
+    # They are exposed only via the dev-only debug action routes, never auto-called.
+    def home_index(self):
+        """Load the out-of-career home screen (read)."""
+        return self.call('home/index', {})
+
+    def item_use(self, item_id, item_num=1, client_own_num=None):
+        """Use a consumable OUTSIDE a career (item/use). INFERRED payload (mirrors
+        item/use_recovery_item's {item_id, client_own_num, item_num})."""
+        if client_own_num is None:
+            client_own_num = int(getattr(self, 'item_map', {}).get(int(item_id), 0) or 0)
+        return self.call('item/use', {
+            'item_id': int(item_id), 'item_num': int(item_num), 'client_own_num': int(client_own_num),
+        })
+
+    def support_card_enhance(self, support_card_id, use_item_info_array=None):
+        """Enhance / limit-break a support card (support_card/enhance). INFERRED payload."""
+        return self.call('support_card/enhance', {
+            'support_card_id': int(support_card_id),
+            'use_item_info_array': use_item_info_array or [],
+        })
+
+    def chara_talent(self, trained_chara_id, rank_up_target_rank=None, use_item_info_array=None):
+        """Raise a trained chara's talent / awakening (chara/talent). INFERRED payload."""
+        payload = {'trained_chara_id': int(trained_chara_id)}
+        if rank_up_target_rank is not None:
+            payload['rank_up_target_rank'] = int(rank_up_target_rank)
+        if use_item_info_array is not None:
+            payload['use_item_info_array'] = use_item_info_array
+        return self.call('chara/talent', payload)
+
+    def chara_nickname(self, trained_chara_id, nickname_id):
+        """Set a chara's epithet / title (chara/nickname). INFERRED payload."""
+        return self.call('chara/nickname', {
+            'trained_chara_id': int(trained_chara_id), 'nickname_id': int(nickname_id),
+        })
 
     def regen_sid(self):
         self.sid = make_sid(self.viewer_id, self.udid_str)
@@ -701,6 +775,7 @@ class UmaClient:
             rc = dh.get('result_code', 0)
 
             self.api_log("RES", ep, res, req_id)
+            self._cache_response(ep, res)
 
             data = res.get('data', {})
             if isinstance(data, dict):

@@ -4709,17 +4709,6 @@ def start_career_from_request(req):
                 )
     except Exception as _deck_guard_err:
         print(f"[deck-guard] sanitize skipped: {_deck_guard_err}")
-    # Diagnostic: log the EXACT deck/friend sent to the game so a result_code 2511
-    # (illegal deck) can be pinpointed from the console without guessing.
-    try:
-        print(
-            f"[start] single_mode_free/start payload: card_id={req.card_id} "
-            f"support_card_ids={req.support_card_ids} (n={len(req.support_card_ids) if isinstance(req.support_card_ids, list) else '?'}) "
-            f"friend_card_id={req.friend_card_id} friend_viewer_id={req.friend_viewer_id} "
-            f"deck_id={req.deck_id} scenario_id={req.scenario_id}"
-        )
-    except Exception:
-        pass
     try:
         result = active_client.start_career(
             card_id=req.card_id,
@@ -5583,14 +5572,24 @@ async def run_career(req: RunCareerRequest):
     try:
         account = active_account or {}
         career = account.get("career") or {}
-        if career.get("active"):
-            index_result = active_client.call("load/index")
-            load_data = index_result.get("data", {})
-            update_start_state(load_data)
-
-            account = get_account_status(load_data)
-            active_account = account
-            career = account.get("career") or {}
+        load_data = {}
+        # UNCONDITIONAL live-state probe: always ask the game whether a career is
+        # in progress (e.g. one the user started MANUALLY in-game), instead of
+        # trusting our possibly-stale cached active flag. Without this, a cold
+        # resume right after server start misses the manual career and falls
+        # through to a fresh start that ignores the in-game trainee/parents/deck/
+        # friend. When no career is in progress this is a harmless read that leaves
+        # career.active False, so a genuine fresh start is unaffected.
+        if active_client:
+            try:
+                index_result = active_client.call("load/index")
+                load_data = index_result.get("data", {})
+                update_start_state(load_data)
+                account = get_account_status(load_data)
+                active_account = account
+                career = account.get("career") or {}
+            except Exception as _probe_exc:
+                print(f"[career/run] live-state probe failed ({_probe_exc}); using cached account state", flush=True)
 
         result = None
         chara_info = None
@@ -5945,6 +5944,47 @@ async def api_accounts_manager_start():
         creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
     )
     return {"success": True, "pid": manager_process.pid}
+
+
+@app.get("/api/stream")
+async def api_event_stream():
+    """Server-Sent Events feed of live game-API calls (off the event bus the client
+    publishes to) — a real-time alternative/supplement to polling. Emits compact,
+    SECRET-FREE events {ts, dir, ep, req_id, rc} only; never request payloads. The
+    dashboard still polls; this is additive."""
+    import queue as _queue
+    from fastapi.responses import StreamingResponse
+    from career_bot import event_bus
+
+    q = event_bus.subscribe()
+
+    async def gen():
+        last_ka = time.time()
+        try:
+            yield "retry: 3000\n\n"
+            yield f"data: {json.dumps({'dir': 'OPEN', 'ep': 'stream', 'ts': time.time()})}\n\n"
+            while True:
+                drained = 0
+                while True:
+                    try:
+                        evt = q.get_nowait()
+                    except _queue.Empty:
+                        break
+                    yield f"data: {json.dumps(evt)}\n\n"
+                    drained += 1
+                now = time.time()
+                if drained == 0 and now - last_ka >= 15:
+                    last_ka = now
+                    yield ": keepalive\n\n"  # SSE comment keeps the connection alive
+                await asyncio.sleep(0.5)
+        finally:
+            event_bus.unsubscribe(q)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/api/health")
@@ -7847,12 +7887,6 @@ def check_saved_auth():
                 c = UmaClient(saved_cfg, trace_enabled=False)
                 res = c.login()
                 if res and res.get("data"):
-                    # FORK: sync the (possibly refreshed) ticket back so the
-                    # pre-load step doesn't reuse a consumed ticket (→ 394).
-                    if getattr(c, "steam_ticket", None):
-                        saved_cfg["steam_session_ticket"] = c.steam_ticket
-                    if getattr(c, "steam_id", None):
-                        saved_cfg["steam_id"] = str(c.steam_id)
                     print("[+] Headless bypass successful!", flush=True)
                     return saved_cfg
                 else:

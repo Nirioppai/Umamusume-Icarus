@@ -167,6 +167,20 @@
     if (s.friend) sel.friend = s.friend;
     if (Array.isArray(s.guestParents)) sel.guestParents = s.guestParents;
   }
+  // When a career is in progress (e.g. started manually in-game), ITS parents are
+  // the truth. Reflect them in the PARENT slots and persist the selection so the
+  // resumed career shows + uses the real parents, overriding the saved picks.
+  function applyActiveCareerParents() {
+    const car = data && data.account && data.account.career;
+    if (!car || !car.active) return;
+    const ids = [Number(car.parent_id_1 || 0), Number(car.parent_id_2 || 0)].filter((n) => n > 0);
+    if (!ids.length) return;
+    const L = lists();
+    sel.veterans = ids.slice(0, 2).map((id) =>
+      L.parents.find((p) => Number(p.instance_id) === id) ||
+      { instance_id: id, name: 'Career parent ' + id, rank: '', card_id: 0 });
+    saveSelection();
+  }
   function selectTrainee(u) { sel.trainee = u; renderSlots(); renderLibBody(); saveSelection(); }
   function toggleVeteran(p) {
     const i = sel.veterans.findIndex((v) => Number(v.instance_id) === Number(p.instance_id));
@@ -584,11 +598,27 @@
   }
 
   // ---- Parents search + factor filter (operates on parent.tree factors) ----
-  const PF_CATS = ['stat', 'aptitude', 'unique', 'skill', 'race', 'scenario'];
   const PF_RANK = { 'SS+': 13, 'SS': 12, 'S+': 11, 'S': 10, 'A+': 9, 'A': 8, 'B+': 7, 'B': 6, 'C+': 5, 'C': 4, 'D+': 3, 'D': 2, 'E': 1 };
   const PF_AGES = [[0, 'Cleanup age\u2026'], [1, 'Created < 1h ago'], [6, 'Created < 6h ago'], [12, 'Created < 12h ago'], [24, 'Created < 24h ago'], [48, 'Created < 48h ago'], [72, 'Created < 3d ago'], [168, 'Created < 7d ago']];
-  const PF = { search: '', cats: [], factor: '', minStars: 1, scope: 'lineage', sort: 'none', maxAgeH: 0 };
-  try { Object.assign(PF, JSON.parse(localStorage.getItem('icarus_parent_filter') || '{}')); } catch (e) {}
+  // Spark categories -> the EXACT factor names in data/factor_map.json. The
+  // aptitude checkbox labels are short (Front/Pace/Late/End); APT_NAME maps each
+  // to its full factor name so the filter matches the data.
+  const ATTR_KEYS = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit'];
+  const APT_LABELS = ['Turf', 'Dirt', 'Sprint', 'Mile', 'Medium', 'Long', 'Front', 'Pace', 'Late', 'End'];
+  const APT_NAME = { Turf: ['Turf'], Dirt: ['Dirt'], Sprint: ['Sprint'], Mile: ['Mile'], Medium: ['Medium'], Long: ['Long'], Front: ['Front Runner'], Pace: ['Pace Chaser'], Late: ['Late Surger'], End: ['End Closer'] };
+  const PF_SORTS = [['rating', 'Rating'], ['sparks', 'Sparks'], ['skills', 'Skills'], ['track', 'Track'], ['distance', 'Distance'], ['style', 'Style'], ['date', 'Date Acquired'], ['name', 'Name'], ['fav', 'Favorites']];
+  // Default: everything checked, All stars, self-only (origin off) = a no-op that
+  // shows all parents, mirroring the in-game default.
+  const defaultPF = () => ({ sort: 'date', attr: { keys: ATTR_KEYS.slice(), min: 1, origin: false }, apt: { keys: APT_LABELS.slice(), min: 1, origin: false }, uniq: { on: false, min: 1, origin: false }, maxAgeH: 0 });
+  const PF = defaultPF();
+  try {
+    const saved = JSON.parse(localStorage.getItem('icarus_parent_filter') || '{}');
+    if (saved && typeof saved === 'object') {
+      if (PF_SORTS.some((s) => s[0] === saved.sort)) PF.sort = saved.sort;
+      ['attr', 'apt', 'uniq'].forEach((k) => { if (saved[k] && typeof saved[k] === 'object') Object.assign(PF[k], saved[k]); });
+      if (typeof saved.maxAgeH === 'number') PF.maxAgeH = saved.maxAgeH;
+    }
+  } catch (e) {}
   const pfSave = () => { try { localStorage.setItem('icarus_parent_filter', JSON.stringify(PF)); } catch (e) {} };
 
   // ---- Favorited parents / guest parents (localStorage; pinned to top + star) ----
@@ -629,66 +659,160 @@
     });
     return { factors: m, total };
   }
-  function pfScore(p) {
-    const fx = parentFactors(p);
-    if (!PF.factor) return fx.total;
-    const row = fx.factors.get(PF.factor);
-    if (!row) return 0;
-    return PF.scope === 'self' ? row.self : row.total;
+  // ---- Spark matching over the parent's self node (+ 2 origin legacies) ----
+  function nodeFactors(p, includeOrigin) {
+    const tree = p.tree || {}; const out = [];
+    (includeOrigin ? ['self', 'p1', 'p2'] : ['self']).forEach((k) => {
+      const n = tree[k]; if (n) (n.factors || []).forEach((f) => out.push(f));
+    });
+    return out;
+  }
+  const aptNames = (labels) => labels.reduce((a, l) => a.concat(APT_NAME[l] || []), []);
+  function sparkHit(p, category, names, minStars, includeOrigin) {
+    const want = names ? new Set(names) : null;
+    for (const f of nodeFactors(p, includeOrigin)) {
+      if (String(f.category || '').toLowerCase() !== category) continue;
+      if (want && !want.has(f.name)) continue;
+      if (Number(f.stars || 0) >= minStars) return true;
+    }
+    return false;
+  }
+  function sumStars(p, category, names) {
+    const want = names ? new Set(names) : null; let s = 0;
+    nodeFactors(p, true).forEach((f) => {
+      if (String(f.category || '').toLowerCase() !== category) return;
+      if (want && !want.has(f.name)) return;
+      s += Number(f.stars || 0);
+    });
+    return s;
+  }
+  // A spark section only FILTERS when narrowed: stars raised above All, or some
+  // (not all) boxes checked. All-checked + All-stars = pass-through (show all).
+  const sectionActive = (sec, allKeys) => sec.keys.length > 0 && (sec.min > 1 || sec.keys.length < allKeys.length);
+  function pfActiveCount(s) {
+    let n = 0;
+    if (sectionActive(s.attr, ATTR_KEYS)) n++;
+    if (sectionActive(s.apt, APT_LABELS)) n++;
+    if (s.uniq.on) n++;
+    return n;
   }
   function pfPasses(p) {
-    const fx = parentFactors(p);
-    if (PF.search) {
-      const q = PF.search.toLowerCase();
-      let hit = String(p.name || '').toLowerCase().includes(q);
-      if (!hit) for (const row of fx.factors.values()) if (row.label.toLowerCase().includes(q)) { hit = true; break; }
-      if (!hit) return false;
-    }
-    if (PF.cats.length) {
-      let hit = false;
-      for (const row of fx.factors.values()) if (PF.cats.includes(row.cat)) { hit = true; break; }
-      if (!hit) return false;
-    }
-    if (PF.factor && pfScore(p) < (PF.minStars || 1)) return false;
+    if (sectionActive(PF.attr, ATTR_KEYS) && !sparkHit(p, 'stat', PF.attr.keys, PF.attr.min, PF.attr.origin)) return false;
+    if (sectionActive(PF.apt, APT_LABELS) && !sparkHit(p, 'aptitude', aptNames(PF.apt.keys), PF.apt.min, PF.apt.origin)) return false;
+    if (PF.uniq.on && !sparkHit(p, 'unique', null, PF.uniq.min, PF.uniq.origin)) return false;
     return true;
+  }
+  function pfMetric(p) {
+    switch (PF.sort) {
+      case 'rating': return PF_RANK[p.rank] || 0;
+      case 'sparks': return parentFactors(p).total;
+      case 'skills': return sumStars(p, 'skill');
+      case 'track': return sumStars(p, 'aptitude', ['Turf', 'Dirt']);
+      case 'distance': return sumStars(p, 'aptitude', ['Sprint', 'Mile', 'Medium', 'Long']);
+      case 'style': return sumStars(p, 'aptitude', ['Front Runner', 'Pace Chaser', 'Late Surger', 'End Closer']);
+      case 'date': return Number(p.create_date || 0);
+      default: return 0;
+    }
   }
   function pfList(all) {
     const out = all.filter(pfPasses);
-    if (PF.sort === 'factor') out.sort((a, b) => pfScore(b) - pfScore(a));
-    else if (PF.sort === 'stars') out.sort((a, b) => parentFactors(b).total - parentFactors(a).total);
-    else if (PF.sort === 'rank') out.sort((a, b) => (PF_RANK[b.rank] || 0) - (PF_RANK[a.rank] || 0));
-    return favFirst(out, 'parents');   // favorited parents pinned to the top
+    if (PF.sort === 'name') out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    else if (PF.sort !== 'fav') out.sort((a, b) => pfMetric(b) - pfMetric(a));
+    return favFirst(out, 'parents');   // favorited parents always pinned to the top
   }
-  function pfFactorOptions(all) {
-    const names = new Map();
-    all.forEach((p) => parentFactors(p).factors.forEach((row, key) => { if (!names.has(key)) names.set(key, row); }));
-    const sorted = Array.from(names.entries()).sort((a, b) => a[1].cat === b[1].cat ? a[1].label.localeCompare(b[1].label) : a[1].cat.localeCompare(b[1].cat));
-    return [['', 'Any factor']].concat(sorted.map(([k, row]) => [k, `[${row.cat}] ${row.label}`]));
+  function pfSummary() {
+    const n = pfActiveCount(PF);
+    const sortLabel = (PF_SORTS.find((s) => s[0] === PF.sort) || ['', 'Date Acquired'])[1];
+    return `Sort: ${sortLabel} · ${n ? `${n} filter${n > 1 ? 's' : ''}` : 'no filters'}`;
   }
-  const pfSel = (id, opts, val) => `<select id="${id}" style="width:100%;background:var(--card);border:1px solid var(--line-card);color:var(--ink-2);font:600 11px var(--mono);padding:9px 11px;border-radius:5px">${opts.map(([v, l]) => `<option value="${esc(String(v))}"${String(v) === String(val) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
-  function pfBarHtml(all) {
-    const chip = (c) => `<button type="button" class="pf-chip" data-cat="${c}" style="font:700 9px var(--cond);letter-spacing:.1em;padding:6px 11px;border-radius:5px;border:1px solid ${PF.cats.includes(c) ? 'var(--amber)' : 'var(--line-card)'};background:${PF.cats.includes(c) ? 'rgba(242,169,0,.14)' : 'transparent'};color:var(--amber);cursor:pointer">${c.toUpperCase()}</button>`;
-    return `<div style="border:1px solid var(--line-card);border-radius:8px;background:var(--card);padding:14px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <input id="pf-search" placeholder="Search parent / spark\u2026" value="${esc(PF.search)}" style="flex:1;min-width:180px;background:var(--bar);border:1px solid var(--line-card);color:var(--ink);font:500 12px var(--mono);padding:10px 12px;border-radius:6px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${PF_CATS.map(chip).join('')}</div>
-      </div>
-      ${pfSel('pf-factor', pfFactorOptions(all), PF.factor)}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        ${pfSel('pf-stars', [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `\u2265 ${n}\u2605`]), PF.minStars || 1)}
-        ${pfSel('pf-scope', [['lineage', 'Full lineage'], ['self', 'Self only']], PF.scope)}
-      </div>
-      ${pfSel('pf-sort', [['none', 'Sort: default'], ['factor', 'Sort: factor \u2605'], ['stars', 'Sort: total \u2605'], ['rank', 'Sort: rank']], PF.sort)}
-      <div style="display:flex;align-items:center;gap:12px">
-        <button type="button" id="pf-clear" style="font:700 9px var(--cond);letter-spacing:.12em;padding:8px 14px;border-radius:5px;border:1px solid var(--line-card);background:transparent;color:var(--amber);cursor:pointer">CLEAR</button>
-        <span id="pf-count" style="font:500 10px var(--mono);color:var(--label)"></span>
-      </div>
-      ${pfSel('pf-age', PF_AGES, PF.maxAgeH || 0)}
-      <div style="display:flex;align-items:center;gap:12px">
-        <button type="button" id="pf-cleanup" style="font:700 9px var(--cond);letter-spacing:.12em;padding:8px 14px;border-radius:5px;border:1px solid var(--red-bd);background:transparent;color:var(--red);cursor:pointer">PREVIEW CLEANUP</button>
-        <span id="pf-cleanup-hint" style="font:500 10px var(--mono);color:var(--label)">Select age window to preview cleanup</span>
-      </div>
+  function pfBarHtml() {
+    const n = pfActiveCount(PF);
+    const dot = n ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red)"></span>` : '';
+    return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <button type="button" id="pf-display" style="display:inline-flex;align-items:center;gap:8px;font:700 10px var(--cond);letter-spacing:.12em;padding:9px 16px;border-radius:6px;border:1px solid var(--line-card);background:var(--card);color:var(--ink);cursor:pointer">DISPLAY SETTINGS ${dot}</button>
+      <span style="font:500 10px var(--mono);color:var(--label)">${pfSummary()}</span>
+      <span id="pf-count" style="font:500 10px var(--mono);color:var(--dim);margin-left:auto"></span>
     </div>`;
+  }
+  // ---- The in-game-style Display Settings modal (Sort + Filter tabs) ----
+  function dsSortTab(W) {
+    return `<div style="font:800 9px var(--cond);letter-spacing:.2em;color:var(--amber);margin-bottom:12px">SORT BY</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px 16px">${PF_SORTS.map(([v, l]) =>
+        `<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font:600 11px var(--mono);color:var(--ink-2)"><input type="radio" name="ds-sort" value="${v}"${W.sort === v ? ' checked' : ''}>${l}</label>`).join('')}</div>`;
+  }
+  function dsStarRadio(sect, W) {
+    const opt = (v, l) => `<label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font:600 10px var(--mono);color:var(--ink-2)"><input type="radio" name="ds-${sect}-min" value="${v}"${W[sect].min === v ? ' checked' : ''}>${l}</label>`;
+    return `<div style="display:flex;gap:16px;flex-wrap:wrap;margin:9px 0 5px">${opt(1, 'All')}${opt(2, '\u2605\u2605 or Above')}${opt(3, '\u2605\u2605\u2605 Only')}</div>`;
+  }
+  const dsOrigin = (sect, W) => `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 10px var(--mono);color:var(--dim)"><input type="checkbox" data-ds-origin="${sect}"${W[sect].origin ? ' checked' : ''}>Include Sparks from Origin Legacies</label>`;
+  const dsChecks = (sect, labels, W) => `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px 10px">${labels.map((l) =>
+    `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 10px var(--mono);color:var(--ink-2)"><input type="checkbox" data-ds-chk="${sect}" value="${esc(l)}"${W[sect].keys.includes(l) ? ' checked' : ''}>${esc(l)}</label>`).join('')}</div>`;
+  const dsSection = (title, inner) => `<div style="border:1px solid var(--line-card);border-radius:8px;background:var(--card);padding:12px 14px;margin-bottom:12px">
+      <div style="font:800 9px var(--cond);letter-spacing:.18em;color:var(--green);margin-bottom:9px">${title}</div>${inner}</div>`;
+  function dsFilterTab(W) {
+    const cleanup = `<div style="border:1px solid var(--red-bd);border-radius:8px;padding:12px 14px;margin-top:4px">
+        <div style="font:800 9px var(--cond);letter-spacing:.18em;color:var(--red);margin-bottom:9px">CLEANUP (ICARUS)</div>
+        <select id="ds-age" style="width:100%;background:var(--bar);border:1px solid var(--line-card);color:var(--ink-2);font:600 10px var(--mono);padding:8px 10px;border-radius:5px;margin-bottom:9px">${PF_AGES.map(([v, l]) => `<option value="${v}"${Number(W.maxAgeH || 0) === Number(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
+        <div style="display:flex;align-items:center;gap:10px"><button type="button" id="ds-cleanup" class="abtn danger">PREVIEW CLEANUP</button><span id="ds-cleanup-hint" style="font:500 9px var(--mono);color:var(--label)"></span></div>
+      </div>`;
+    return dsSection('ATTRIBUTE SPARKS', dsChecks('attr', ATTR_KEYS, W) + dsStarRadio('attr', W) + dsOrigin('attr', W))
+      + dsSection('APTITUDE SPARKS', dsChecks('apt', APT_LABELS, W) + dsStarRadio('apt', W) + dsOrigin('apt', W))
+      + dsSection('UNIQUE SPARKS', `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 10px var(--mono);color:var(--ink-2)"><input type="checkbox" data-ds-uniq-on${W.uniq.on ? ' checked' : ''}>Umamusume (has a unique spark)</label>` + dsStarRadio('uniq', W) + dsOrigin('uniq', W))
+      + cleanup;
+  }
+  function openDisplaySettings(all) {
+    const W = JSON.parse(JSON.stringify(PF));
+    let tab = 'filter';
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay'; ov.style.zIndex = '80';
+    const tabBtn = (id, label) => `<button type="button" class="ds-tab" data-ds-tab="${id}" style="flex:1;padding:11px;font:800 10px var(--cond);letter-spacing:.18em;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dim);cursor:pointer">${label}</button>`;
+    ov.innerHTML = `<div class="modal" style="width:470px;max-height:90vh;display:flex;flex-direction:column">
+      <div class="modal-head"><span class="modal-mark"></span><span class="modal-title">DISPLAY SETTINGS</span><button class="modal-x" type="button" data-ds-close>\u00d7</button></div>
+      <div style="display:flex;border-bottom:1px solid var(--line)">${tabBtn('sort', 'SORT')}${tabBtn('filter', 'FILTER')}</div>
+      <div class="modal-body" id="ds-body" style="flex:1;overflow:auto"></div>
+      <div class="modal-foot" style="justify-content:space-between"><button class="abtn danger" type="button" data-ds-reset>RESET</button><span style="display:flex;gap:8px"><button class="abtn" type="button" data-ds-cancel>CANCEL</button><button class="abtn amber" type="button" data-ds-ok>OK</button></span></div>
+    </div>`;
+    document.body.appendChild(ov);
+    const $$ = (s) => ov.querySelector(s);
+    const body = $$('#ds-body');
+    function paintTabs() {
+      ov.querySelectorAll('.ds-tab').forEach((b) => {
+        const on = b.dataset.dsTab === tab;
+        b.style.color = on ? 'var(--ink)' : 'var(--dim)';
+        b.style.borderBottomColor = on ? 'var(--amber)' : 'transparent';
+        if (b.dataset.dsTab === 'filter') b.innerHTML = 'FILTER' + (pfActiveCount(W) ? ' <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);vertical-align:middle"></span>' : '');
+      });
+    }
+    function refreshCleanupHint() {
+      const hint = body.querySelector('#ds-cleanup-hint'); const btn = body.querySelector('#ds-cleanup');
+      if (!hint || !btn) return;
+      const maxH = Number(W.maxAgeH || 0);
+      if (!maxH) { hint.textContent = 'Pick an age window; selected parents are protected.'; btn.disabled = true; btn.style.opacity = '.5'; }
+      else { const n = all.filter((p) => Number(p.create_date || 0) >= (Date.now() / 1000 - maxH * 3600)).length; hint.textContent = `${n} recent parent(s) in window; selected are protected.`; btn.disabled = n === 0; btn.style.opacity = n === 0 ? '.5' : '1'; }
+    }
+    function wireTab() {
+      body.querySelectorAll('[data-ds-chk]').forEach((el) => el.addEventListener('change', () => {
+        const sec = el.dataset.dsChk; const arr = W[sec].keys; const i = arr.indexOf(el.value);
+        if (el.checked) { if (i < 0) arr.push(el.value); } else if (i >= 0) arr.splice(i, 1);
+        paintTabs();
+      }));
+      ['attr', 'apt', 'uniq'].forEach((sec) => body.querySelectorAll(`input[name="ds-${sec}-min"]`).forEach((el) => el.addEventListener('change', () => { if (el.checked) { W[sec].min = Number(el.value); paintTabs(); } })));
+      body.querySelectorAll('[data-ds-origin]').forEach((el) => el.addEventListener('change', () => { W[el.dataset.dsOrigin].origin = el.checked; }));
+      const uon = body.querySelector('[data-ds-uniq-on]'); if (uon) uon.addEventListener('change', () => { W.uniq.on = uon.checked; paintTabs(); });
+      body.querySelectorAll('input[name="ds-sort"]').forEach((el) => el.addEventListener('change', () => { if (el.checked) W.sort = el.value; }));
+      const age = body.querySelector('#ds-age'); if (age) age.addEventListener('change', () => { W.maxAgeH = Number(age.value); refreshCleanupHint(); });
+      const cu = body.querySelector('#ds-cleanup'); if (cu) cu.addEventListener('click', () => { if (!online) { window.alert('Preview mode \u2014 start the server.'); return; } PF.maxAgeH = Number(W.maxAgeH || 0); pfCleanup(all); });
+      refreshCleanupHint();
+    }
+    function renderTab() { body.innerHTML = tab === 'sort' ? dsSortTab(W) : dsFilterTab(W); wireTab(); paintTabs(); }
+    ov.querySelectorAll('.ds-tab').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.dsTab; renderTab(); }));
+    const close = () => ov.remove();
+    $$('[data-ds-close]').addEventListener('click', close);
+    $$('[data-ds-cancel]').addEventListener('click', close);
+    ov.addEventListener('mousedown', (e) => { if (e.target === ov) close(); });
+    $$('[data-ds-reset]').addEventListener('click', () => { const d = defaultPF(); W.sort = d.sort; W.attr = d.attr; W.apt = d.apt; W.uniq = d.uniq; W.maxAgeH = d.maxAgeH; renderTab(); });
+    $$('[data-ds-ok]').addEventListener('click', () => { PF.sort = W.sort; PF.attr = W.attr; PF.apt = W.apt; PF.uniq = W.uniq; PF.maxAgeH = W.maxAgeH; pfSave(); close(); renderLibBody(); });
+    renderTab();
   }
   function pfRecentCount(all) {
     const maxH = Number(PF.maxAgeH || 0); if (!maxH) return 0;
@@ -706,12 +830,6 @@
       attrs: `data-pick="parent" data-iid="${esc(String(p.instance_id))}" data-spark="${i}"`,
     })).join('')) : emptyTab('No parents match the filters.');
     const c = $('pf-count'); if (c) c.textContent = `${items.length}/${all.length} parents`;
-    const hint = $('pf-cleanup-hint'); const btn = $('pf-cleanup');
-    const maxH = Number(PF.maxAgeH || 0);
-    if (hint && btn) {
-      if (!maxH) { hint.textContent = 'Select age window to preview cleanup'; btn.disabled = true; btn.style.opacity = '.5'; }
-      else { const n = pfRecentCount(all); hint.textContent = `${n} recent parent(s) in window; selected parents are protected`; btn.disabled = n === 0; btn.style.opacity = n === 0 ? '.5' : '1'; }
-    }
   }
   async function pfCleanup(all) {
     const maxH = Number(PF.maxAgeH || 0); if (!maxH) return;
@@ -727,19 +845,7 @@
     } catch (e) { window.alert('Cleanup failed.'); }
   }
   function pfWire(all) {
-    const s = $('pf-search'); if (s) s.addEventListener('input', () => { PF.search = s.value.trim(); pfSave(); pfRenderGrid(all); });
-    $('setup-libbody').querySelectorAll('.pf-chip').forEach((chip) => chip.addEventListener('click', () => {
-      const c = chip.dataset.cat; const i = PF.cats.indexOf(c);
-      if (i >= 0) PF.cats.splice(i, 1); else PF.cats.push(c);
-      const on = PF.cats.includes(c);
-      chip.style.borderColor = on ? 'var(--amber)' : 'var(--line-card)';
-      chip.style.background = on ? 'rgba(242,169,0,.14)' : 'transparent';
-      pfSave(); pfRenderGrid(all);
-    }));
-    const bind = (id, key, num) => { const el = $(id); if (el) el.addEventListener('change', () => { PF[key] = num ? Number(el.value) : el.value; pfSave(); pfRenderGrid(all); }); };
-    bind('pf-factor', 'factor'); bind('pf-stars', 'minStars', true); bind('pf-scope', 'scope'); bind('pf-sort', 'sort'); bind('pf-age', 'maxAgeH', true);
-    const clr = $('pf-clear'); if (clr) clr.addEventListener('click', () => { PF.search = ''; PF.cats = []; PF.factor = ''; PF.minStars = 1; PF.scope = 'lineage'; PF.sort = 'none'; PF.maxAgeH = 0; pfSave(); renderLibBody(); });
-    const cu = $('pf-cleanup'); if (cu) cu.addEventListener('click', () => { if (!online) { window.alert('Preview mode \u2014 start the server.'); return; } pfCleanup(all); });
+    const btn = $('pf-display'); if (btn) btn.addEventListener('click', () => openDisplaySettings(all));
   }
 
   // ---- Decks: hover tooltip (per-card effects + score) and the always-on
@@ -905,7 +1011,7 @@
       })).join('')) : emptyTab('No trainees found in your account.');
     } else if (libTab === 'parents') {
       const all = L.parents.filter((p) => match(p.name));
-      host.innerHTML = pfBarHtml(all) + '<div id="pf-grid"></div>';
+      host.innerHTML = pfBarHtml() + '<div id="pf-grid"></div>';
       pfWire(all);
       pfRenderGrid(all);
     } else if (libTab === 'guests') {
@@ -1192,6 +1298,7 @@
     if (online) {
       data = sess;
       if (sess.selection) applyServerSelection(sess.selection);
+      applyActiveCareerParents();   // a live in-progress career's parents override the saved picks
     }
     if (pres && Array.isArray(pres.presets) && pres.presets.length) presets = pres.presets.map((p) => p.name || p);
     // Keep the dropdown on the backend's ACTIVE preset (was defaulting to the first

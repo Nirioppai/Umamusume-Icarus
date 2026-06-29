@@ -616,8 +616,6 @@ class CareerRunner:
                     "run_id": self.status.get("run_id"),
                     "loop_index": self.status.get("loop_index"),
                     "loop_target": self.status.get("loop_target"),
-                    # FORK: snapshot nirio tuning values active for this run
-                    "nirio": {k: v for k, v in _mc_start.items() if str(k).startswith("nirio_")},
                 }
             except Exception:
                 pass
@@ -834,6 +832,7 @@ class CareerRunner:
                 self._mark(turn=turn)
                 self._update_analytics(chara)
                 self._update_clocks_left(state)
+                self._update_route_info(state)
                 # v2.1: training_scorer removed -- the Trackblazer engine is the sole scorer.
                 self._write_state_snapshot(state)
                 if self._should_refresh_for_stuck_turn(turn):
@@ -871,8 +870,10 @@ class CareerRunner:
                     data = state.get("data") or {}
                     chara = data.get("chara_info") or {}
                     if self._blocked_playing_state(chara):
-
-                        self._mark(last_action=f"blocked state {chara.get('playing_state')}")
+                        ri = self._route_info(chara)
+                        self._mark(last_action=(
+                            f"blocked state {chara.get('playing_state')} "
+                            f"(route {ri['route_id']}, {ri['route_race_count']} route races)"))
                         break
                 
                 self._debug_turn(state, preset)
@@ -1356,8 +1357,16 @@ class CareerRunner:
             return
         std = int(home_info.get("available_continue_num", 0) or 0)
         free = self._free_continue_count(home_info)
+        try:
+            refresh = int(home_info.get("free_continue_time", 0) or 0)
+        except Exception:
+            refresh = 0
         with self.lock:
             self.status["clocks_left"] = std + free
+            # Breakdown + free-pool refresh epoch for the v3 navbar readout.
+            self.status["standard_clocks"] = std
+            self.status["free_clocks"] = free
+            self.status["free_continue_time"] = refresh
 
     def _should_stop(self):
         with self.lock:
@@ -2035,6 +2044,58 @@ class CareerRunner:
         playing_state = int((chara or {}).get("playing_state") or 1)
         return playing_state not in {1, 2, 3, 4, 5}
 
+    def _race_short_mode(self, state):
+        """Decide is_short for race_start from the SERVER's skip-race state instead of
+        hardcoding 1, and surface the server's race-availability flags. Skip (short)
+        mode is the long-standing working default, so we keep is_short=1 unless the
+        server explicitly signals skip is NOT unlocked (shortened_race_state present
+        and falsy). An absent flag keeps the default -> never a regression.
+        Returns (is_short, flags)."""
+        data = (state or {}).get("data") or {}
+        home = data.get("home_info") or {}
+        chara = data.get("chara_info") or {}
+        flags = {
+            "race_entry_restriction": home.get("race_entry_restriction"),
+            "shortened_race_state": home.get("shortened_race_state"),
+            "is_short_race": chara.get("is_short_race"),
+        }
+        srs = home.get("shortened_race_state")
+        if srs is not None:
+            try:
+                if not int(srs or 0):
+                    return 0, flags
+            except Exception:
+                pass
+        return 1, flags
+
+    def _route_info(self, chara):
+        """The scenario's route + its scripted route/finale race program_ids
+        (chara_info.route_id + route_race_id_array) — read-only finale/soft-lock
+        context the runner historically ignored."""
+        chara = chara or {}
+        ids = []
+        for x in (chara.get("route_race_id_array") or []):
+            try:
+                ids.append(int(x))
+            except (TypeError, ValueError):
+                continue
+        return {
+            "route_id": int(chara.get("route_id") or 0),
+            "route_race_ids": ids,
+            "route_race_count": len(ids),
+        }
+
+    def _update_route_info(self, state):
+        """Stash the live route info on the status so it is surfaced (snapshot/UI)
+        and available for soft-lock diagnostics."""
+        chara = ((state or {}).get("data") or {}).get("chara_info")
+        if not isinstance(chara, dict):
+            return
+        info = self._route_info(chara)
+        if info["route_race_count"] or info["route_id"]:
+            with self.lock:
+                self.status["route_info"] = info
+
     def _recover_blocked_state(self, client, strategy, state):
         data = state.get("data") or {}
         chara = data.get("chara_info") or {}
@@ -2434,6 +2495,24 @@ class CareerRunner:
         self._non_retryable_set = ids
         return ids
 
+    def _continue_error_code(self, err_str):
+        """Classify a race-continue exception. Returns ``(code, learn)``.
+
+        ``2507`` = the account-level FREE-continue pool is momentarily empty
+        (transient; refreshes on a daily timer) -- NOT a per-race property, so it is
+        never learned/persisted (learning it permanently banned demonstrably-
+        retryable races and killed the whole clock feature -- see clock-retry
+        forensics 2026-06-28). ``205`` = the game genuinely refuses to continue THIS
+        race -- learned so future careers skip the doomed attempt. Anything else is
+        not a continue-availability signal.
+        """
+        s = str(err_str or "")
+        if "2507" in s:
+            return "2507", False
+        if "205" in s:
+            return "205", True
+        return "", False
+
     def _mark_non_retryable(self, program_id, error_code=""):
         try:
             pid = int(program_id or 0)
@@ -2455,27 +2534,25 @@ class CareerRunner:
             pass
 
     def _free_continue_count(self, home_info):
-        """Usable free race continues.
+        """Usable free race continues = the LIVE remaining free-continue balance.
 
-        v1.5 fix: the game exposes the standing free-continue pool in
-        ``free_continue_num`` (with a ``free_continue_time`` refresh stamp), NOT
-        ``available_free_continue_num`` -- which is 0 on the Trackblazer races
-        that don't grant a per-race free continue.  Reading only the latter made
-        Icarus believe it had zero free retries and fall back to PAID clocks,
-        which those races reject (error 205) -- so 3 free continues sat unused
-        all run.  Use whichever field reports more.
+        CORRECTED 2026-06-28 (clock-retry forensics). ``available_free_continue_num``
+        (AFCN) is the live grantable balance; ``free_continue_num`` is a CONSTANT
+        daily cap (pinned at 3, never decrements). The earlier v1.5 code returned
+        ``max(AFCN, cap)``, so it always reported 3 even when the pool was empty,
+        which forced ``continue_type=1`` (free) on every retry. Once AFCN hit 0 the
+        server rejected every free continue with 2507 and the bot NEVER fell back to
+        spending a standard clock (``continue_type=2``). Across 227 real retry events
+        every 2507 occurred at AFCN==0 (213/213) and every success at AFCN>=1, so AFCN
+        is authoritative. Read it directly; when it is 0 the caller correctly switches
+        to a standard/paid clock instead of burning a doomed free continue.
         """
         if not isinstance(home_info, dict):
             return 0
         try:
-            a = int(home_info.get("available_free_continue_num", 0) or 0)
+            return max(0, int(home_info.get("available_free_continue_num", 0) or 0))
         except Exception:
-            a = 0
-        try:
-            b = int(home_info.get("free_continue_num", 0) or 0)
-        except Exception:
-            b = 0
-        return max(a, b)
+            return 0
 
 
     def _race_program_summary(self, program_id, rank=None, turn=None):
@@ -3153,7 +3230,12 @@ class CareerRunner:
             except Exception:
                 max_retries = 5
         policy["max_retries"] = max(0, max_retries)
-        if int(attempts or 0) >= max(0, max_retries):
+        # A mandatory-race loss ends the career, so its paid-clock rescue (below)
+        # must not be silently killed by max_retries_per_race=0 ("no OPTIONAL
+        # retries"). Mandatory has its own opt-out: disable_mandatory_race_clocks.
+        # For max_retries>=1, mandatory races still respect the cap (v6.7.12).
+        mandatory_rescue_live = bool(is_mandatory) and not cfg.get("disable_mandatory_race_clocks", False)
+        if int(attempts or 0) >= max(0, max_retries) and not (mandatory_rescue_live and max_retries == 0):
             policy["disabled_reason"] = "max_retries_reached"
             return policy
         # v2.1 (user spec): only spend clocks/retries on the DEBUT race, G1s, and
@@ -3270,22 +3352,6 @@ class CareerRunner:
                     self._log_locked("items_use", payload["current_turn"], f"pre-race {used}")
             # v2.1 (#8): refresh the turn-debug item-use rows after pre-race item use.
             self._reemit_item_use_debug(state)
-            # FORK: log pre-race item usage to the career report for log_viewer.html
-            if self.report and self.item_manager.last_pre_race_use_selected:
-                race_turn = int(payload.get("current_turn") or 0)
-                target = None
-                for t in reversed(self.report.get("turns") or []):
-                    if int(t.get("turn") or 0) == race_turn:
-                        target = t
-                        break
-                if not target:
-                    for t in reversed(self.report.get("turns") or []):
-                        if t.get("stats"):
-                            target = t
-                            break
-                if target:
-                    target.setdefault("bot_pre_race_use_selected", []).extend(self.item_manager.last_pre_race_use_selected)
-                    target["bot_pre_race_use_result"] = dict(self.item_manager.last_pre_race_use_result)
 
         program_id = payload.get("program_id")
         current_turn = payload["current_turn"]
@@ -3423,10 +3489,12 @@ class CareerRunner:
             except Exception as exc:
                 self._log("change_running_style_failed", current_turn, str(exc))
 
-        is_short = 1
+        is_short, race_flags = self._race_short_mode(state)
         try:
             res = client.race_start(is_short=is_short, current_turn=current_turn)
-            self._log("race_start", current_turn, f"short {is_short}")
+            self._log("race_start", current_turn,
+                      f"short {is_short} (skip_state={race_flags.get('shortened_race_state')}, "
+                      f"entry_restrict={race_flags.get('race_entry_restriction')})")
         except Exception as exc:
             if self._is_recoverable_error(exc):
                 self._log("race_start_recover", current_turn, str(exc))
@@ -3562,20 +3630,28 @@ class CareerRunner:
                 # client already retries it internally, so a 208 that
                 # bubbles up here is also terminal for this attempt.
                 err_str = str(e)
-                if "205" in err_str or "2507" in err_str:
-                    code = "2507" if "2507" in err_str else "205"
-                    # v1.5: remember this race rejects continues so future
-                    # careers skip the attempt entirely (the policy early-out).
-                    if (preset or {}).get("mant_config", {}).get("enable_non_retryable_learning", True) is not False:
+                code, learn = self._continue_error_code(err_str)
+                if code:
+                    # 2507 = free-continue pool momentarily empty (transient) -> do
+                    # NOT learn it; a genuine 205 (game refuses THIS race) is learned
+                    # so future careers skip the doomed attempt.
+                    if learn and (preset or {}).get("mant_config", {}).get("enable_non_retryable_learning", True) is not False:
                         self._mark_non_retryable(program_id, code)
                     retry_row.update({"error": err_str, "success": False,
                                       "continue_unavailable": True})
                     retry_events.append(retry_row)
-                    self._log(
-                        "race_continue_unavailable", current_turn,
-                        f"server rejected continue ({code}) -- this race does not "
-                        "support retries; recorded as non-retryable, will skip next time",
-                    )
+                    if code == "2507":
+                        self._log(
+                            "race_continue_unavailable", current_turn,
+                            "free-continue pool empty (2507, transient) -- not learned; "
+                            "out of free continues this attempt",
+                        )
+                    else:
+                        self._log(
+                            "race_continue_unavailable", current_turn,
+                            f"server rejected continue ({code}) -- this race does not "
+                            "support retries; recorded as non-retryable, will skip next time",
+                        )
                     break
                 retry_row.update({"error": err_str, "success": False})
                 retry_events.append(retry_row)

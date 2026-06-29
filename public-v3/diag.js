@@ -169,7 +169,35 @@
       <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line-soft)">
         <span class="card-title">CONSOLE</span><span class="fbtn is-active">ALL</span><span class="fbtn">WARN</span><span class="fbtn">ERROR</span>
       </div>
-      <div class="monitor-rows">${console_}</div>`;
+      <div class="monitor-rows">${console_}</div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--line-soft)">
+        <span class="card-title">LIVE API</span><span class="col-meta" id="diag-stream-meta">/api/stream · SSE</span>
+      </div>
+      <div class="monitor-rows" id="diag-stream-rows" style="max-height:170px"></div>`;
+  }
+
+  // Live game-API call feed via Server-Sent Events (/api/stream). Additive, isolated
+  // to this page; the dashboard keeps polling. EventSource auto-reconnects.
+  let _es = null;
+  function startStream() {
+    if (_es || typeof EventSource === 'undefined') return;
+    try { _es = new EventSource('/api/stream'); } catch (e) { return; }
+    _es.onmessage = (e) => {
+      let d;
+      try { d = JSON.parse(e.data); } catch (_) { return; }
+      const rows = $('diag-stream-rows');
+      if (!rows || !d || d.dir === 'OPEN') return;
+      const tone = d.dir === 'ERR' ? 'error' : (d.rc && d.rc !== 1 ? 'warn' : 'mut');
+      const row = document.createElement('div');
+      row.className = 'mrow';
+      row.style.gridTemplateColumns = '54px 1fr 46px';
+      row.innerHTML = `<span class="t">${esc(clockOf(d.ts))}</span>`
+        + `<span class="ev is-${tone}">${esc(d.dir + ' ' + (d.ep || ''))}</span>`
+        + `<span class="t" style="text-align:right">${esc(d.rc != null ? 'rc' + d.rc : (d.err ? 'err' : ''))}</span>`;
+      rows.insertBefore(row, rows.firstChild);
+      while (rows.children.length > 50) rows.removeChild(rows.lastChild);
+    };
+    _es.onerror = () => {};  // transient; EventSource reconnects on its own
   }
 
   function render(sub) {
@@ -192,6 +220,7 @@
     ai = adaptAi(aiData || {}, statusData || {}, advisorData || {});
     diag = adaptDiag(diagData || {});
     render('ai');
+    startStream();
     document.querySelectorAll('.seg[data-sub]').forEach((s) => s.addEventListener('click', () => {
       document.querySelectorAll('.seg[data-sub]').forEach((x) => x.classList.remove('is-active'));
       s.classList.add('is-active');

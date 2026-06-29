@@ -2,7 +2,6 @@ import json
 import re
 from pathlib import Path
 
-from career_bot import trackblazer_rules as tb_rules
 from career_bot.running_style import (
     STYLE_ID_TO_KEY,
     STYLE_KEY_TO_ID,
@@ -148,8 +147,87 @@ DEFAULT_COMMUNITY_SKILL_TIERS = {
     ],
 }
 TIER_SCORE = {"SS": 115, "S": 86, "A": 52, "B": 25}
+
+# Skill-purchase redesign Stage 3: graded tier from the community spreadsheet
+# (data/skill_tiers_normalized.json). The sheet ranks skills with symbols
+# (essential -> useless): U+235F > U+25CE > U+25EF > U+25B2 > U+25B3 > U+2715.
+# Each symbol maps to a heuristic bonus (a TIEBREAKER, same layer as the legacy
+# community tier; the PRIMARY key remains real eval-points-per-SP). Editable per
+# preset via "skill_tier_multipliers".
+DEFAULT_SHEET_TIER_BONUS = {
+    "⍟": 140,   # essential
+    "◎": 110,   # best (double circle)
+    "◯": 60,    # good (large circle)
+    "▲": 20,    # situational (filled triangle)
+    "△": 5,     # excess SP (open triangle)
+    "✕": -60,   # useless
+}
+
 IRRELEVANT_STYLE_TAGS = {SKILL_TAG_FRONT, SKILL_TAG_PACE, SKILL_TAG_LATE, SKILL_TAG_END}
 IRRELEVANT_DISTANCE_TAGS = {SKILL_TAG_SPRINT, SKILL_TAG_MILE, SKILL_TAG_MEDIUM, SKILL_TAG_LONG}
+
+# --- Schedule-aware activation-condition gate (skill-purchase redesign Stage 1) ---
+# A skill activates only when its conditions hold. Some condition keys are
+# TRAINEE-DETERMINABLE up front -- running_style (1 front / 2 pace / 3 late / 4 end)
+# and distance_type (1 sprint / 2 mile / 3 medium / 4 long). If those can NEVER be
+# satisfied by THIS trainee/schedule, the skill is a dead SP sink. All OTHER keys
+# (order_rate, distance_rate, order, corner, phase, remain_distance, ...) are in-race
+# DYNAMIC and are deliberately NOT gated -- they can occur in any race, so gating on
+# them would wrongly demote good situational skills.
+_COND_PRED_RE = re.compile(r'^([a-z_]+)(>=|<=|==|!=|>|<)(-?\d+)$')
+_DISTANCE_TYPE_KEY = {1: "sprint", 2: "mile", 3: "medium", 4: "long"}
+
+
+def _condition_predicate_blocked(key, op, val, style_id, distance_keys):
+    """True iff this single predicate is a determinable gate that is PROVABLY
+    unsatisfiable for the trainee. Unknown/dynamic keys -> False (not blocked)."""
+    if key == "running_style" and style_id:
+        if op == "==":
+            return val != style_id
+        if op == "!=":
+            return val == style_id
+        return False
+    if key == "distance_type" and distance_keys:
+        dk = _DISTANCE_TYPE_KEY.get(val)
+        if dk is None:
+            return False
+        if op == "==":
+            return dk not in distance_keys
+        if op == "!=":
+            return False  # "not this distance" is satisfiable as long as others are raced
+        return False
+    return False
+
+
+def _condition_group_blocked(group, style_id, distance_keys):
+    """An AND-group is blocked if ANY of its determinable predicates is unsatisfiable."""
+    for pred in group.split("&"):
+        m = _COND_PRED_RE.match(pred.strip())
+        if not m:
+            continue
+        if _condition_predicate_blocked(m.group(1), m.group(2), int(m.group(3)), style_id, distance_keys):
+            return True
+    return False
+
+
+def evaluate_skill_conditions(conditions, style_id, distance_keys):
+    """Can a skill with these `conditions` EVER activate for this trainee?
+
+    conditions: list of condition strings ("@" = OR of alt groups, "&" = AND).
+    style_id: the trainee's running-style id (1-4) or None/0 if unknown.
+    distance_keys: set of distance keys the trainee races (sprint/mile/medium/long);
+                   empty set = unknown (never gate on distance then).
+    Returns True (can fire / be conservative) unless EVERY @-group across the
+    conditions is blocked by a provably-unsatisfiable running_style/distance_type.
+    """
+    distance_keys = {str(d).lower() for d in (distance_keys or set())}
+    saw_group = False
+    for cstr in (conditions or []):
+        for group in str(cstr).split("@"):
+            saw_group = True
+            if not _condition_group_blocked(group, style_id, distance_keys):
+                return True
+    return not saw_group  # no parsable groups -> conservative True; all blocked -> False
 
 
 def norm(text):
@@ -163,6 +241,18 @@ def strip_mark(text):
               MOJI_WHITE_CIRCLE, MOJI_DOUBLE_CIRCLE, MOJI_X, MOJI_LARGE_CIRCLE]:
         text = text.replace(m, "")
     return text.strip()
+
+
+def _normalize_skill_target(value):
+    """Normalize the skill-purchase optimization target to one of
+    career | team_trials | champions. Default (and any unknown value) -> career,
+    which preserves the fans-first single-mode behavior."""
+    v = norm(value)
+    if v in {"teamtrials", "trials", "tt", "team"}:
+        return "team_trials"
+    if v in {"champions", "championsmeeting", "champion", "cm", "cm9", "pvp"}:
+        return "champions"
+    return "career"
 
 
 class SkillBuyer:
@@ -254,6 +344,7 @@ class SkillBuyer:
                 # One malformed row must not abort the whole ~8000-row table.
                 continue
         self._load_community_tiers()
+        self._load_sheet_tiers()
         self._load_official_skill_weights()
         self.skill_id_exists = set(self.skill_names)
         self.group_to_skill_ids = {}
@@ -366,8 +457,11 @@ class SkillBuyer:
                 score += min(12, len(support_sources) * 1.5)
             if trainee_sources:
                 score += min(8, len(trainee_sources) * 1.0)
-            if int(row.get("disable_singlemode") or condition_row.get("disable_singlemode") or 0):
-                score -= 120
+            disable_singlemode = int(row.get("disable_singlemode") or condition_row.get("disable_singlemode") or 0)
+            # NOTE: the single-mode-disable penalty is NOT baked into this score
+            # anymore -- it is applied at scoring time via
+            # _disable_singlemode_adjustment so it can be mode-dependent (hard-drop
+            # in career, kept in Team Trials / Champions).
             if int(row.get("is_general_skill") or condition_row.get("is_general_skill") or 0):
                 score += 6
             self.official_skill_weights[skill_id] = {
@@ -376,6 +470,7 @@ class SkillBuyer:
                 "grade_value": grade,
                 "ability_types": ability_types,
                 "conditions": conditions,
+                "disable_singlemode": disable_singlemode,
                 "source_count": len(sources),
                 "support_source_count": len(support_sources),
                 "trainee_source_count": len(trainee_sources),
@@ -568,6 +663,67 @@ class SkillBuyer:
             return 0, ""
         return TIER_SCORE.get(tier, 0), tier
 
+    def _load_sheet_tiers(self):
+        """Load the graded community-spreadsheet tiers (Stage 3). Keyed by
+        norm(strip_mark(name)) to match the scorer's lookups. Best-effort: a
+        missing or malformed file just yields an empty map (legacy tier remains)."""
+        self.sheet_tier_by_norm = {}
+        path = self.base_dir / "data" / "skill_tiers_normalized.json"
+        if not path.exists():
+            return
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+        tiers = raw.get("tiers") if isinstance(raw, dict) else None
+        if not isinstance(tiers, dict):
+            return
+        for key, rec in tiers.items():
+            if isinstance(rec, dict):
+                self.sheet_tier_by_norm[str(key)] = rec
+
+    def _skill_tier_multipliers(self, preset):
+        """Symbol -> heuristic bonus map, with optional per-preset overrides."""
+        mult = dict(DEFAULT_SHEET_TIER_BONUS)
+        override = (preset or {}).get("skill_tier_multipliers")
+        if isinstance(override, dict):
+            for sym, val in override.items():
+                try:
+                    mult[str(sym)] = float(val)
+                except Exception:
+                    continue
+        return mult
+
+    def _sheet_tier_score(self, name, base_name, target, preset=None):
+        """Graded tier bonus for a skill from the community spreadsheet.
+
+        `target` (career|team_trials|champions) selects the rank column:
+        career/team_trials -> Team-Trials rank; champions -> Champions/PvP rank
+        (with a fall back to the Team-Trials rank when the PvP cell is blank).
+        Returns (bonus, symbol); (0.0, "") when the skill is not in the sheet."""
+        rec = (self.sheet_tier_by_norm.get(norm(base_name))
+               or self.sheet_tier_by_norm.get(norm(name)))
+        if not rec:
+            return 0.0, ""
+        if target == "champions":
+            sym = rec.get("cm") or rec.get("tt") or ""
+        else:
+            sym = rec.get("tt") or rec.get("cm") or ""
+        if not sym:
+            return 0.0, ""
+        return float(self._skill_tier_multipliers(preset).get(sym, 0.0)), sym
+
+    def _disable_singlemode_adjustment(self, official, target):
+        """`disable_singlemode` skills are turned off by the game in single-mode
+        CAREER (buying them there is 100% wasted SP) but DO work on the finished
+        uma in Team Trials / Champions. So: hard-drop in career, keep (no
+        penalty) otherwise. Returns (score_delta, reason_or_None)."""
+        if not official or not int(official.get("disable_singlemode") or 0):
+            return 0.0, None
+        if target == "career":
+            return -10000.0, "disable_singlemode(career_drop)"
+        return 0.0, "disable_singlemode(kept:%s)" % target
+
     def _race_context(self, preset):
         # Count the planned races by distance/terrain so skill buying can lean
         # into what Trackblazer actually scheduled.  Cache by race id list.
@@ -661,7 +817,6 @@ class SkillBuyer:
 
     def _skill_config(self, preset):
         preset = preset or {}
-        mant = (preset.get("mant_config") or {})
         return {
             "enable_skill_point_check": bool(preset.get("enable_skill_point_check", True)),
             "learn_skill_threshold": int(preset.get("learn_skill_threshold") or 888),
@@ -673,10 +828,15 @@ class SkillBuyer:
             "skill_spending_strategy": str(preset.get("skill_spending_strategy") or "best_skills_first"),
             "skill_stop_after_recommended": bool(preset.get("skill_stop_after_recommended", False)),
             "skill_manual_auto_fallback": bool(preset.get("skill_manual_auto_fallback", False)),
-            # FORK: (nirio) earlier skill buying
-            "nirio_skill_force_turn": int(mant.get("nirio_skill_force_turn") or tb_rules.DEFAULT_NIRIO_SKILL_FORCE_TURN),
-            "nirio_skill_sp_floor": int(mant.get("nirio_skill_sp_floor") or tb_rules.DEFAULT_NIRIO_SKILL_SP_FLOOR),
-            "nirio_skill_hoard_threshold": int(mant.get("nirio_skill_hoard_threshold") or tb_rules.DEFAULT_NIRIO_SKILL_HOARD_THRESHOLD),
+            # Stage 1 condition gate: penalize (dampen eval/SP) | enforce (hard drop) | ignore.
+            "skill_condition_gating": str(preset.get("skill_condition_gating") or "penalize").lower(),
+            "skill_condition_dead_factor": float(preset.get("skill_condition_dead_factor", 0.15)),
+            # Stage 3 optimization target: career (default, fans-first single-mode)
+            # | team_trials | champions. Selects which spreadsheet rank column
+            # weights the graded tier, and whether single-mode-disabled skills are
+            # dropped (career) or kept (TT/CM).
+            "skill_optimization_target": _normalize_skill_target(preset.get("skill_optimization_target")),
+            "skill_tier_multipliers": dict(preset.get("skill_tier_multipliers") or {}),
         }
 
     def _candidate_allowed_by_skill_config(self, candidate, preset):
@@ -702,26 +862,22 @@ class SkillBuyer:
         turn = int(chara.get("turn") or 0)
         self._set_turn(turn)
         cfg = self._skill_config(preset)
-        # FORK: (nirio) force overrides must be evaluated BEFORE the
-        # enable_skill_point_check gate — otherwise a disabled preset
-        # silently blocks all nirio-forced skill buying.
-        nirio_force_turn = cfg.get("nirio_skill_force_turn", 60)
-        nirio_sp_floor = cfg.get("nirio_skill_sp_floor", 500)
-        if not force and turn >= nirio_force_turn and points >= nirio_sp_floor:
-            force = True
-        pre_finals_turn = int(cfg.get("pre_finals_skill_turn") or 73)
-        if not force and cfg.get("enable_pre_finals_skill_dump", True) and turn >= pre_finals_turn and points > 0:
-            force = True
         if not cfg["enable_skill_point_check"] and not force:
             self.last_candidates = []
             self.last_selected = []
             self.last_attempt = []
             self.last_result = {"skip": "skill_point_check_disabled"}
             return state, 0
-        # FORK: (nirio) uses a lower hoard threshold so the bot spends SP sooner.
-        nirio_hoard = cfg.get("nirio_skill_hoard_threshold", 1000)
-        is_hoarding = points > nirio_hoard
+        is_hoarding = points > 1500
         threshold = cfg["learn_skill_threshold"]
+        # v1.5 pre-finals dump (the reference preFinals plan): on the turns just
+        # before the Twinkle Star Climax (finale races at 74/76/78), spend the
+        # accumulated SP on the best skills even if below the normal threshold,
+        # so the trainee enters the finals fully kitted instead of carrying SP
+        # past the last races it can affect.
+        pre_finals_turn = int(cfg.get("pre_finals_skill_turn") or 73)
+        if not force and cfg.get("enable_pre_finals_skill_dump", True) and turn >= pre_finals_turn and points > 0:
+            force = True
         if not force and not is_hoarding and points <= threshold:
             self.last_candidates = []
             self.last_selected = []
@@ -984,6 +1140,34 @@ class SkillBuyer:
             return False, ""
         return True, "distance_mismatch"
 
+    def _trainee_distance_keys(self, profile, preset):
+        """Distance keys (sprint/mile/medium/long) the trainee actually races -
+        the union of the profile's primary+secondary distances and the scheduled
+        races. Empty set = unknown (caller then never gates on distance)."""
+        keys = set()
+        for d in (profile.get("primary_distances") or []):
+            keys.add(str(d).lower())
+        for d in (profile.get("secondary_distances") or []):
+            keys.add(str(d).lower())
+        try:
+            for k in (self._race_context(preset or {}).get("distance_counts") or {}):
+                keys.add(str(k).lower())
+        except Exception:
+            pass
+        keys.discard("")
+        return keys
+
+    def _skill_condition_can_fire(self, skill_id, profile, preset):
+        """Stage 1 gate: can this skill EVER activate for this trainee? False only
+        when every condition group is blocked by an unsatisfiable running_style /
+        distance_type (dynamic in-race conditions are never gated)."""
+        row = self.official_skill_conditions.get(int(skill_id or 0)) or {}
+        conditions = row.get("conditions") or []
+        if not conditions:
+            return True
+        style_id = STYLE_KEY_TO_ID.get(str(self._selected_style_key(preset or {}, profile) or "").lower())
+        return evaluate_skill_conditions(conditions, style_id, self._trainee_distance_keys(profile, preset))
+
     # Aptitude multiplier.  The reference optimiser scales a skill's
     # raw evaluation points by the trainee's aptitude grade for the dimension the
     # skill belongs to: S/A 1.1, B/C 0.9, D/E/F 0.8, G 0.7.  We mirror that mapping
@@ -1062,10 +1246,19 @@ class SkillBuyer:
             score += float(weights.get("recommended", 190))
             reasons.append("character_recommended")
 
-        tier_score, tier = self._community_tier_score(name, base_name)
-        if tier_score:
-            score += tier_score * float(weights.get("community", 1.0))
-            reasons.append(f"community_tier:{tier}")
+        target = _normalize_skill_target((preset or {}).get("skill_optimization_target"))
+        community_weight = float(weights.get("community", 1.0))
+        sheet_bonus, sheet_sym = self._sheet_tier_score(name, base_name, target, preset)
+        if sheet_sym:
+            # The graded spreadsheet tier (289 skills) supersedes the coarse
+            # 3-tier legacy list when it has an entry; legacy is the fallback.
+            score += sheet_bonus * community_weight
+            reasons.append(f"sheet_tier[{target}]:{sheet_sym}")
+        else:
+            tier_score, tier = self._community_tier_score(name, base_name)
+            if tier_score:
+                score += tier_score * community_weight
+                reasons.append(f"community_tier:{tier}")
 
         color = self._skill_color(skill_id, name)
         if color == "yellow":
@@ -1144,6 +1337,12 @@ class SkillBuyer:
             if official_score:
                 score += official_score
                 reasons.append(f"official_master:{round(official_score, 1)}")
+            # Single-mode-disabled skills: dead SP in career, kept in TT/CM.
+            dsm_adj, dsm_reason = self._disable_singlemode_adjustment(official, target)
+            if dsm_adj:
+                score += dsm_adj
+            if dsm_reason:
+                reasons.append(dsm_reason)
             if official.get("conditions"):
                 reasons.append("official_conditions")
             if int(official.get("support_source_count") or 0):
@@ -1172,6 +1371,24 @@ class SkillBuyer:
         cost = max(1, int(self.skill_costs.get(skill_id) or 160))
         apt_mult = self._skill_aptitude_multiplier(skill_id, profile, preset)
         eval_per_sp = (grade / cost) * apt_mult  # negative for ✗ debuff skills
+        # Stage 1: schedule-aware activation-condition gate. A skill whose
+        # running_style/distance_type conditions can NEVER fire for this trainee is
+        # dead SP. Feasibility is computed ALWAYS so the buy log can MEASURE the
+        # leak (the reason tag) even in 'ignore' mode; the score penalty is applied
+        # only in penalize (dampen eval/SP) / enforce (hard drop) modes.
+        gate_mode = str((preset or {}).get("skill_condition_gating") or "penalize").lower()
+        if not self._skill_condition_can_fire(skill_id, profile, preset):
+            if gate_mode == "enforce":
+                heuristic += -10000
+                reasons.append("condition_dead(enforce)")
+            elif gate_mode == "ignore":
+                reasons.append("condition_unsatisfiable(ignore)")
+            else:  # penalize (default)
+                try:
+                    eval_per_sp *= float((preset or {}).get("skill_condition_dead_factor", 0.15))
+                except Exception:
+                    eval_per_sp *= 0.15
+                reasons.append("condition_dead(penalize)")
         primary_scale = float((preset or {}).get("skill_eval_primary_scale", 1000)) if preset else 1000
         score = eval_per_sp * primary_scale + heuristic
         reasons.append(f"eval_per_sp:{round(eval_per_sp, 3)}")

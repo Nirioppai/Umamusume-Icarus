@@ -48,6 +48,11 @@ SKILL_CONFIG_KEYS = {
     "manual_skill_tiers_dont_spend_extra",
     "skill_stop_after_recommended",
     "skill_manual_auto_fallback",
+    # Skill-purchase redesign: Stage 1 condition gate + Stage 3 optimization target.
+    "skill_condition_gating",
+    "skill_condition_dead_factor",
+    "skill_optimization_target",
+    "skill_tier_multipliers",
 }
 
 SMART_SOLVER_KEYS = {
@@ -171,6 +176,16 @@ def _default_skill_config():
         # (not "once recommended owned" as intended), so the bot bought almost
         # nothing and hoarded SP. The smart scorer already filters quality.
         "skill_stop_after_recommended": False,
+        # Skill-purchase redesign. Stage 1: schedule-aware condition gate
+        # (penalize = dampen eval/SP for skills whose running_style/distance_type
+        # conditions can never fire for this trainee; enforce = hard drop; ignore
+        # = tag only). Stage 3: optimization target picks which spreadsheet rank
+        # column weights the graded tier and whether single-mode-disabled skills
+        # are dropped (career) or kept (team_trials / champions). Defaults keep the
+        # fans-first single-mode behavior unchanged.
+        "skill_condition_gating": "penalize",
+        "skill_condition_dead_factor": 0.15,
+        "skill_optimization_target": "career",
         "skill_strategy": {
             "forced_skills": [],
             "blacklist": [],

@@ -33,6 +33,7 @@ class EventManager:
         self.event_display = {}
         self.scraped_effects = {}
         self._scraped_name_index = None
+        self._override_key_index = None
         self.last_choice_trace = {}
         # skill name<->id maps (skill_data.json) for resolving the user's PLANNED
         # skills to ids, so an event hint for a planned skill can be preferred.
@@ -445,7 +446,7 @@ class EventManager:
 
     def _override_choice(self, event, preset):
         overrides = (preset or {}).get("event_overrides") or {}
-        if not isinstance(overrides, dict):
+        if not isinstance(overrides, dict) or not overrides:
             return None
         story_id = str(event.get("story_id", ""))
         candidates = [story_id, str(event.get("event_id", ""))]
@@ -457,9 +458,37 @@ class EventManager:
                 f"character:{chara}:{title}",
                 f"support:{chara}:{title}",
             ])
+        # Overrides set from the Event Choices panel are keyed by the gametora
+        # catalog key -- a slug (e.g. "0836crapioverslept") for not-yet-seen
+        # events -- which never equals the live numeric story_id/event_id. Bridge
+        # by event NAME, the same resolution the effect/outcome lookup uses
+        # (_scraped_by_name), so forced catalog choices actually apply.
+        cat_key = self._override_catalog_key(event)
+        if cat_key:
+            candidates.append(cat_key)
         for key in candidates:
             if key and key in overrides:
                 return overrides[key]
+        return None
+
+    def _override_catalog_key(self, event):
+        """The catalog/scrape KEY (slug or id) whose event_name matches this live
+        event, so a catalog-keyed override resolves by name. Mirrors the
+        normalization in _scraped_by_name."""
+        if self._override_key_index is None:
+            idx = {}
+            for sid, row in (self.scraped_effects or {}).items():
+                if isinstance(row, dict):
+                    nm = " ".join(str(row.get("event_name") or "").strip().split()).lower()
+                    if nm and nm not in idx:
+                        idx[nm] = sid
+            self._override_key_index = idx
+        for name in (event.get("title"), event.get("event_title"), event.get("name"),
+                     ((event.get("event_contents_info") or {}).get("title")
+                      if isinstance(event.get("event_contents_info"), dict) else "")):
+            needle = " ".join(str(name or "").strip().split()).lower()
+            if needle and needle in self._override_key_index:
+                return self._override_key_index[needle]
         return None
 
     def _choice_index_from_select(self, choices, override):
@@ -467,13 +496,15 @@ class EventManager:
             wanted = int(override)
         except Exception:
             return 0
+        # The override is a 0-based CHOICE POSITION (the Event Choices panel / API
+        # contract), so treat it as a direct index into the live choices first.
+        # Only fall back to matching a game select_index (or a 1-based option
+        # number) for legacy or out-of-range values.
+        if 0 <= wanted < len(choices):
+            return wanted
         for i, choice in enumerate(choices):
             if int(choice.get("select_index", i + 1) or 0) == wanted:
                 return i
-        # User may provide a zero-based UI index.
-        if 0 <= wanted < len(choices):
-            return wanted
-        # Or a one-based option number.
         if 1 <= wanted <= len(choices):
             return wanted - 1
         return 0

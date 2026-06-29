@@ -500,6 +500,7 @@ body:has(.app--cockpit) {
 .bg-green { background: var(--green) !important; }
 .bg-red   { background: var(--red) !important; }
 .bg-mut   { background: var(--ink-3) !important; }
+.bg-purple { background: var(--purple) !important; }
 .fill-amber { background: var(--amber) !important; }
 .fill-cyan  { background: var(--cyan) !important; }
 .fill-green { background: var(--green) !important; }

@@ -68,6 +68,29 @@
   // ============================================================
   //  RENDER
   // ============================================================
+  // Free race-retry continue readout for the navbar. Shows the live free-continue
+  // count and, when the free pool is empty, an ESTIMATED next-refresh countdown
+  // (free continues refresh daily; free_continue_time is the daily stamp, rolled
+  // forward to the next future occurrence). Data comes from the live career's
+  // home_info via the runner status (runner.clocks); hidden until a career sets it.
+  function freeClockPill() {
+    const rc = (state.runner && state.runner.clocks) || null;
+    if (!rc || !rc.seen) return '';
+    let suffix = '';
+    if (rc.free <= 0 && rc.refreshAt > 0) {
+      let target = rc.refreshAt;
+      const now = Date.now() / 1000;
+      while (target <= now) target += 86400;   // daily refresh; roll to the next one
+      const secs = target - now;
+      const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+      suffix = `<span class="sub"> ~${h}h${String(m).padStart(2, '0')}</span>`;
+    }
+    const tone = rc.free > 0 ? ' is-amber' : ' is-dim';
+    const title = `Free race-retry continues (refresh daily). Free now: ${rc.free}, standard clocks: ${rc.std}.`
+      + (suffix ? ' The ~time is the estimated next daily free refresh.' : '');
+    return `<div class="pill" title="${title}"><div class="pill-k">FREE CLK</div><div class="pill-v${tone}">${rc.free}${suffix}</div></div>`;
+  }
+
   function renderPills(account) {
     const host = $('rail-pills');
     if (!host) return;
@@ -85,6 +108,7 @@
       <div class="pill"><div class="pill-k">CARROTS</div><div class="pill-v is-amber">${fmtNum(c.total)}</div></div>
       <div class="pill"><div class="pill-k">GOLD</div><div class="pill-v">${fmtCompact(account.gold)}</div></div>
       <div class="pill"><div class="pill-k">CLOCKS</div><div class="pill-v">${fmtNum(account.clocks)}</div></div>
+      ${freeClockPill()}
       ${window.Icarus && Icarus.careerPillHtml ? Icarus.careerPillHtml(account.career) : ''}`;
     host.innerHTML = html;
   }
@@ -145,7 +169,7 @@
       const hpClr = r.hpDelta ? 'green' : tone;
       row.innerHTML = `
         <span class="log-turn">${r.turn}</span>
-        <span class="log-act c-${r.actTone}">▸ ${r.act}</span>
+        <span class="log-act"><span class="rcard-badge bg-${r.actTone}">${r.act}</span></span>
         <span class="log-target${r.act === 'REST' || r.act === 'REC' ? ' is-mut' : ''}">${esc(r.target)}</span>
         <span class="log-hp r c-${hpClr}">${hpTxt}</span>
         <span class="log-mood r">${r.mood ?? '—'}</span>`;
@@ -406,7 +430,7 @@
         turn: r.turn, act: meta[0], actTone: meta[1],
         target: facLabel(r),
         hp: Number(st.hp ?? 0),
-        mood: st.motivation != null ? moodFromMotivation(st.motivation).label : '—',
+        mood: st.motivation != null ? moodFromMotivation(st.motivation).value : '—',
       };
     });
 
@@ -464,6 +488,13 @@
         stats: hasCareer ? stats : [],
         lifetime, action_rows, reasoning,
         run_id: runner.run_id || '',   // new-career detection for loop mode (#5)
+        clocks: {
+          std: Number(runner.standard_clocks || 0),
+          free: Number(runner.free_clocks || 0),
+          refreshAt: Number(runner.free_continue_time || 0),
+          total: Number(runner.clocks_left || 0),
+          seen: ('free_clocks' in runner) || ('clocks_left' in runner),
+        },
       },
     };
   }
@@ -481,7 +512,7 @@
   let selectedCardId = 0;    // Setup-selected trainee (PNG fallback when no career)
   function setPortrait() {
     const f = $('portrait-3d');
-    if (f && !/model-test\/mini\.html/.test(f.getAttribute('src') || '')) f.src = 'model-test/mini.html?v=2';
+    if (f && !/model-test\/mini\.html/.test(f.getAttribute('src') || '')) f.src = 'model-test/mini.html?v=3';
   }
   // The PNG shows the ACTIVE career trainee, or (when idle) the Setup-selected one.
   async function loadSelectedTrainee() {
@@ -512,7 +543,7 @@
     const png = portraitMode === 'png';
     if (f) f.style.display = png ? 'none' : 'block';
     if (img) { img.style.display = png ? 'block' : 'none'; if (png) applyPortraitPng(); }
-    if (b) b.textContent = png ? 'PNG' : '3D';
+    if (b) b.textContent = png ? 'PNG' : 'Seiun';
     if (tag) tag.textContent = png ? 'TRAINEE · PNG' : '3D MODEL · .PMX';
   }
   function syncPortrait() { setPortrait(); }

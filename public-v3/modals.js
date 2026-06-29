@@ -135,6 +135,54 @@
       } catch (e) { b.textContent = 'SAVE FAILED'; }
       setTimeout(closeModal, 500);
     }));
+    // Unsaved-changes guard: if this overlay can save, intercept its close paths
+    // (DONE/X, backdrop, Esc -- routed through core.js attemptClose / escClose) so
+    // a dirty modal prompts Save / Discard instead of closing silently. The SAVE
+    // button itself closes via closeModal() and bypasses this (no double prompt).
+    if (o.querySelector('[data-save]')) {
+      o._guardClose = (close) => {
+        if (o._cleanSnap != null && snapshot(o) !== o._cleanSnap) showUnsavedConfirm(o, close);
+        else close();
+      };
+    }
+  }
+  // The modal's exact "what SAVE would persist" payload as a stable string, via the
+  // SAME collector the save button uses -> "dirty" means a *saveable* change only
+  // (display-only controls with no collector entry never trigger the prompt).
+  function collectorFor(o) {
+    const b = o.querySelector('[data-save]');
+    if (!b) return null;
+    return SAVE_COLLECTORS[b.dataset.save] || SAVE_COLLECTORS[b.dataset.collect] || null;
+  }
+  function snapshot(o) {
+    const c = collectorFor(o);
+    let payload = null;
+    try { payload = c ? c(o) : null; } catch (e) { payload = null; }
+    return JSON.stringify(payload != null ? payload : null);
+  }
+  // Capture the clean baseline AFTER a modal's async init has populated its controls.
+  // Until armed (_cleanSnap == null) the guard degrades to a silent close.
+  function armUnsavedGuard(o) { if (o) o._cleanSnap = snapshot(o); }
+  // Save / Discard prompt for a dirty settings modal. Built as a raw overlay (NOT
+  // modal(), which would close the settings modal first). Dismissing it via backdrop
+  // or Esc (core escClose targets the topmost overlay, which has no guard) = keep editing.
+  function showUnsavedConfirm(o, close) {
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.style.zIndex = '80';
+    ov.innerHTML = `<div class="modal" style="width:400px">
+      <div class="modal-head"><span class="modal-mark"></span><span class="modal-title">UNSAVED CHANGES</span></div>
+      <div class="modal-body" style="padding:18px"><p style="font:500 12px/1.7 var(--mono);color:var(--ink-2);margin:0">You’ve made changes that haven’t been saved. Save them before closing?</p></div>
+      <div class="modal-foot"><button class="abtn" type="button" data-uc-discard>DISCARD CHANGES</button><button class="abtn amber" type="button" data-uc-save>SAVE CHANGES</button></div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener('mousedown', (e) => { if (e.target === ov) ov.remove(); }); // keep editing
+    ov.querySelector('[data-uc-discard]').addEventListener('click', () => { ov.remove(); close(); });
+    ov.querySelector('[data-uc-save]').addEventListener('click', () => {
+      ov.remove();
+      const btn = o.querySelector('[data-save]');
+      if (btn) btn.click(); else close();
+    });
   }
 
   // ============================================================
@@ -474,21 +522,26 @@
       const es = e.target.closest('[data-epsearch]');
       if (es) { const k = es.dataset.epsearch, q = es.value.toLowerCase(); o.querySelectorAll(`[data-ep="${k}"]`).forEach((c) => { c.style.display = (!q || c.textContent.toLowerCase().includes(q)) ? '' : 'none'; }); }
     });
-    // Pull the full character roster from the backend and repopulate the list.
+    // Pull the full character roster from the backend, then make the Character
+    // Preset FOLLOW the trainee selected in Setup (issue #1). The active
+    // trainee's card_id is nested under resolved_from on /active -- the old code
+    // read top-level a.card_id, so the sync never fired and the picker fell back
+    // to the alphabetically-first roster entry ("Admire Vega"). solver_char_match
+    // resolves it (exact card_id -> chara_id outfit variant -> display name).
     loadSolverRoster().then(async (changed) => {
-      if (changed) { setName(); reChars((o.querySelector('#solver-char-search') || {}).value); }
-      // BUG #13: the Character Preset must follow the trainee selected in Setup,
-      // not default to Air Shakur (100021). Resolve the active trainee's card id
-      // (same id space as the roster) and select it so the solver uses ITS
-      // aptitudes. Only switches when the trainee is a known roster character.
+      let resolved = null;
       try {
         const a = (window.Icarus && Icarus.api) ? await Icarus.api('/api/character-profile/active') : null;
-        const cid = a && +(a.card_id || a.id || (a.trainee && (a.trainee.card_id || a.trainee.id)) || 0);
-        if (cid && SOLVER_CHAR_MAP[cid] && cid !== SV.charId) {
-          SV.charId = cid; SV.manual = {};
-          setName(); reApt(); reChars((o.querySelector('#solver-char-search') || {}).value);
-        }
-      } catch (e) { /* keep default on any failure */ }
+        const SM = window.IcarusSolverMatch;
+        if (a && SM) resolved = SM.resolveActiveToRoster(a, SOLVER_CHARS);
+      } catch (e) { /* keep fallback on any failure */ }
+      if (resolved) { SV.charId = resolved; SV.manual = {}; }
+      // No active trainee match AND the current id isn't a real roster id (the
+      // static 100021 default goes stale once the backend roster loads): snap to
+      // the first roster entry so the shown name matches the highlighted row
+      // instead of silently mismatching via charById().
+      else if (!SOLVER_CHAR_MAP[SV.charId] && SOLVER_CHARS.length) { SV.charId = +SOLVER_CHARS[0].id; SV.manual = {}; }
+      if (changed || resolved) { setName(); reApt(); reChars((o.querySelector('#solver-char-search') || {}).value); }
     });
   }
 
@@ -599,14 +652,14 @@
         <div class="sk-card"><p style="margin:8px 0;font:400 12px var(--sans);color:var(--dim)">This plan uses the same weighted purchase rules when triggered by career complete.</p>${toggle('Enable Plan', false, 'Purchase skills during career complete.', 'sk.career_complete_enabled')}</div>
       </div>
 
-      ${skSec('STRATEGY &amp; PLANNED SKILLS', sel('Automated Skill Point Spending Strategy', [['best_skills_first', 'Best Skills First'], ['optimize_rank', 'Optimize Rank']], 'best_skills_first', '', 'sk.skill_spending_strategy') + `<div class="srow"><div class="srow-text"><strong>Planned Skills</strong><span id="sk-selcount">Selected 0 / ${SK_SKILLS.length} skills</span></div><div class="srow-ctrl"><button class="abtn danger" type="button" id="sk-clear">CLEAR</button></div></div><div class="sk-tabs"><button class="sk-tab on" type="button" data-listtab="plan">Plan (0)</button><button class="sk-tab" type="button" data-listtab="blacklist">Blacklist (0)</button></div>` + tglRow('sk-showsel', 'Show Only Selected Skills', false, 'Filter the list to only currently selected skills.') + `<input class="sk-search" id="sk-search" placeholder="Search skills by name..."><div class="sk-list" id="sk-list"></div>`)}
+      ${skSec('STRATEGY &amp; PLANNED SKILLS', sel('Automated Skill Point Spending Strategy', [['best_skills_first', 'Best Skills First'], ['optimize_rank', 'Optimize Rank']], 'best_skills_first', '', 'sk.skill_spending_strategy') + sel('Skill Optimization Target', [['career', 'Career (Fans / Single-Mode)'], ['team_trials', 'Team Trials'], ['champions', 'Champions Meeting (PvP)']], 'career', 'Career (default) keeps fans-first single-mode value. Team Trials / Champions instead weight each skill by its rank on your finished uma in that mode — and KEEP single-mode-disabled skills, which Career hard-drops because the game turns them off during a career run. Works alongside (not instead of) the strategy above.', 'sk.skill_optimization_target') + `<div class="srow"><div class="srow-text"><strong>Planned Skills</strong><span id="sk-selcount">Selected 0 / ${SK_SKILLS.length} skills</span></div><div class="srow-ctrl"><button class="abtn danger" type="button" id="sk-clear">CLEAR</button></div></div><div class="sk-tabs"><button class="sk-tab on" type="button" data-listtab="plan">Plan (0)</button><button class="sk-tab" type="button" data-listtab="blacklist">Blacklist (0)</button></div>` + tglRow('sk-showsel', 'Show Only Selected Skills', false, 'Filter the list to only currently selected skills.') + `<input class="sk-search" id="sk-search" placeholder="Search skills by name..."><div style="font:400 10px var(--sans);color:var(--dim);margin:2px 0 6px">Click a skill to add it to the plan (the tier picker opens automatically) · right-click any skill to add it to a tier list.</div><div class="sk-list" id="sk-list"></div>`)}
 
       <div class="sk-seclabel">MANUAL SKILL TIERS <span class="sk-status off" id="sk-status">INACTIVE \u2014 NO TIERS SET (AUTO PLAN IN USE)</span></div>
       <div class="sk-card" style="padding:16px 18px">
         <p style="margin:0 0 12px;font:400 12px/1.7 var(--sans);color:var(--dim)">Build a tier list of the skills you want the bot to buy. Whenever any tier has skills, this list <b style="color:var(--ink-2)">drives purchasing</b> \u2014 the bot buys these by tier (T1 first), and manually-listed skills are bought even if they're off-distance/off-style. Within a tier, smart score / cost breaks ties.<br>If all tiers are empty, the bot uses the automatic skill-point plan instead.</p>
         ${tglRow('sk-auto', 'After selected skills are bought, switch to AUTO purchasing', false, 'Off (default) buys only the skills in these tiers then stops; on lets the automatic plan spend the rest once your listed skills are all owned.')}
         <div id="sk-tiers"></div>
-        <div class="sk-tier-add"><input class="sk-search" id="sk-addsearch" placeholder="Search skills to add to a tier..." style="margin:0"><select class="self" id="sk-addtier">${TIERS.map((t) => `<option value="${t.k}">Add to Tier ${t.idx} (${t.k})</option>`).join('')}</select></div>
+        <p style="margin:10px 0 0;font:400 11px var(--sans);color:var(--dim)">Right-click a skill in <b style="color:var(--ink-2)">Planned Skills</b> above to add it to a tier.</p>
       </div>`;
   }
 
@@ -674,8 +727,6 @@
     const showSel = q('#sk-showsel');
     showSel.addEventListener('click', () => setTimeout(() => { state.onlySel = showSel.classList.contains('on'); renderList(); }, 0));
     q('#sk-clear').addEventListener('click', () => { Object.keys(state.selected).forEach((id) => { if (state.selected[id] === state.listTab) delete state.selected[id]; }); renderList(); });
-    q('#sk-addtier').addEventListener('change', (e) => { state.addTier = e.target.value; });
-    q('#sk-addsearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const v = e.target.value.toLowerCase().trim(); const f = SKILLS.find((s) => s.name.toLowerCase().includes(v)); if (f) { addToTier(f.id, state.addTier); e.target.value = ''; } } });
 
     function updateCounts() {
       const plan = Object.values(state.selected).filter((v) => v === 'plan').length;
@@ -697,7 +748,16 @@
         : `<div class="sk-empty">No skills match the current filters.</div>`;
       updateCounts();
     }
-    q('#sk-list').addEventListener('click', (e) => { const r = e.target.closest('.sk-skill'); if (!r) return; const id = r.dataset.id; if (state.selected[id] === state.listTab) delete state.selected[id]; else state.selected[id] = state.listTab; renderList(); });
+    q('#sk-list').addEventListener('click', (e) => {
+      const r = e.target.closest('.sk-skill'); if (!r) return;
+      const id = r.dataset.id;
+      const wasSelected = state.selected[id] === state.listTab;
+      if (wasSelected) delete state.selected[id]; else state.selected[id] = state.listTab;
+      renderList();
+      // Adding a skill to the Plan auto-opens the tier picker so it can be planned
+      // AND tiered in one go (replaces the removed "add to tier" search bar).
+      if (!wasSelected && state.listTab === 'plan') openCtx(e.clientX, e.clientY, id);
+    });
     q('#sk-list').addEventListener('contextmenu', (e) => { const r = e.target.closest('.sk-skill'); if (!r) return; e.preventDefault(); openCtx(e.clientX, e.clientY, r.dataset.id); });
 
     function openCtx(x, y, id) {
@@ -929,7 +989,7 @@
           const _stSync = () => { if (_stSub) _stSub.style.display = (!_stSel || ['', 'scheduled'].includes(_stSel.value)) ? '' : 'none'; };
           if (_stSel) _stSel.addEventListener('change', _stSync);
           const _r = initSettingsModal(o);
-          if (_r && _r.then) { _r.then(_stSync).catch(_stSync); } else { _stSync(); }
+          Promise.resolve(_r).then(() => { _stSync(); armUnsavedGuard(o); }, () => { _stSync(); armUnsavedGuard(o); });
           _stSync();
         },
       });
@@ -960,7 +1020,7 @@
               row('Per-Race Style Overrides', 'Override the running style for specific races, optionally only when Stamina is below a threshold (blank = always). Applies even in Manual mode and reverts to your main style on the next race. Requires a concrete Original Strategy (not Auto).',
                 `<div class="rovr-list">${RACE_OVR.map((r) => `<div class="rovr" data-race="${esc(r[0])}"><div class="rovr-race"><strong>${esc(r[0])}</strong><span>${r[1]} \u00b7 ${r[2]}</span></div><div class="rovr-ctrl"><div class="rovr-stam"><label>Stamina &lt;</label><input class="numf rovr-stam-input" type="number" placeholder="any"></div><select class="self rovr-style"><option value="">No override</option>${STYLE_OPTS.slice(1).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></div></div>`).join('')}</div>`, true))}
 `,
-        onMount: (o) => { wireSave(o); initSettingsModal(o); },
+        onMount: (o) => { wireSave(o); Promise.resolve(initSettingsModal(o)).then(() => armUnsavedGuard(o)); },
       });
     },
 
@@ -1001,27 +1061,8 @@
               slider('sc-ah2', 'Artisan Hammer Min Stock for G2', 0, 3, 0, 1, '', '', 'mant.trackblazer_artisan_hammer_min_stock_for_g2'),
               slider('sc-gs', 'Glow Stick Final-Day Reserve', 0, 3, 1, 1, '', '', 'mant.trackblazer_glow_stick_final_reserve'),
               slider('sc-gsf', 'Glow Stick Minimum Fans', 0, 30000, 20000, 1000, '', '', 'mant.trackblazer_glow_stick_min_fans'))}
-            ${sec('(NIRIO) FORK TUNING',
-              note('<b style="color:var(--amber)">Fork-only knobs.</b> These override the bot’s default late-game thresholds for more aggressive item usage, skill buying, and mood management. Saved per-preset.'),
-              slider('nr-sft', 'Skill Force Turn', 30, 73, 60, 1, '', 'Force skill buying after this turn if SP ≥ floor.', 'mant.nirio_skill_force_turn'),
-              slider('nr-ssf', 'Skill SP Floor', 100, 1500, 500, 50, '', 'Min SP required for forced skill buying.', 'mant.nirio_skill_sp_floor'),
-              slider('nr-sht', 'Skill Hoard Threshold', 500, 2000, 1000, 50, '', 'Buy skills immediately above this SP.', 'mant.nirio_skill_hoard_threshold'),
-              slider('nr-mrt', 'Mood Repair Turn', 30, 70, 50, 1, '', 'Use cupcakes aggressively after this turn when mood ≤ floor.', 'mant.nirio_mood_repair_turn'),
-              slider('nr-mfl', 'Mood Floor', 1, 4, 2, 1, '', 'Trigger mood repair when motivation ≤ this.', 'mant.nirio_mood_floor'),
-              slider('nr-mct', 'Mood Critical Turn', 50, 73, 68, 1, '', 'Hard-block optional race chains when mood ≤ floor after this turn.', 'mant.nirio_mood_critical_turn'),
-              slider('nr-cmf', 'Chain Mood Floor', 1, 4, 2, 1, '', 'Block race chains when motivation ≤ this (after critical turn).', 'mant.nirio_chain_mood_floor'),
-              slider('nr-cdt', 'Charm Dump Turn', 40, 72, 60, 1, '', 'Lower Good-Luck Charm thresholds after this turn.', 'mant.nirio_charm_dump_turn'),
-              slider('nr-cdg', 'Charm Dump Min Gain', 1, 20, 8, 1, '', 'Minimum stat gain for charm in dump window.', 'mant.nirio_charm_dump_min_gain'),
-              slider('nr-cdf', 'Charm Dump Failure Rate', 1, 30, 10, 1, '', 'Min failure rate to trigger charm in dump window.', 'mant.nirio_charm_dump_failure_rate'),
-              slider('nr-mdt', 'Mega Dump Turn', 50, 72, 62, 1, '', 'Lower megaphone thresholds after this turn.', 'mant.nirio_mega_dump_turn'),
-              slider('nr-mdm', 'Mega Dump Multiplier', 10, 100, 35, 5, '%', 'Multiply megaphone thresholds by this % in dump window.', 'mant.nirio_mega_dump_multiplier'),
-              slider('nr-adt', 'Anklet Dump Turn', 50, 72, 60, 1, '', 'Lower anklet thresholds after this turn.', 'mant.nirio_anklet_dump_turn'),
-              slider('nr-adm', 'Anklet Dump Multiplier', 10, 100, 30, 5, '%', 'Multiply anklet thresholds by this % in dump window.', 'mant.nirio_anklet_dump_multiplier'),
-              slider('nr-cst', 'Cash-Out Start Turn', 50, 72, 60, 1, '', 'Lift shop conservation caps after this turn.', 'mant.nirio_cashout_start_turn'),
-              slider('nr-wdt', 'Whistle Dump Turn', 40, 72, 60, 1, '', 'Allow whistle usage after this turn.', 'mant.nirio_whistle_dump_turn'),
-              slider('nr-mcr', 'MCH Climax Reserve', 0, 5, 3, 1, '', 'Master Cleat Hammers reserved for climax races.', 'mant.nirio_mch_reserve'))}
 `,
-        onMount: (o) => { wireSave(o); initSettingsModal(o); },
+        onMount: (o) => { wireSave(o); Promise.resolve(initSettingsModal(o)).then(() => armUnsavedGuard(o)); },
       });
     },
 
@@ -1063,12 +1104,12 @@
             ${epSection('TARGET EPITHETS', 'target', 'Target epithets bias the route toward races named in their conditions.')}
             ${epSection('FORCED EPITHETS', 'forced', 'Forced epithets are hard constraints: every selected forced epithet must have at least one matching scheduled race under the native matcher.')}
 `,
-        onMount: (o) => { wireSave(o); mountSolver(o); initSolverWeights(o); },
+        onMount: (o) => { wireSave(o); mountSolver(o); Promise.resolve(initSolverWeights(o)).then(() => armUnsavedGuard(o)); },
       });
     },
 
     skills() {
-      modal({ title: 'SKILLS', full: true, closeLabel: 'DONE', foot: saveBtn('/api/skill-config', 'SAVE'), body: skillsBody(), onMount: (o) => { wireSave(o); initSkillCfg(o).then(() => mountSkills(o)); } });
+      modal({ title: 'SKILLS', full: true, closeLabel: 'DONE', foot: saveBtn('/api/skill-config', 'SAVE'), body: skillsBody(), onMount: (o) => { wireSave(o); initSkillCfg(o).then(() => mountSkills(o)).then(() => armUnsavedGuard(o)); } });
     },
 
     customDeck() {
@@ -1087,7 +1128,7 @@
             <div id="cd-status" style="font:500 9px var(--mono);color:var(--label);margin-bottom:8px"></div>
             <div class="cardgrid" id="cd-grid"></div>
           </div>`,
-        onMount: (o) => { wireSave(o); mountCustomDeck(o); },
+        onMount: (o) => { wireSave(o); Promise.resolve(mountCustomDeck(o)).then(() => armUnsavedGuard(o)); },
       });
     },
 
@@ -1116,7 +1157,7 @@
             <input id="ud-path" class="numf" type="text" placeholder="C:\\Umamusume API Bot\\Icarus_userdata" style="font-size:11px;margin-bottom:10px">
             <div class="srow"><div class="srow-text"><strong>Also copy current settings/presets/auth</strong><span>Non-destructive copy into the new folder.</span></div><div class="srow-ctrl"><div class="tgl on" id="ud-migrate"><span class="tgl-sw"></span></div></div></div>
           </div>`,
-        onMount: (o) => { wireSave(o); mountUserdata(o); },
+        onMount: (o) => { wireSave(o); Promise.resolve(mountUserdata(o)).then(() => armUnsavedGuard(o)); },
       });
     },
 
@@ -1131,7 +1172,7 @@
           ${toggle('Notify on career finish', true)}
           ${toggle('Notify on crash / stuck', true)}
           ${toggle('Notify on new epithet', false)}`,
-        onMount: wireSave,
+        onMount: (o) => { wireSave(o); armUnsavedGuard(o); },
       });
     },
   };

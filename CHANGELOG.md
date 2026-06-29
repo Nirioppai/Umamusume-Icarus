@@ -1,5 +1,43 @@
 # Changelog
 
+## v3.2.1 (2026-06-28)
+
+Patch release on top of v3.2: forced event choices now actually apply, the Smart Race Solver follows your selected trainee, settings modals warn before discarding unsaved edits, and manually-started careers resume correctly.
+
+**Fixed**
+- Forced event choices were not being applied. Two separate bugs: (1) a choice forced from the Event Choices panel for an event you had not encountered yet was saved under the event's catalog name-key, which the runner never matched against the live in-game event, so the forced choice was ignored; (2) the forced choice was stored as a 0-based position but read as a 1-based game index, so forcing the 2nd (or later) option selected the option before it. Both are fixed — forced choices now resolve by event name and pick exactly the option you chose.
+- The Smart Race Solver's "Character Preset" always showed "Admire Vega" regardless of the trainee selected in Setup. It now follows the active trainee (resolving outfit variants and versioned names) and falls back sensibly when no trainee is selected.
+- Closing a settings modal (Training / Racing / Scenario / Smart Solver / Skills / Custom Deck / Userdata / Discord) after editing it no longer silently discards your changes — a prompt now offers Save Changes or Discard Changes. This applies whether you close via DONE, the dark backdrop, or Esc; dismissing the prompt keeps you in the modal.
+
+**Added / Changed**
+- A career started manually in-game now resumes with its real in-game trainee, parents, deck, and friend support: the live game state overrides the Setup selection whenever an in-progress career is detected.
+- Resuming an in-progress career now fills the Setup PARENT slots with the career's actual inherited parents.
+- Configure Skills modal: removed the redundant in-tier search row; you can now right-click any skill to assign it to a tier, and adding a skill to the Plan auto-opens the tier picker.
+- The dashboard portrait toggle's 3D button is now labeled "Seiun" (the 3D model is Seiun Sky).
+
+## v3.2 (2026-06-28)
+
+Public release on top of v3.0, focused on race-retry (clock) fixes, a skill-purchase overhaul, and several "read what the game already tells us" improvements.
+
+**Fixed**
+- Fixed the bot never burning clocks to retry lost races. A transient "free-continue pool empty" response (server code 2507) was being treated as a permanent "this race cannot be retried" and cached forever in a shared list. Over many career loops that list grew to ban almost every race (every G1, the Junior Make Debut, and the whole finale) from ever retrying, so the bot stopped attempting retries entirely. 2507 is now correctly treated as transient and never cached; only a genuine refusal (code 205) is learned.
+- Fixed the free-continue counter, which read a constant daily cap instead of the live remaining balance. This made the bot always attempt a (doomed) free retry and never spend an actual standard clock. It now reads the live balance and correctly falls back to spending a standard clock when the free pool is empty. (Confirmed live: clock retries now win lost races, e.g. a 13th-place finish retried up to 1st.)
+- Cleared the existing poisoned non-retryable race cache (backed up first) so previously-banned races are retryable again.
+- Fixed a setting interaction where "max retries per race = 0" silently disabled even the career-saving mandatory-race rescue.
+
+**Added / Changed**
+- Rebuilt the Parents search/filter/sort into an in-game-style "Display Settings" popup with Sort and Filter tabs: filter by Attribute / Aptitude / Unique sparks (each with an All / 2-star+ / 3-star-only level and an "Include Sparks from Origin Legacies" toggle), and sort by Rating, Sparks, Skills, Track, Distance, Style, Date Acquired, Name, or Favorites.
+- Cap-aware training: the engine now reads each stat's live ceiling from the game (instead of assuming a fixed 1200) so it stops investing in a stat that has hit its real cap. No change when the live cap is 1200.
+- Races now choose skip (short) vs full mode from the game's own skip-race state instead of always forcing skip, and log the server's race-availability flags. Defaults to skip (the previous behavior) unless the game signals skip is locked.
+- The bot now reads the career's route/finale race list from the game (route id + scheduled route races), surfaces it in the runner status, and includes it in soft-lock diagnostics instead of inferring late-career state from the turn number.
+- A free-continue ("FREE CLK") readout in the navbar showing the live free-retry count plus an estimated daily-refresh countdown when empty.
+- The Action Log now shows the same colored action badges (RACE / REST / TRAIN / REC) used in the Decision Reasoning panel, instead of plain colored text.
+- Added a real-time live API event stream (Server-Sent Events) on the Diag page's "LIVE API" panel, pushing each game-API call the instant it happens instead of polling. Events are compact and contain no secrets.
+- Removed a leftover diagnostic line that printed the career-start deck payload to the console.
+- Skill purchase: added a schedule-aware activation-condition gate that down-weights skills whose running-style/distance conditions can never trigger for the current trainee (so skill points are not wasted on dead skills).
+- Skill purchase: replaced the coarse community tier list with a graded tier built from the full community skill spreadsheet (289 skills), and added a "Skill Optimization Target" dropdown (Career / Team Trials / Champions) that weights skills by the chosen mode's ranking. Career remains the default and preserves fans-first behavior.
+- Skill purchase: skills the game disables during a career run are now hard-dropped in Career mode (wasted SP) but kept and valued under Team Trials / Champions, where they work on the finished trainee.
+
 ## v3.0 (2026-06-28)
 
 Cumulative public release covering every change since the v2.1 beta (all beta

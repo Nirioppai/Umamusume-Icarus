@@ -270,11 +270,6 @@ class MantTrackblazerCore:
         _tss = (preset or {}).get("trackblazer_solver_settings") or {}
         max_races_in_row = int(_mc.get("max_races_in_row") or _tss.get("max_races_in_row") or 5)
         streak_ok = manual or consec < max_races_in_row
-        # FORK: (nirio) block optional race chains when mood is critically low.
-        _nirio_chain_mood = int(_mc.get("nirio_chain_mood_floor") or tb_rules.DEFAULT_NIRIO_CHAIN_MOOD_FLOOR)
-        _nirio_critical_turn = int(_mc.get("nirio_mood_critical_turn") or tb_rules.DEFAULT_NIRIO_MOOD_CRITICAL_TURN)
-        if not manual and streak_ok and turn >= _nirio_critical_turn and motivation <= _nirio_chain_mood and consec >= 1:
-            streak_ok = False
 
         # Must-run MARQUEE guard: the fixed set-races (Takarazuka / Arima / Japan
         # Cup / Tenno Sho / Triple Crown / ...) are too valuable to skip. If the
@@ -325,17 +320,6 @@ class MantTrackblazerCore:
                         and not tb_rules.is_year_end_rest_exempt(turn)
                         and not cfg.get("ignore_low_energy_racing_block", False)):
                     return self._as_command(rest or recreation, chara, "trackblazer hard-block race (energy<=1, 3+ consecutive)")
-                # FORK: (nirio) soft mood chain-break — after nirio_mood_repair_turn,
-                # prefer training over continuing an optional race chain when mood is
-                # at or below the floor. Does not block the first race of a chain or
-                # mandatory/marquee races. Falls through if no decent training exists.
-                _nirio_repair = int(_mc.get("nirio_mood_repair_turn") or tb_rules.DEFAULT_NIRIO_MOOD_REPAIR_TURN)
-                if (not manual and turn >= _nirio_repair and motivation <= _nirio_chain_mood
-                        and consec >= 1 and not tb_rules.is_year_end_rest_exempt(turn)):
-                    bcmd_mood, _ = self._best_training(data, chara, preset, training)
-                    if bcmd_mood is not None:
-                        return self._as_command(bcmd_mood, chara,
-                            f"trackblazer: nirio mood break (mot {motivation}, chain {consec}, train instead)")
                 # STEP 2: irregular training (Year 2+) — hijack this race turn to
                 # train when an exceptional training is available. Skipped in manual
                 # mode (user's pick is forced) AND for marquee set-races (Takarazuka,
@@ -503,6 +487,18 @@ class MantTrackblazerCore:
         idx = TRAINING_COMMANDS.get(best.get("command_id"))
         return self._as_command(best, chara, f"{reason_prefix}: train {STAT_KEYS[idx]} (score {best_score:.1f})")
 
+    def _live_stat_cap(self, chara, idx):
+        """Live per-stat ceiling from chara_info (max_speed/.../max_wiz), falling back
+        to the static STAT_CAP when the field is absent. The server's live cap can be
+        BELOW the static 1200 (training past it is wasted SP) or raised above it by
+        cap-up effects; either way the real ceiling is authoritative. Identical
+        behavior to before whenever the live cap equals STAT_CAP (the common case)."""
+        try:
+            v = int((chara or {}).get("max_" + STAT_KEYS[idx]) or 0)
+        except Exception:
+            v = 0
+        return v if v > 0 else STAT_CAP
+
     def _score_training(self, cmd, idx, gains, chara, preset, targets, priority, year, summer):
         """Port of the reference calculateRawTrainingScore."""
         cfg = _cfg(preset)
@@ -517,9 +513,11 @@ class MantTrackblazerCore:
         # buffer is removed so priority stats can be trained to the true cap;
         # only the hard STAT_CAP stop remains.
         finale_bonus = self._finale_bonus(int(chara.get("turn") or 0))
-        eff_cap = STAT_CAP - 100 - finale_bonus
+        # Cap-aware: use the LIVE per-stat ceiling instead of the static 1200.
+        stat_cap = self._live_stat_cap(chara, idx)
+        eff_cap = stat_cap - 100 - finale_bonus
         rainbow = self.ref._rainbow_partner_count(cmd, chara)
-        if cur >= STAT_CAP:
+        if cur >= stat_cap:
             return 0.0
         potential = cur + (gains[idx] if idx < len(gains) else 0)
         if (not capped) and cfg.get("disable_training_on_maxed_stats", True) and (cur >= eff_cap or potential >= eff_cap):

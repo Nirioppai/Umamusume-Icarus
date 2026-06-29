@@ -882,7 +882,15 @@ window.Icarus = (() => {
     if (o) o.remove();
     if (!document.querySelector('.modal-overlay')) document.removeEventListener('keydown', escClose);
   }
-  function escClose(e) { if (e.key === 'Escape') closeModal(); }
+  // Esc defers to the topmost overlay's close guard (e.g. settings modals with
+  // unsaved changes); overlays without a guard close immediately as before.
+  function escClose(e) {
+    if (e.key !== 'Escape') return;
+    const all = document.querySelectorAll('.modal-overlay');
+    const top = all[all.length - 1];
+    if (top && typeof top._guardClose === 'function') top._guardClose(closeModal);
+    else closeModal();
+  }
 
   function modal(opts) {
     closeModal();
@@ -900,8 +908,12 @@ window.Icarus = (() => {
         ${opts.foot ? `<div class="modal-foot">${opts.foot}</div>` : ''}
       </div>`;
     document.body.appendChild(o);
-    o.addEventListener('mousedown', (e) => { if (e.target === o) closeModal(); });
-    o.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', closeModal));
+    // All close paths (DONE/X, backdrop, Esc) route through attemptClose so a
+    // modal can install o._guardClose (see modals.js wireSave) to intercept a
+    // close when there are unsaved changes. No guard => closes as before.
+    const attemptClose = () => { if (typeof o._guardClose === 'function') o._guardClose(closeModal); else closeModal(); };
+    o.addEventListener('mousedown', (e) => { if (e.target === o) attemptClose(); });
+    o.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', attemptClose));
     document.addEventListener('keydown', escClose);
     wireControls(o);
     if (opts.onMount) opts.onMount(o);
