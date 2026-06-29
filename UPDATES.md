@@ -127,3 +127,18 @@ Quick-reference table for each upstream update. Detailed context is in the entri
 **Commit:** `6f1a3d3` **File(s):** `public-v3/modals.js`
 **Context:** Adds a "(NIRIO) FORK TUNING" section to the Scenario Overrides modal with sliders for all nirio_* config keys. Gives the user visibility and control over fork-specific behavior tuning.
 **Status:** ACTIVE
+
+### 2026-06-29 — Fix skill buying regression: nirio force blocked by enable gate
+**Commit:** `c7aa149` **File(s):** `career_bot/skills.py`
+**Context:** Second run still showed 0 skills bought with 2507 SP. Root cause: `enable_skill_point_check` gate (line 705) returned early before nirio force-turn logic could set `force=True`. Preset had skill checking disabled, silently blocking everything. Fixed by moving nirio force check and pre_finals_skill_dump check above the gate so they override it.
+**Status:** ACTIVE
+
+### 2026-06-29 — Dynamic MCH reserve for Climax races
+**Commit:** `b4485ef` **File(s):** `career_bot/items.py`
+**Context:** Run had only 2 Master Hammers at T73 despite reserve=3. T72 Arima consumed a Master when Artisan was unavailable. Replaced static `finale_reserve` with dynamic `protected_mch` that counts remaining Climax races (T74/T76/T78). Non-Climax G1s now prefer Artisan first; Master only if inventory exceeds dynamic reserve. Pre-conservation G1s also changed to prefer Artisan over Master.
+**Status:** ACTIVE
+
+### 2026-06-29 — Lower megaphone/anklet dump defaults
+**Commit:** `fa8d027` **File(s):** `career_bot/trackblazer_rules.py`, `public-v3/modals.js`
+**Context:** Run still ended with 3 megaphones and 3 anklets. Lowered defaults: mega turn 65→62, multiplier 50→35%; anklet turn 65→60, multiplier 50→30%. Anklets start earlier because they require matching training type.
+**Status:** ACTIVE
