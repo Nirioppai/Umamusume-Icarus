@@ -92,6 +92,48 @@ Referenced by [CLAUDE.md](CLAUDE.md) (auto-update rule).
 
 Newest first. Each entry documents what changed and why.
 
+### 2026-06-30 — Long Pace V3 Fix mixed result
+
+**Source:** Long Pace V3 Fix preset, Make a New Track scenario, 78/78 finished
+**Classification:** MIXED — do not update Current Recommended Settings
+
+Tested settings:
+- nirio_chain_mood_floor: 3
+- nirio_mch_reserve: 2
+- nirio_mood_floor: 4
+- nirio_mood_critical_turn: 68
+- nirio_mood_repair_turn: 50
+- nirio_skill_hoard_threshold: 1600
+- nirio_skill_sp_floor: 1500
+- nirio_skill_force_turn: 60
+- nirio_whistle_dump_turn: 60
+- nirio_charm_dump_turn: 60
+- nirio_charm_dump_min_gain: 8
+- nirio_charm_dump_failure_rate: 10
+
+Result:
+- Final stats improved to 4180 (best so far, up from 4030 baseline).
+- SP cash-out improved dramatically: 44 SP remaining (down from 2429).
+- Item leftovers improved: 26 items left (down from 37).
+- Final coins acceptable: 67.
+- Full run completed: 78/78 finished (baseline stopped at 76/76).
+
+Trade-offs:
+- Win rate dropped to 81.1% (baseline 92.1%).
+- G1 win rate dropped to 72% (baseline 89%).
+- Climax mood was Awful (baseline Great).
+- T73 Master Hammer reserve was only 2, below the intended 3-MCH plan for T74/T76/T78.
+- ~365 unused permanent stat value (slightly better than ~420 but still high).
+- Power anklets ×2 still unused.
+
+Decision:
+Do not promote. The SP cash-out and skill spending behavior is promising and
+should be preserved, but mood protection and MCH reserve need correction.
+Next candidate should restore nirio_mch_reserve=3, add final-window mood
+protection after T70, and continue reducing permanent stat item leftovers.
+
+---
+
 ### 2026-06-29 — Initial baseline (v3.2.2 + nirio integration)
 
 **Source:** v3.2.2 defaults with nirio fork tuning applied
