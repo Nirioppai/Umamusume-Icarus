@@ -602,6 +602,7 @@ class CareerRunner:
             self.report = new_report(preset, scenario_id)
             try:
                 _mc_start = (preset or {}).get("mant_config") or {}
+                _tss = (preset or {}).get("trackblazer_solver_settings") or {}
                 self.report["runtime_settings"] = {
                     "burn_clocks": bool(burn_clocks),
                     "clock_retry_policy": {
@@ -609,8 +610,6 @@ class CareerRunner:
                         "enabled": bool(burn_clocks),
                         "source": "career_start",
                     },
-                    # Record the active engine + stat-focus so logs are unambiguous
-                    # about which mode produced the result (A/B clarity).
                     "decision_mode": str(_mc_start.get("decision_mode") or "trackblazer"),
                     "stat_focus_mode": str(_mc_start.get("stat_focus_mode") or "balanced"),
                     "run_id": self.status.get("run_id"),
@@ -618,6 +617,42 @@ class CareerRunner:
                     "loop_target": self.status.get("loop_target"),
                     # FORK: snapshot nirio tuning values active for this run
                     "nirio": {k: v for k, v in _mc_start.items() if str(k).startswith("nirio_")},
+                    # FORK: full settings snapshot for log_viewer / AI summary feedback
+                    "training": {
+                        "training_stat_priority": list((preset or {}).get("training_stat_priority") or []),
+                        "training_blacklist": list(_mc_start.get("training_blacklist") or []),
+                        "stat_focus_mode": str(_mc_start.get("stat_focus_mode") or "balanced"),
+                    },
+                    "skills": {
+                        "enable_skill_point_check": bool((preset or {}).get("enable_skill_point_check", True)),
+                        "learn_skill_threshold": int((preset or {}).get("learn_skill_threshold") or 888),
+                        "skill_spending_strategy": str((preset or {}).get("skill_spending_strategy") or "best_skills_first"),
+                        "skill_optimization_target": str((preset or {}).get("skill_optimization_target") or "career"),
+                        "skill_condition_gating": str((preset or {}).get("skill_condition_gating") or "penalize"),
+                        "enable_pre_finals_skill_dump": bool((preset or {}).get("enable_pre_finals_skill_dump", True)),
+                        "pre_finals_skill_turn": int((preset or {}).get("pre_finals_skill_turn") or 73),
+                    },
+                    "racing": {
+                        "extra_race_list_source": str((preset or {}).get("extra_race_list_source") or "smart"),
+                        "max_races_in_row": int(_mc_start.get("max_races_in_row") or _tss.get("max_races_in_row") or 5),
+                        "distance_preference_mode": str(_tss.get("distance_preference_mode") or "balanced"),
+                        "include_op": bool(_tss.get("include_op", False)),
+                        "allow_summer_racing": bool(_tss.get("allow_summer_racing", False)),
+                        "enable_live_smart_replan": bool(_tss.get("enable_live_smart_replan", True)),
+                        "replan_on_events_only": bool(_tss.get("replan_on_events_only", True)),
+                        "preferred_distances": list((preset or {}).get("preferred_distances") or []),
+                    },
+                    "scenario": {
+                        "energy_recovery_threshold": int(_mc_start.get("energy_recovery_threshold") or 40),
+                        "force_train_energy_floor": int(_mc_start.get("force_train_energy_floor") or 20),
+                        "trackblazer_cupcake_reserve": int(_mc_start.get("trackblazer_cupcake_reserve") or 1),
+                        "trackblazer_master_hammer_finale_reserve": int(_mc_start.get("trackblazer_master_hammer_finale_reserve") or _mc_start.get("trackblazer_hammer_finale_reserve") or 3),
+                        "save_items_lategame": bool(_mc_start.get("save_items_lategame", False)),
+                        "trackblazer_shop_check_frequency": int(_mc_start.get("trackblazer_shop_check_frequency") or 1),
+                        "race_chain_target": int(_mc_start.get("race_chain_target") or 3),
+                        "summer_force_train_over_recreation": bool(_mc_start.get("summer_force_train_over_recreation", True)),
+                        "release_cupcake_reserve_when_no_kale": bool(_mc_start.get("release_cupcake_reserve_when_no_kale", True)),
+                    },
                 }
             except Exception:
                 pass

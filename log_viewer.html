@@ -802,6 +802,60 @@ function renderOverview(){
   // Stat progression chart
   html+=buildStatChart(turns);
 
+  // FORK: Full settings display for AI summary feedback loop
+  const _rts=d.runtime_settings||{};
+  const _trn=_rts.training||{};const _sk=_rts.skills||{};const _rac=_rts.racing||{};const _scn=_rts.scenario||{};const _nir=_rts.nirio||{};
+  const sRow=(l,v,desc)=>`<div class="ov-row" title="${esc(desc||'')}"><span class="ov-lbl">${esc(l)}</span><span class="ov-val">${esc(String(v!=null?v:'—'))}</span></div>`;
+  const sBool=(l,v,desc)=>sRow(l,v?'ON':'OFF',desc);
+  html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Active Settings</h3><div class="s-arrow">▾</div></div><div class="section-body" style="padding:10px">`;
+  if(!_rts.training&&!_rts.nirio){html+=`<p class="no-data">Settings not captured in this log. Re-run with v3.2.2+ fork to capture.</p>`}else{
+  html+=`<div class="ov-grid">`;
+  html+=`<div class="ov-card"><h3>Training</h3>
+    ${sRow('Priority',(_trn.training_stat_priority||[]).join(' > ')||'—','Stat training priority order')}
+    ${sRow('Blacklist',(_trn.training_blacklist||[]).join(', ')||'(none)','Stats excluded from training')}
+    ${sRow('Focus Mode',_trn.stat_focus_mode||'balanced','balanced = even completion curve; capped = concentrate priority stats to cap')}
+    </div>`;
+  html+=`<div class="ov-card"><h3>Skills</h3>
+    ${sBool('Skill Check',_sk.enable_skill_point_check,'Master toggle for skill purchasing')}
+    ${sRow('SP Threshold',_sk.learn_skill_threshold||888,'Below this SP, no buying (unless forced)')}
+    ${sRow('Strategy',_sk.skill_spending_strategy||'best_skills_first','best_skills_first or optimize_rank')}
+    ${sRow('Target',_sk.skill_optimization_target||'career','career/team_trials/champions — which mode to weight skills for')}
+    ${sRow('Condition Gate',_sk.skill_condition_gating||'penalize','penalize = dampen dead skills; enforce = hard drop; ignore = no gating')}
+    ${sBool('Pre-Finals Dump',_sk.enable_pre_finals_skill_dump,'Spend accumulated SP before Climax')}
+    ${sRow('Pre-Finals Turn',_sk.pre_finals_skill_turn||73,'Turn to start pre-finals SP dump')}
+    </div>`;
+  html+=`<div class="ov-card"><h3>Racing</h3>
+    ${sRow('Mode',_rac.extra_race_list_source||'smart','smart = solver picks races; manual = user picks')}
+    ${sRow('Max Streak',_rac.max_races_in_row||5,'Maximum consecutive races before forced rest')}
+    ${sRow('Distance Pref',_rac.distance_preference_mode||'balanced','strict/balanced/loose adherence to trainee distances')}
+    ${sBool('Include OP',_rac.include_op,'Allow lower-grade OP/Pre-OP races')}
+    ${sBool('Summer Racing',_rac.allow_summer_racing,'Allow races during summer camp turns')}
+    ${sBool('Live Replan',_rac.enable_live_smart_replan,'Re-solve schedule when races lost/unavailable')}
+    ${sBool('Event-Only Replan',_rac.replan_on_events_only,'Only replan on race events, not every turn')}
+    ${sRow('Distances',(_rac.preferred_distances||[]).join(', ')||'(auto)','Preferred track distances for solver')}
+    </div>`;
+  html+=`<div class="ov-card"><h3>Scenario Overrides</h3>
+    ${sRow('Energy Threshold',_scn.energy_recovery_threshold||40,'Use energy items below this vital')}
+    ${sRow('Force-Train Floor',_scn.force_train_energy_floor||20,'Minimum vital for forced training')}
+    ${sRow('Cupcake Reserve',_scn.trackblazer_cupcake_reserve||1,'Cupcakes held for kale-juice synergy')}
+    ${sRow('MCH Finale Reserve',_scn.trackblazer_master_hammer_finale_reserve||3,'Master Hammers banked for Climax (upstream slider)')}
+    ${sBool('Save Items Late',_scn.save_items_lategame,'Keep items past turn 64 instead of dumping')}
+    ${sRow('Shop Frequency',_scn.trackblazer_shop_check_frequency||1,'Check shop every N opportunities')}
+    ${sRow('Race Chain Target',_scn.race_chain_target||3,'Consecutive races before soft-break')}
+    ${sBool('Summer Train>Rec',_scn.summer_force_train_over_recreation,'Train instead of recreate during summer camp')}
+    ${sBool('Kale Release',_scn.release_cupcake_reserve_when_no_kale,'Release cupcake reserve when no kale juice after T61')}
+    </div>`;
+  // Nirio fork tuning
+  const nirKeys=Object.keys(_nir).filter(k=>_nir[k]!=null);
+  if(nirKeys.length){
+    html+=`<div class="ov-card"><h3>(NIRIO) Fork Tuning</h3>`;
+    const nirDesc={'nirio_skill_force_turn':'Force skill buying after this turn if SP >= floor','nirio_skill_sp_floor':'Min SP required for forced skill buying','nirio_skill_hoard_threshold':'Buy skills immediately above this SP','nirio_mood_floor':'Trigger mood repair when motivation <= this','nirio_mood_repair_turn':'Use cupcakes aggressively after this turn when mood <= floor','nirio_mood_critical_turn':'Hard-block race chains when mood <= floor after this turn','nirio_chain_mood_floor':'Block race chains when motivation <= this','nirio_charm_dump_turn':'Lower charm thresholds after this turn','nirio_charm_dump_min_gain':'Min stat gain for charm in dump window','nirio_charm_dump_failure_rate':'Min failure rate for charm in dump window','nirio_whistle_dump_turn':'Allow whistle usage after this turn','nirio_mch_reserve':'Master Hammers protected for Climax (dynamic)'};
+    for(const k of nirKeys){const label=k.replace(/^nirio_/,'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());html+=sRow(label,_nir[k],nirDesc[k]||'')}
+    html+=`</div>`;
+  }
+  html+=`</div>`}
+  html+=`</div></div>`;
+
   // Remaining inventory
   const inv=last.inventory||[];
   if(inv.length){
@@ -1846,6 +1900,42 @@ function generateAISummary(){
     for(const k of nirioKeys)o+=k+': '+nirio[k]+'\n';
     o+='\n';
     o+=nirioEffectiveness(nirio,turns,last);
+  }
+
+  // FORK: full settings snapshot for AI feedback loop (RECOMMENDED_SETTINGS.md)
+  const _rts=d.runtime_settings||{};
+  const _trn=_rts.training||{};const _sk=_rts.skills||{};const _rac=_rts.racing||{};const _scn=_rts.scenario||{};
+  if(_trn.training_stat_priority||_sk.learn_skill_threshold||_rac.max_races_in_row){
+    o+='--- ACTIVE SETTINGS (for RECOMMENDED_SETTINGS.md comparison) ---\n';
+    o+='[Training]\n';
+    o+='  Priority: '+(_trn.training_stat_priority||[]).join(' > ')+'\n';
+    o+='  Blacklist: '+(_trn.training_blacklist||[]).join(', ')||'(none)'; o+='\n';
+    o+='  Focus Mode: '+(_trn.stat_focus_mode||'balanced')+'\n';
+    o+='[Skills]\n';
+    o+='  Skill Check: '+(_sk.enable_skill_point_check?'ON':'OFF')+'\n';
+    o+='  SP Threshold: '+(_sk.learn_skill_threshold||888)+'\n';
+    o+='  Strategy: '+(_sk.skill_spending_strategy||'best_skills_first')+'\n';
+    o+='  Target: '+(_sk.skill_optimization_target||'career')+'\n';
+    o+='  Condition Gate: '+(_sk.skill_condition_gating||'penalize')+'\n';
+    o+='  Pre-Finals Dump: '+(_sk.enable_pre_finals_skill_dump?'ON':'OFF')+'\n';
+    o+='[Racing]\n';
+    o+='  Mode: '+(_rac.extra_race_list_source||'smart')+'\n';
+    o+='  Max Streak: '+(_rac.max_races_in_row||5)+'\n';
+    o+='  Distance Pref: '+(_rac.distance_preference_mode||'balanced')+'\n';
+    o+='  Include OP: '+(_rac.include_op?'ON':'OFF')+'\n';
+    o+='  Live Replan: '+(_rac.enable_live_smart_replan?'ON':'OFF')+'\n';
+    o+='  Event-Only Replan: '+(_rac.replan_on_events_only?'ON':'OFF')+'\n';
+    o+='  Distances: '+(_rac.preferred_distances||[]).join(', ')||'(auto)'; o+='\n';
+    o+='[Scenario]\n';
+    o+='  Energy Threshold: '+(_scn.energy_recovery_threshold||40)+'\n';
+    o+='  Force-Train Floor: '+(_scn.force_train_energy_floor||20)+'\n';
+    o+='  Cupcake Reserve: '+(_scn.trackblazer_cupcake_reserve||1)+'\n';
+    o+='  MCH Finale Reserve: '+(_scn.trackblazer_master_hammer_finale_reserve||3)+'\n';
+    o+='  Save Items Late: '+(_scn.save_items_lategame?'ON':'OFF')+'\n';
+    o+='  Shop Frequency: '+(_scn.trackblazer_shop_check_frequency||1)+'\n';
+    o+='  Summer Train>Rec: '+(_scn.summer_force_train_over_recreation?'ON':'OFF')+'\n';
+    o+='  Kale Release: '+(_scn.release_cupcake_reserve_when_no_kale?'ON':'OFF')+'\n';
+    o+='\n';
   }
 
   // Metric confidence

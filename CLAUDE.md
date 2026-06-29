@@ -113,6 +113,30 @@ These files have ACTIVE fork changes and MUST be audited on every upstream updat
 - `main.py` — headless ticket sync
 - `log_viewer.html` — fork-only, never in upstream
 
+## AI Summary Feedback Loop
+
+When you receive an **AI Summary** from the log viewer (pasted by the user or
+read from a career log), compare the run's performance against the current
+recommendation in [RECOMMENDED_SETTINGS.md](RECOMMENDED_SETTINGS.md):
+
+1. **Extract** the settings snapshot and performance metrics from the summary.
+2. **Compare** against the current recommended values: total stats, win rate,
+   Climax mood, item leftovers, SP remaining, coin efficiency.
+3. **If the run outperforms** (higher total stats AND better win rate AND fewer
+   leftover items), **auto-update** RECOMMENDED_SETTINGS.md:
+   - Update the "Current Recommended Settings" tables with the new values.
+   - Add a dated entry to "Settings History" with the evidence (metrics).
+   - Note which specific settings changed and the measured improvement.
+4. **If the run is mixed** (better in some metrics, worse in others), note the
+   trade-off in a History entry but do NOT update the recommended values.
+5. **If the run underperforms**, add a History entry documenting what was tried
+   and why it was worse — this prevents re-trying the same bad settings.
+
+The AI summary includes the full settings snapshot specifically so this feedback
+loop can work. Never skip the comparison — every run is data.
+
+---
+
 ## Files Safe to Accept Upstream Wholesale
 
 No active fork modifications:
