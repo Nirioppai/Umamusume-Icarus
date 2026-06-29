@@ -702,6 +702,16 @@ class SkillBuyer:
         turn = int(chara.get("turn") or 0)
         self._set_turn(turn)
         cfg = self._skill_config(preset)
+        # FORK: (nirio) force overrides must be evaluated BEFORE the
+        # enable_skill_point_check gate — otherwise a disabled preset
+        # silently blocks all nirio-forced skill buying.
+        nirio_force_turn = cfg.get("nirio_skill_force_turn", 60)
+        nirio_sp_floor = cfg.get("nirio_skill_sp_floor", 500)
+        if not force and turn >= nirio_force_turn and points >= nirio_sp_floor:
+            force = True
+        pre_finals_turn = int(cfg.get("pre_finals_skill_turn") or 73)
+        if not force and cfg.get("enable_pre_finals_skill_dump", True) and turn >= pre_finals_turn and points > 0:
+            force = True
         if not cfg["enable_skill_point_check"] and not force:
             self.last_candidates = []
             self.last_selected = []
@@ -712,19 +722,6 @@ class SkillBuyer:
         nirio_hoard = cfg.get("nirio_skill_hoard_threshold", 1000)
         is_hoarding = points > nirio_hoard
         threshold = cfg["learn_skill_threshold"]
-        # v1.5 pre-finals dump (the reference preFinals plan): on the turns just
-        # before the Twinkle Star Climax (finale races at 74/76/78), spend the
-        # accumulated SP on the best skills even if below the normal threshold,
-        # so the trainee enters the finals fully kitted instead of carrying SP
-        # past the last races it can affect.
-        pre_finals_turn = int(cfg.get("pre_finals_skill_turn") or 73)
-        if not force and cfg.get("enable_pre_finals_skill_dump", True) and turn >= pre_finals_turn and points > 0:
-            force = True
-        # FORK: (nirio) force skill evaluation earlier with a lower SP floor.
-        nirio_force_turn = cfg.get("nirio_skill_force_turn", 60)
-        nirio_sp_floor = cfg.get("nirio_skill_sp_floor", 500)
-        if not force and turn >= nirio_force_turn and points >= nirio_sp_floor:
-            force = True
         if not force and not is_hoarding and points <= threshold:
             self.last_candidates = []
             self.last_selected = []
