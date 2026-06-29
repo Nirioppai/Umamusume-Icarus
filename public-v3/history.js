@@ -131,6 +131,7 @@
         </div>
         <div class="race-right">
           <span class="placebadge ${placeCls(r.place)}">${placeLbl(r.place)}</span>
+          ${winprobChip(r)}
           <span class="race-fans">${fmtNum(r.fans)} fans</span>
         </div>
       </div>`;
@@ -179,7 +180,24 @@
       gut: Number(st.guts ?? 0), wit: Number(st.wit ?? st.wiz ?? 0),
       place: (rank > 0 && rank < 90) ? rank : 0,
       fans: Number(r.fans ?? 0),
+      winprob: r.win_probability || null,   // read-only pre-race estimate (may be null/unavailable)
     };
+  }
+
+  // Pre-race win-probability chip (read-only). Hidden when no named-rival field
+  // was known for the race, so it never shows a misleading 100%.
+  function winprobChip(r) {
+    const w = r.winprob;
+    if (!w || !w.available || w.p_win == null) return '';
+    const pct = Math.round(w.p_win * 100);
+    const top3 = Math.round((w.p_top3 || 0) * 100);
+    const tone = pct >= 50 ? 'c-green' : pct >= 20 ? 'c-amber' : 'c-mut';
+    // "~" marks this as a PRELIMINARY, uncalibrated estimate (default logistic
+    // scale, pending backtest calibration). It is computed vs the NAMED rivals
+    // only — the full starting gate is larger — so it is an optimistic upper bound.
+    return `<span class="winprob ${tone}" style="font-size:11px;font-weight:600" `
+      + `title="Preliminary (uncalibrated) pre-race estimate vs the ${(w.field_size || 1) - 1} named rival(s) only — the full gate is larger, so this is optimistic. Top-3 ~${top3}%. Read-only, does not affect play.">`
+      + `~P(win) ${pct}%</span>`;
   }
 
   function renderReport() {

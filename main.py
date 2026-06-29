@@ -1093,6 +1093,9 @@ def _discord_logging_config(redacted=False):
         "send_turn_logs": bool(cfg.get("send_turn_logs", True)),
         "send_career_summary": bool(cfg.get("send_career_summary", True)),
         "redact_sensitive": bool(cfg.get("redact_sensitive", True)),
+        "notify_on_finish": bool(cfg.get("notify_on_finish", True)),
+        "notify_on_crash": bool(cfg.get("notify_on_crash", True)),
+        "notify_on_epithet": bool(cfg.get("notify_on_epithet", False)),
     }
     if redacted and result["webhook_url"]:
         tail = result["webhook_url"][-8:]
@@ -2893,6 +2896,9 @@ class NativeCaptureRequest(BaseModel):
 class DiscordWebhookRequest(BaseModel):
     webhook_url: str = ""
     enabled: bool = True
+    notify_on_finish: bool = True
+    notify_on_crash: bool = True
+    notify_on_epithet: bool = False
 
 
 class SavePresetRequest(BaseModel):
@@ -3488,6 +3494,9 @@ async def set_discord_webhook(req: DiscordWebhookRequest):
         "send_turn_logs": True,
         "send_career_summary": True,
         "redact_sensitive": True,
+        "notify_on_finish": bool(req.notify_on_finish),
+        "notify_on_crash": bool(req.notify_on_crash),
+        "notify_on_epithet": bool(req.notify_on_epithet),
     })
     return {"success": True, "configured": bool(cfg.get("enabled") and cfg.get("webhook_url")), **cfg}
 
@@ -4544,6 +4553,157 @@ def api_trackblazer_races():
             })
         out.sort(key=lambda x: (x["turn"], -GPRI.get(x["grade"], 0)))
         return {"success": True, "races": out}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# --- Race win-probability (read-only analytics, Phase 1) --------------------
+# Opponent-aware P(win)/P(top-3) from the game's own master.mdb data. Does NOT
+# change how the bot plays; it only reports an estimate so its calibration can
+# be validated (tools/race_winnability_report.py) before any Phase-2 decisioning.
+_WIN_PROB_MODEL = None
+_RACE_PROGRAM_INDEX = None
+
+
+def _win_prob_model():
+    global _WIN_PROB_MODEL
+    if _WIN_PROB_MODEL is None:
+        from career_bot import win_probability as _wp
+        _WIN_PROB_MODEL = _wp.load_model(base_dir)
+    return _WIN_PROB_MODEL
+
+
+def _race_program_index():
+    """program_id -> {distance_m, ground, name} (program-constant race facts)."""
+    global _RACE_PROGRAM_INDEX
+    if _RACE_PROGRAM_INDEX is None:
+        idx = {}
+        try:
+            rows = json.loads((base_dir / "data" / "race_planner_core.json").read_text(encoding="utf-8"))
+            for r in rows:
+                pid = r.get("program_id")
+                if pid is None:
+                    continue
+                pid = int(pid)
+                if pid in idx:
+                    continue
+                idx[pid] = {
+                    "distance_m": int(r.get("distance_m") or 0),
+                    "ground": int(r.get("ground") or 1),
+                    "name": r.get("name") or "",
+                }
+        except Exception:
+            idx = {}
+        _RACE_PROGRAM_INDEX = idx
+    return _RACE_PROGRAM_INDEX
+
+
+class WinProbabilityRequest(BaseModel):
+    program_id: int = 0
+    turn: int = 0
+    trainee_chara_id: int = 0       # base chara id (e.g. 1001); or pass card_id
+    card_id: int = 0
+    speed: int = 0
+    stamina: int = 0
+    power: int = 0
+    guts: int = 0
+    wit: int = 0
+    motivation: int = 3
+    running_style: int = 0          # 1 front / 2 pace / 3 late / 4 end (for style aptitude)
+    # Full aptitude block (letters or ints), shaped like chara_info aptitudes:
+    #   {distance:{short,mile,medium,long}, ground:{turf,dirt}, style:{front,pace,late,end}}
+    aptitudes: dict = Field(default_factory=dict)
+    # Optional explicit per-race grade overrides (used if aptitudes block absent):
+    distance_grade: str = ""
+    surface_grade: str = ""
+    style_grade: str = ""
+    distance_m: int = 0             # optional override; else resolved from program_id
+    ground: int = 0                 # optional override (1 turf / 2 dirt)
+    k: float = 0.0
+
+
+_STYLE_APT_KEY = {1: "front", 2: "pace", 3: "late", 4: "end"}
+
+
+def _augment_race_results_with_winprob(rows, card_id):
+    """Attach a compact read-only win_probability to each completed-career race
+    row (computed from the stored pre-race stat_snapshot + performance_hint, so
+    it IS the genuine pre-race estimate). Never raises; skips a row on any error.
+    """
+    try:
+        from career_bot import win_probability as _wp
+        model = _win_prob_model()
+        chara_id = _wp.chara_id_from_card(card_id)
+    except Exception:
+        return rows
+    for r in rows or []:
+        if not isinstance(r, dict):
+            continue
+        try:
+            perf = r.get("performance_hint") or {}
+            ground = 2 if str(perf.get("surface_label") or r.get("terrain") or "").lower().startswith("dirt") else 1
+            res = model.compute(
+                stats=r.get("stat_snapshot") or {}, distance_m=r.get("distance_m"),
+                ground=ground, distance_grade=perf.get("distance_aptitude"),
+                surface_grade=perf.get("surface_aptitude"),
+                style_grade=perf.get("running_style_aptitude"),
+                motivation=int(perf.get("motivation") or 3),
+                trainee_chara_id=chara_id, turn=int(r.get("turn") or 0),
+                program_id=int(r.get("program_id") or 0),
+            )
+            r["win_probability"] = {
+                "p_win": res["p_win"], "p_top3": res["p_top3"],
+                "expected_rank": res["expected_rank"], "field_size": res["field_size"],
+                "available": res["available"],
+            }
+        except Exception:
+            continue
+    return rows
+
+
+@app.post("/api/race/win-probability")
+def api_race_win_probability(req: WinProbabilityRequest):
+    """Estimate P(win)/P(top-3) for an upcoming race vs its named-rival field.
+
+    Read-only. `available` is False when no named rivals are known for the race
+    (so the caller can hide a misleading 100%). The mob runners that fill the
+    rest of the gate at race time are not modelled (see `note`).
+    """
+    try:
+        from career_bot import win_probability as _wp
+        model = _win_prob_model()
+        prog = _race_program_index().get(int(req.program_id or 0), {})
+        distance_m = int(req.distance_m or prog.get("distance_m") or 0)
+        ground = int(req.ground or prog.get("ground") or 1)
+        chara_id = int(req.trainee_chara_id or 0) or _wp.chara_id_from_card(req.card_id)
+
+        apt = req.aptitudes or {}
+        dist_block = apt.get("distance") or {}
+        ground_block = apt.get("ground") or apt.get("track") or {}
+        style_block = apt.get("style") or {}
+        dist_key, _ = _wp.distance_bucket(distance_m)
+        # NPC json uses 'medium'; some chara payloads use 'middle' -> accept both.
+        distance_grade = (dist_block.get(dist_key) or dist_block.get("middle" if dist_key == "medium" else dist_key)
+                          or req.distance_grade or None)
+        surf_name = "dirt" if ground == 2 else "turf"
+        surface_grade = ground_block.get(surf_name) or req.surface_grade or None
+        style_name = _STYLE_APT_KEY.get(int(req.running_style or 0))
+        style_grade = (style_block.get(style_name) if style_name else None) or (req.style_grade or None)
+
+        stats = {"speed": req.speed, "stamina": req.stamina, "power": req.power,
+                 "guts": req.guts, "wit": req.wit}
+        k = float(req.k) if req.k else _wp.DEFAULT_K
+        result = model.compute(
+            stats=stats, distance_m=distance_m, ground=ground,
+            distance_grade=distance_grade, surface_grade=surface_grade,
+            style_grade=style_grade, motivation=int(req.motivation or 3),
+            trainee_chara_id=chara_id, turn=int(req.turn or 0),
+            program_id=int(req.program_id or 0), k=k,
+        )
+        result.update({"success": True, "program_id": int(req.program_id or 0),
+                       "race_name": prog.get("name", ""), "distance_m": distance_m,
+                       "ground": ground})
+        return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -6591,6 +6751,9 @@ def _career_history_summary_from_runner(snap):
     action_history = deepcopy(list(snap.get("action_history") or []))
     race_results = deepcopy(list(snap.get("race_results") or final_chara.get("race_results") or []))
     card_id = str(final_chara.get("card_id") or snap.get("card_id") or "")
+    # Read-only: attach the pre-race win-probability estimate to each race row so
+    # Career History can show "predicted P(win) vs actual finish". Never raises.
+    _augment_race_results_with_winprob(race_results, card_id)
     trainee_name = chara_map.get(card_id, f"Card {card_id}" if card_id else "Unknown")
     fans_gained = int(snap.get("fans_gained") or 0)
     fans_current = int(final_chara.get("fans") or snap.get("fans_current") or 0)
@@ -7887,12 +8050,6 @@ def check_saved_auth():
                 c = UmaClient(saved_cfg, trace_enabled=False)
                 res = c.login()
                 if res and res.get("data"):
-                    # FORK: sync the (possibly refreshed) ticket back so the
-                    # pre-load step doesn't reuse a consumed ticket (→ 394).
-                    if getattr(c, "steam_ticket", None):
-                        saved_cfg["steam_session_ticket"] = c.steam_ticket
-                    if getattr(c, "steam_id", None):
-                        saved_cfg["steam_id"] = str(c.steam_id)
                     print("[+] Headless bypass successful!", flush=True)
                     return saved_cfg
                 else:

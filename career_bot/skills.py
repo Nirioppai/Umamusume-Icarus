@@ -2,7 +2,6 @@ import json
 import re
 from pathlib import Path
 
-from career_bot import trackblazer_rules as tb_rules  # FORK: (nirio) earlier skill buying
 from career_bot.running_style import (
     STYLE_ID_TO_KEY,
     STYLE_KEY_TO_ID,
@@ -818,7 +817,6 @@ class SkillBuyer:
 
     def _skill_config(self, preset):
         preset = preset or {}
-        mant = (preset.get("mant_config") or {})
         return {
             "enable_skill_point_check": bool(preset.get("enable_skill_point_check", True)),
             "learn_skill_threshold": int(preset.get("learn_skill_threshold") or 888),
@@ -839,10 +837,6 @@ class SkillBuyer:
             # dropped (career) or kept (TT/CM).
             "skill_optimization_target": _normalize_skill_target(preset.get("skill_optimization_target")),
             "skill_tier_multipliers": dict(preset.get("skill_tier_multipliers") or {}),
-            # FORK: (nirio) earlier skill buying
-            "nirio_skill_force_turn": int(mant.get("nirio_skill_force_turn") or tb_rules.DEFAULT_NIRIO_SKILL_FORCE_TURN),
-            "nirio_skill_sp_floor": int(mant.get("nirio_skill_sp_floor") or tb_rules.DEFAULT_NIRIO_SKILL_SP_FLOOR),
-            "nirio_skill_hoard_threshold": int(mant.get("nirio_skill_hoard_threshold") or tb_rules.DEFAULT_NIRIO_SKILL_HOARD_THRESHOLD),
         }
 
     def _candidate_allowed_by_skill_config(self, candidate, preset):
@@ -868,27 +862,22 @@ class SkillBuyer:
         turn = int(chara.get("turn") or 0)
         self._set_turn(turn)
         cfg = self._skill_config(preset)
-        # FORK: (nirio) force overrides must be evaluated BEFORE the
-        # enable_skill_point_check gate — otherwise a disabled preset
-        # silently blocks all nirio-forced skill buying.
-        nirio_force_turn = cfg.get("nirio_skill_force_turn", 60)
-        nirio_sp_floor = cfg.get("nirio_skill_sp_floor", 500)
-        if not force and turn >= nirio_force_turn and points >= nirio_sp_floor:
-            force = True
-        pre_finals_turn = int(cfg.get("pre_finals_skill_turn") or 73)
-        if not force and cfg.get("enable_pre_finals_skill_dump", True) and turn >= pre_finals_turn and points > 0:
-            force = True
         if not cfg["enable_skill_point_check"] and not force:
             self.last_candidates = []
             self.last_selected = []
             self.last_attempt = []
             self.last_result = {"skip": "skill_point_check_disabled"}
             return state, 0
-        # FORK: (nirio) cooperative hoard threshold — use the more aggressive
-        # of upstream's 1500 and nirio's configurable value (default 1000).
-        nirio_hoard = cfg.get("nirio_skill_hoard_threshold", 1000)
-        is_hoarding = points > min(1500, nirio_hoard)
+        is_hoarding = points > 1500
         threshold = cfg["learn_skill_threshold"]
+        # v1.5 pre-finals dump (the reference preFinals plan): on the turns just
+        # before the Twinkle Star Climax (finale races at 74/76/78), spend the
+        # accumulated SP on the best skills even if below the normal threshold,
+        # so the trainee enters the finals fully kitted instead of carrying SP
+        # past the last races it can affect.
+        pre_finals_turn = int(cfg.get("pre_finals_skill_turn") or 73)
+        if not force and cfg.get("enable_pre_finals_skill_dump", True) and turn >= pre_finals_turn and points > 0:
+            force = True
         if not force and not is_hoarding and points <= threshold:
             self.last_candidates = []
             self.last_selected = []

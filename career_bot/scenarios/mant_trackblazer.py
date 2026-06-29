@@ -270,11 +270,6 @@ class MantTrackblazerCore:
         _tss = (preset or {}).get("trackblazer_solver_settings") or {}
         max_races_in_row = int(_mc.get("max_races_in_row") or _tss.get("max_races_in_row") or 5)
         streak_ok = manual or consec < max_races_in_row
-        # FORK: (nirio) block optional race chains when mood is critically low.
-        _nirio_chain_mood = int(_mc.get("nirio_chain_mood_floor") or tb_rules.DEFAULT_NIRIO_CHAIN_MOOD_FLOOR)
-        _nirio_critical_turn = int(_mc.get("nirio_mood_critical_turn") or tb_rules.DEFAULT_NIRIO_MOOD_CRITICAL_TURN)
-        if not manual and streak_ok and turn >= _nirio_critical_turn and motivation <= _nirio_chain_mood and consec >= 1:
-            streak_ok = False
 
         # Must-run MARQUEE guard: the fixed set-races (Takarazuka / Arima / Japan
         # Cup / Tenno Sho / Triple Crown / ...) are too valuable to skip. If the
@@ -325,17 +320,6 @@ class MantTrackblazerCore:
                         and not tb_rules.is_year_end_rest_exempt(turn)
                         and not cfg.get("ignore_low_energy_racing_block", False)):
                     return self._as_command(rest or recreation, chara, "trackblazer hard-block race (energy<=1, 3+ consecutive)")
-                # FORK: (nirio) soft mood chain-break — after nirio_mood_repair_turn,
-                # prefer training over continuing an optional race chain when mood is
-                # at or below the floor. Does not block the first race of a chain or
-                # mandatory/marquee races. Falls through if no decent training exists.
-                _nirio_repair = int(_mc.get("nirio_mood_repair_turn") or tb_rules.DEFAULT_NIRIO_MOOD_REPAIR_TURN)
-                if (not manual and turn >= _nirio_repair and motivation <= _nirio_chain_mood
-                        and consec >= 1 and not tb_rules.is_year_end_rest_exempt(turn)):
-                    bcmd_mood, _ = self._best_training(data, chara, preset, training)
-                    if bcmd_mood is not None:
-                        return self._as_command(bcmd_mood, chara,
-                            f"trackblazer: nirio mood break (mot {motivation}, chain {consec}, train instead)")
                 # STEP 2: irregular training (Year 2+) — hijack this race turn to
                 # train when an exceptional training is available. Skipped in manual
                 # mode (user's pick is forced) AND for marquee set-races (Takarazuka,
@@ -379,8 +363,16 @@ class MantTrackblazerCore:
         # worth missing the early bond/friendship-threshold building; fall through
         # to training/rest instead.
         recreation_min_turn = int(cfg.get("recreation_min_turn", 12))
+        # 2026-06-29: SUMMER CAMP (37-40 / 61-64) is the prime stat source -- train
+        # at mood 3+ rather than spend a precious camp turn on Recreation. The
+        # summer force-train at the top of decide() already covers non-manual runs;
+        # this guard closes the manual-mode leak (force-train is skipped there) so
+        # 61-64 still trains. Tunable (default ON).
+        summer_train_over_rec = bool(cfg.get("summer_force_train_over_recreation", True))
+        skip_summer_recreation = summer_train_over_rec and summer and can_safely_train
         if (recreation and turn >= recreation_min_turn and motivation < want_mood
-                and vital >= int(cfg.get("mood_recovery_energy_floor", 50))):
+                and vital >= int(cfg.get("mood_recovery_energy_floor", 50))
+                and not skip_summer_recreation):
             # Spec (Low): a Berry Sweet Cupcake is the dedicated mood-recovery
             # resource. If one is owned above the cupcake reserve AND energy is
             # low enough that the item layer will actually queue it (vital below
@@ -391,16 +383,26 @@ class MantTrackblazerCore:
             cupcake_reserve = max(0, int(cfg.get("trackblazer_cupcake_reserve", 1)))
             try:
                 berry_qty = int(self.ref._owned_item_count(data, 2302) or 0)
+                plain_qty = int(self.ref._owned_item_count(data, 2301) or 0)
+                kale_qty = int(self.ref._owned_item_count(data, 2101) or 0)
             except Exception:
-                berry_qty = 0
+                berry_qty = plain_qty = kale_qty = 0
             cupcake_thresh = int(cfg.get("cupcake_energy_threshold", 70))
-            if not (berry_qty > cupcake_reserve and vital < cupcake_thresh):
+            berry_escape = berry_qty > cupcake_reserve and vital < cupcake_thresh
+            # 2026-06-29: by turn>=61 with NO Royal Kale Juice owned, the reserved
+            # cupcake can never combo with kale -- release it. Train and let the
+            # item layer (_mood_target, which spends ANY cupcake for mood past turn
+            # 60) patch mood, instead of wasting the turn on Recreation. Tunable.
+            release_no_kale = bool(cfg.get("release_cupcake_reserve_when_no_kale", True))
+            no_kale_release = (release_no_kale and turn >= 61 and kale_qty == 0
+                               and (berry_qty + plain_qty) > 0)
+            if not (berry_escape or no_kale_release):
                 if free_mode:
                     _outing = self.ref._free_group_outing(commands, turn, chara)
                     if _outing:
                         return self._as_command(_outing, chara, "trackblazer: free group outing (mood)")
                 return self._as_command(recreation, chara, f"trackblazer: recover mood (mot {motivation} < {want_mood})")
-            # else: fall through to training; the item layer (_mood_target) queues the Berry Sweet.
+            # else: fall through to training; the item layer (_mood_target) queues a cupcake.
 
         # Energy rest — but first try the energy-item rescue: if a good
         # training exists and an owned Vita/Kale (or charm) can carry it, train

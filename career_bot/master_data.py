@@ -57,6 +57,7 @@ DIRECT_TABLES = [
     "single_mode_route_race",
     "single_mode_route_condition",
     "single_mode_rival",
+    "single_mode_npc",
     "single_mode_free_coin_race",
     "single_mode_free_win_point",
     "single_mode_reward_set",

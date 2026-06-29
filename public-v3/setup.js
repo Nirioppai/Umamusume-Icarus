@@ -284,8 +284,7 @@
           <button class="abtn${raceMode === 'smart' ? ' amber' : ''}" type="button" style="flex:1" id="tb-mode-smart">SMART RACE SOLVER</button>
           <button class="abtn${raceMode === 'manual' ? ' amber' : ''}" type="button" style="flex:1" id="tb-mode-manual">MANUAL</button>
         </div>
-        <button class="abtn cyan" type="button" data-modal="solver" style="width:100%;margin-bottom:10px">SOLVER SETTINGS</button>
-        <label style="display:flex;align-items:center;gap:8px;margin-bottom:11px;font:500 10px var(--mono);color:var(--mut);cursor:pointer"><span style="width:13px;height:13px;border-radius:3px;background:var(--cyan);display:flex;align-items:center;justify-content:center;color:var(--panel);font-size:9px">✓</span>auto-solve before run</label>
+        <button class="abtn cyan" type="button" data-modal="solver" style="width:100%;margin-bottom:11px">SOLVER SETTINGS</button>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:11px">
           <button class="abtn cyan" type="button" style="font-size:9px;padding:8px" id="setup-sync">SYNC DATA</button>
           <button class="abtn cyan" type="button" style="font-size:9px;padding:8px" id="setup-solve">SOLVE SMART</button>

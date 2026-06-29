@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.2.2 (2026-06-29)
+
+Patch release on top of v3.2.1: forced event choices finally persist, smarter energy/recovery-item use, much more aggressive late-game item dumping, functional Discord notifications, and a read-only race win-probability estimate.
+
+**Fixed**
+- Forced event choices were still being silently reset. Saving any settings modal (Training / Racing / Scenario / etc.) re-wrote the whole preset with an empty event-choice list, wiping the choices you forced from the Event Choices panel — so the runner always fell back to Auto and pressed the default option. Event-choice overrides are now stored independently and can only be changed from the Event Choices panel, so they survive every other save and actually apply in-career.
+- Energy / recovery items (Vita, Energy Drink, Royal Kale Juice) were being used on REST turns — a waste, since resting already restores energy. They now fire only when the turn's action is TRAINING and energy is the limiting factor (the late-game dump still empties them).
+- Pre-race energy was being "preemptively" topped up at any energy below ~40 before a race. A race only needs more than 0 energy to avoid punishment, so an energy item is now used before a race ONLY when energy is exactly 0 — same turn, before the race — regardless of the race's position in a consecutive-race chain.
+
+**Added / Changed**
+- Second summer camp (turns 61–64): the bot now TRAINS at neutral mood instead of spending a precious camp turn on Recreation; and once past turn 61 with no Royal Kale Juice left, it releases the held-back cupcake to fix mood on a training turn rather than recreating.
+- Late-game item dumping (after turn 64, when "Save Items Late Game" is OFF) is now far more aggressive: Empowering Megaphones, Ankle Weights, Good-Luck Charms, and the small +5 Energy Drink MAX are spent on essentially every training turn instead of stranding unused at career end. (Ankle weights still only apply to their own stat's training; the "Save Items Late Game" toggle keeps the old conservative behavior.)
+- Discord notifications: the "Notify on career finish / crash / new epithet" toggles are now real per-event switches (previously decorative). A crashed/stuck career routes to the crash toggle, a clean finish to the finish toggle, and a newly earned set-bonus epithet pings the epithet toggle (off by default).
+- Career History now shows a read-only pre-race win-probability estimate per race (~P(win)), computed from the game's own opponent stat data. It is preliminary/uncalibrated and does not affect how the bot plays.
+- Removed a misleading "auto-solve before run" checkbox in Setup that did nothing (smart mode already solves the schedule at career start).
+
 ## v3.2.1 (2026-06-28)
 
 Patch release on top of v3.2: forced event choices now actually apply, the Smart Race Solver follows your selected trainee, settings modals warn before discarding unsaved edits, and manually-started careers resume correctly.

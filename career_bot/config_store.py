@@ -24,6 +24,15 @@ SETTING_PRESET_KEYS = {
     "selection",
 }
 
+# event_overrides is managed ONLY by the dedicated save_event_overrides endpoint
+# (the Event Choices panel). A whole-preset Settings save round-trips a possibly
+# STALE snapshot of event_overrides (captured when the modal loaded, before the
+# user forced a choice), so applying it from the incoming preset CLOBBERED the
+# forced choices back to {} -- the root cause of "forced event choices ignored".
+# Whole-preset writes therefore exclude it; reads (compose/read_settings_presets)
+# still include it from the on-disk file.
+WHOLE_SAVE_PRESET_KEYS = SETTING_PRESET_KEYS - {"event_overrides"}
+
 SKILL_CONFIG_KEYS = {
     "enable_skill_point_check",
     "learn_skill_threshold",
@@ -442,7 +451,7 @@ class ConfigStore:
         name = slugify(str((preset or {}).get("name") or self._active_name() or "Settings Preset").strip() or "Settings Preset")
         path = self._preset_path(name)
         full = self._read_full_preset(path) if path.exists() else self._full_default_preset(name)
-        full.update(_only_keys(preset, SETTING_PRESET_KEYS))
+        full.update(_only_keys(preset, WHOLE_SAVE_PRESET_KEYS))  # never clobber event_overrides
         full["name"] = name
         _write_json(path, self._normalize_full(full))
         self.set_active(name)
@@ -553,7 +562,7 @@ class ConfigStore:
         name = slugify(str((preset or {}).get("name") or self._active_name() or "Settings Preset").strip() or "Settings Preset")
         path = self._preset_path(name)
         full = self._read_full_preset(path) if path.exists() else self._full_default_preset(name)
-        full.update(_only_keys(preset, SETTING_PRESET_KEYS))
+        full.update(_only_keys(preset, WHOLE_SAVE_PRESET_KEYS))  # never clobber event_overrides
         full.update(_only_keys(preset, SKILL_CONFIG_KEYS))
         if "skill_strategy" in (preset or {}):
             strat = dict(full.get("skill_strategy") or {})

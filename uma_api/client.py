@@ -133,6 +133,31 @@ def redact_for_console(value, key=""):
     return value
 
 
+# Credential / device-identity fields that must NEVER be persisted to the on-disk
+# trace log, even when tracing is explicitly enabled for debugging. The key is
+# kept (so the protocol structure stays debuggable) but the value is masked.
+# Mirrors SENSITIVE_ERROR_KEYS + report._REDACT_KEYS; viewer_id is intentionally
+# NOT redacted (it's a non-secret identifier used throughout debugging).
+TRACE_REDACT_KEYS = {
+    "auth_key", "steam_session_ticket", "steam_ticket", "sid", "udid",
+    "device_id", "device_name", "graphics_device_name", "ip_address",
+    "steam_id", "dmm_viewer_id", "dmm_onetime_token", "credential",
+    "password", "steam_password_seed", "keychain",
+}
+
+
+def _redact_for_trace(obj):
+    """Structure-preserving redaction for trace files: masks the VALUE of any
+    credential/identity key (at any depth) while keeping every other field intact
+    (no truncation), and never mutates the input."""
+    if isinstance(obj, dict):
+        return {k: ("<redacted>" if k in TRACE_REDACT_KEYS else _redact_for_trace(v))
+                for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_redact_for_trace(item) for item in obj]
+    return obj
+
+
 def format_api_error(ep, rc, res):
     details = {
         "endpoint": ep,
@@ -412,7 +437,7 @@ def get_ticket(u, p, c=''):
 
 class UmaClient:
 
-    def __init__(self, cfg, trace_enabled=True):
+    def __init__(self, cfg, trace_enabled=False):
         profile = get_hwid(cfg.get('steam_password_seed', 'default'))
 
         self.viewer_id = cfg.get('viewer_id', 0)
@@ -509,7 +534,7 @@ class UmaClient:
                     return str(obj)
 
                 with open(self.trace_file, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(log_entry, ensure_ascii=False, default=_json_default) + "\n")
+                    f.write(json.dumps(_redact_for_trace(log_entry), ensure_ascii=False, default=_json_default) + "\n")
             except Exception as e:
                 print(f"Error writing to log: {e}")
 

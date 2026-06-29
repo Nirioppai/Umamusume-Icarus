@@ -31,8 +31,17 @@
     row(label, help, `<div class="tgl${on ? ' on' : ''}"${k ? ` data-k="${k}" data-type="bool"` : ''}><span class="tgl-sw"></span></div>`);
   const seg = (label, opts, activeIdx, help = '') =>
     row(label, help, `<div class="segrow">${opts.map((o, i) => `<button class="segbtn${i === activeIdx ? ' on' : ''}" type="button">${esc(o)}</button>`).join('')}</div>`);
+  // chip opt = [value, on] or [value, on, label] (label defaults to value, so a
+  // chip can store a backend-format value, e.g. 'sprint', while showing 'Sprint').
   const chips = (label, opts, help = '', k = '') =>
-    row(label, help, `<div class="segrow" data-multi="1"${k ? ` data-k="${k}" data-type="chips"` : ''}>${opts.map((o) => `<button class="chiptog${o[1] ? ' on' : ''}" type="button" data-chip="${esc(o[0])}">${esc(o[0])}</button>`).join('')}</div>`, opts.length > 5);
+    row(label, help, `<div class="segrow" data-multi="1"${k ? ` data-k="${k}" data-type="chips"` : ''}>${opts.map((o) => `<button class="chiptog${o[1] ? ' on' : ''}" type="button" data-chip="${esc(o[0])}">${esc(o[2] || o[0])}</button>`).join('')}</div>`, opts.length > 5);
+  // Smart-solver boolean / string controls -> trackblazer_solver_settings[key]
+  // (mirrors the proven legacy public/app.js wiring; round-tripped by the solver
+  // collector + initSolverWeights via data-ssb / data-sss).
+  const ssToggle = (label, on, help, key) =>
+    row(label, help, `<div class="tgl${on ? ' on' : ''}" data-ssb="${key}"><span class="tgl-sw"></span></div>`);
+  const ssSelect = (label, opts, active, help, key) =>
+    row(label, help, `<select class="self" data-sss="${key}">${opts.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(active) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`);
   const sel = (label, opts, activeVal, help = '', k = '') =>
     row(label, help, `<select class="self"${k ? ` data-k="${k}" data-type="str"` : ''}>${opts.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(activeVal) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`);
   const numf = (label, val, help = '', k = '') =>
@@ -108,7 +117,14 @@
     '/api/settings/discord-webhook': (o) => {
       const inp = o.querySelector('#discord-url');
       const url = inp ? inp.value.trim() : '';
-      return { webhook_url: url, enabled: !!url };
+      const tgl = (key) => { const t = o.querySelector(`.tgl[data-k="${key}"]`); return t ? t.classList.contains('on') : true; };
+      return {
+        webhook_url: url, enabled: !!url,
+        notify_on_finish: tgl('notify_on_finish'),
+        notify_on_crash: tgl('notify_on_crash'),
+        notify_on_epithet: o.querySelector('.tgl[data-k="notify_on_epithet"]')
+          ? o.querySelector('.tgl[data-k="notify_on_epithet"]').classList.contains('on') : false,
+      };
     },
   };
   // Optional post-save hooks keyed by endpoint, run after a successful save with
@@ -330,6 +346,22 @@
       const src = map[0] === 'w' ? cfg.trackblazer_weights : cfg.trackblazer_solver_settings;
       if (src[map[1]] !== undefined && src[map[1]] !== null) inp.value = src[map[1]];
     });
+    // Boolean solver weights (data-swb) -> trackblazer_weights[key]. Reflect the
+    // saved value so the toggle shows the real state (default OFF when absent).
+    o.querySelectorAll('[data-swb]').forEach((el) => {
+      el.classList.toggle('on', !!cfg.trackblazer_weights[el.dataset.swb]);
+    });
+    // Boolean / string solver SETTINGS (data-ssb / data-sss) -> trackblazer_solver_settings[key].
+    // Only override the markup default when a saved value is present (preserves each
+    // control's backend default, e.g. Live Re-Planning ON, when the key is absent).
+    o.querySelectorAll('[data-ssb]').forEach((el) => {
+      const v = cfg.trackblazer_solver_settings[el.dataset.ssb];
+      if (v !== undefined && v !== null) el.classList.toggle('on', !!v);
+    });
+    o.querySelectorAll('[data-sss]').forEach((el) => {
+      const v = cfg.trackblazer_solver_settings[el.dataset.sss];
+      if (v !== undefined && v !== null && v !== '') el.value = v;
+    });
   }
   SAVE_COLLECTORS['/api/smart-solver/config'] = (o) => {
     if (!o || !o._solverCfg) return null;
@@ -338,6 +370,17 @@
       const map = SOLVER_SW[+inp.dataset.sw]; if (!map) return;
       const dst = map[0] === 'w' ? cfg.trackblazer_weights : cfg.trackblazer_solver_settings;
       const v = parseFloat(inp.value); if (!isNaN(v)) dst[map[1]] = v;
+    });
+    cfg.trackblazer_weights = cfg.trackblazer_weights || {};
+    o.querySelectorAll('[data-swb]').forEach((el) => {
+      cfg.trackblazer_weights[el.dataset.swb] = el.classList.contains('on');
+    });
+    cfg.trackblazer_solver_settings = cfg.trackblazer_solver_settings || {};
+    o.querySelectorAll('[data-ssb]').forEach((el) => {
+      cfg.trackblazer_solver_settings[el.dataset.ssb] = el.classList.contains('on');
+    });
+    o.querySelectorAll('[data-sss]').forEach((el) => {
+      cfg.trackblazer_solver_settings[el.dataset.sss] = el.value;
     });
     return { config: cfg, preset: '' };
   };
@@ -940,7 +983,7 @@
         title: 'TRAINING SETTINGS', wide: true, foot: saveBtn('/api/settings-presets'),
         body: `
           ${sec('PRIORITIES',
-              chips('Blacklist', STATS.map((s) => [s, false]), 'Stats excluded from training unless the skill-hint override is enabled.'),
+              chips('Blacklist', [['speed', false, 'Speed'], ['stamina', false, 'Stamina'], ['power', false, 'Power'], ['guts', false, 'Guts'], ['wiz', false, 'Wit']], 'Stats excluded from training unless the skill-hint override is enabled.', 'mant.training_blacklist'),
               prio('tr-main', 'Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Main stat order used by the native training scorer.'),
               prio('tr-event', 'Event Choice Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Stat order used when scoring event choices.'),
               prio('tr-summer', 'Summer Training Prioritization', ['Speed', 'Power', 'Wit', 'Stamina', 'Guts'], 'Stat order used during Summer Training.'))}
@@ -1032,8 +1075,8 @@
         title: 'SCENARIO OVERRIDES', wide: true, foot: `<button class="abtn danger" type="button" data-close>RESET TRACKBLAZER</button>${saveBtn('/api/settings-presets')}`,
         body: `            ${sec('RACING',
               slider('sc-crl', 'Consecutive Races Limit', 3, 30, 3, 1, '', '', 'mant.race_chain_target'),
-              chips('Preferred Track Distances', DISTANCES.map((d) => [d, d === 'Medium' || d === 'Long'])),
-              chips('Preferred Track Surfaces', SURFACES.map((s) => [s, s === 'Turf'])))}
+              chips('Preferred Track Distances', [['sprint', false, 'Sprint'], ['mile', false, 'Mile'], ['medium', false, 'Medium'], ['long', false, 'Long']], 'Bias the solver toward these distances (blank = no preference, uses aptitude).', 'preset.preferred_distances'),
+              chips('Preferred Track Surfaces', [['turf', false, 'Turf'], ['dirt', false, 'Dirt']], 'Bias the solver toward these surfaces (blank = no preference).', 'preset.preferred_surfaces'))}
             ${sec('ENERGY & RESOURCES',
               slider('sc-ert', 'Energy Threshold to use Energy Items', 0, 100, 40, 1, '', '', 'mant.energy_recovery_threshold'),
               slider('sc-ftf', 'Force-Train Energy Floor', 0, 50, 20, 1, '', '', 'mant.force_train_energy_floor'),
@@ -1046,7 +1089,7 @@
               toggle('Reset Whistle Forces Training', true, '', 'mant.whistle_forces_training'))}
             ${sec('SHOP & ITEMS',
               slider('sc-scf', 'Shop Check Frequency', 1, 4, 1, 1, '', '1 = every opportunity, 2 = every other, …', 'mant.trackblazer_shop_check_frequency'),
-              chips('Race Grades to Check Shop After', ['G1', 'G2', 'G3'].map((g) => [g, true])),
+              chips('Race Grades to Check Shop After', [['G1', true], ['G2', true], ['G3', true]], 'Only check the shop after a race of one of these grades.', 'mant.trackblazer_shop_check_grades'),
               chips('Items to Exclude from Shop', SHOP.map((n) => [n, false]), '', 'mant.exclude_shop_items'))}
             ${sec('SHOP PURCHASE LOGIC',
               slider('sc-coin', 'Coin Reserve Override', 0, 300, 0, 5, '', '0 = automatic finale-aware reserve curve.', 'mant.mant_coin_reserve'),
@@ -1061,25 +1104,6 @@
               slider('sc-ah2', 'Artisan Hammer Min Stock for G2', 0, 3, 0, 1, '', '', 'mant.trackblazer_artisan_hammer_min_stock_for_g2'),
               slider('sc-gs', 'Glow Stick Final-Day Reserve', 0, 3, 1, 1, '', '', 'mant.trackblazer_glow_stick_final_reserve'),
               slider('sc-gsf', 'Glow Stick Minimum Fans', 0, 30000, 20000, 1000, '', '', 'mant.trackblazer_glow_stick_min_fans'))}
-            ${sec('(NIRIO) FORK TUNING',
-              note('<b style="color:var(--amber)">Fork-only knobs.</b> These override the bot\'s default late-game thresholds for more aggressive item usage, skill buying, and mood management. Saved per-preset.'),
-              slider('nr-sft', 'Skill Force Turn', 30, 73, 60, 1, '', 'Force skill buying after this turn if SP ≥ floor.', 'mant.nirio_skill_force_turn'),
-              slider('nr-ssf', 'Skill SP Floor', 100, 1500, 500, 50, '', 'Min SP required for forced skill buying.', 'mant.nirio_skill_sp_floor'),
-              slider('nr-sht', 'Skill Hoard Threshold', 500, 2000, 1000, 50, '', 'Buy skills immediately above this SP.', 'mant.nirio_skill_hoard_threshold'),
-              slider('nr-mrt', 'Mood Repair Turn', 30, 70, 50, 1, '', 'Use cupcakes aggressively after this turn when mood ≤ floor.', 'mant.nirio_mood_repair_turn'),
-              slider('nr-mfl', 'Mood Floor', 1, 4, 2, 1, '', 'Trigger mood repair when motivation ≤ this.', 'mant.nirio_mood_floor'),
-              slider('nr-mct', 'Mood Critical Turn', 50, 73, 68, 1, '', 'Hard-block optional race chains when mood ≤ floor after this turn.', 'mant.nirio_mood_critical_turn'),
-              slider('nr-cmf', 'Chain Mood Floor', 1, 4, 2, 1, '', 'Block race chains when motivation ≤ this (after critical turn).', 'mant.nirio_chain_mood_floor'),
-              slider('nr-cdt', 'Charm Dump Turn', 40, 72, 60, 1, '', 'Lower Good-Luck Charm thresholds after this turn.', 'mant.nirio_charm_dump_turn'),
-              slider('nr-cdg', 'Charm Dump Min Gain', 1, 20, 8, 1, '', 'Minimum stat gain for charm in dump window.', 'mant.nirio_charm_dump_min_gain'),
-              slider('nr-cdf', 'Charm Dump Failure Rate', 1, 30, 10, 1, '', 'Min failure rate to trigger charm in dump window.', 'mant.nirio_charm_dump_failure_rate'),
-              slider('nr-mdt', 'Mega Dump Turn', 50, 72, 62, 1, '', 'Lower megaphone thresholds after this turn.', 'mant.nirio_mega_dump_turn'),
-              slider('nr-mdm', 'Mega Dump Multiplier', 10, 100, 35, 5, '%', 'Multiply megaphone thresholds by this % in dump window.', 'mant.nirio_mega_dump_multiplier'),
-              slider('nr-adt', 'Anklet Dump Turn', 50, 72, 60, 1, '', 'Lower anklet thresholds after this turn.', 'mant.nirio_anklet_dump_turn'),
-              slider('nr-adm', 'Anklet Dump Multiplier', 10, 100, 30, 5, '%', 'Multiply anklet thresholds by this % in dump window.', 'mant.nirio_anklet_dump_multiplier'),
-              slider('nr-cst', 'Cash-Out Start Turn', 50, 72, 60, 1, '', 'Lift shop conservation caps after this turn.', 'mant.nirio_cashout_start_turn'),
-              slider('nr-wdt', 'Whistle Dump Turn', 40, 72, 60, 1, '', 'Allow whistle usage after this turn.', 'mant.nirio_whistle_dump_turn'),
-              slider('nr-mcr', 'MCH Climax Reserve', 0, 5, 3, 1, '', 'Master Cleat Hammers reserved for climax races.', 'mant.nirio_mch_reserve'))}
 `,
         onMount: (o) => { wireSave(o); Promise.resolve(initSettingsModal(o)).then(() => armUnsavedGuard(o)); },
       });
@@ -1102,19 +1126,19 @@
             ${sec('APTITUDE THRESHOLD',
               `<p class="field-help" style="margin:0 0 12px">Minimum aptitude (distance AND surface) required for a race to be eligible.</p>${threshHtml('C')}`)}
             ${sec('ELIGIBILITY & DISTANCE',
-              toggle('Include OP / Pre-OP races', false, 'Also consider lower-grade races. Useful for weak characters or special routing.'),
-              toggle('Allow racing during Summer (Classic / Senior)', false, 'Allows solver races in the 4 summer-camp turns each year when a valuable target lands there.'),
-              sel('Distance Preference Mode', [['strict', 'Strict'], ['balanced', 'Balanced'], ['loose', 'Loose']], 'balanced', 'Controls how strongly Smart Race Solver follows selected/trainee distances.'),
+              ssToggle('Include OP / Pre-OP races', false, 'Also consider lower-grade races. Useful for weak characters or special routing.', 'include_op'),
+              ssToggle('Allow racing during Summer (Classic / Senior)', false, 'Allows solver races in the 4 summer-camp turns each year when a valuable target lands there.', 'allow_summer_racing'),
+              ssSelect('Distance Preference Mode', [['strict', 'Strict'], ['balanced', 'Balanced'], ['loose', 'Loose']], 'balanced', 'Controls how strongly Smart Race Solver follows selected/trainee distances.', 'distance_preference_mode'),
               distModes)}
             ${sec('RE-PLANNING',
-              toggle('Live Schedule Re-Planning', true, 'Master switch (smart mode only): when ON (default), the solver re-solves the remaining schedule live as the run unfolds (gated by the two options below). When OFF, the schedule solved at career start is locked in for the whole run — no live re-planning at all. Manual race mode ignores this.'),
+              ssToggle('Live Schedule Re-Planning', true, 'Master switch (smart mode only): when ON (default), the solver re-solves the remaining schedule live as the run unfolds (gated by the two options below). When OFF, the schedule solved at career start is locked in for the whole run — no live re-planning at all. Manual race mode ignores this.', 'enable_live_smart_replan'),
               note('This is the parent of the two settings below. With it OFF, “Re-Plan Only on Race Events” and “Disable Re-Plan Upon Race Loss” have no effect because no live re-planning happens.'),
-              toggle('Re-Plan Only on Race Events', true, 'Solve the schedule once and reuse it, re-planning only when a race is lost or a planned race becomes unavailable — instead of re-solving every turn. Prevents the per-turn churn that piled up race streaks and dropped winnable races. Defaults to ON.'),
+              ssToggle('Re-Plan Only on Race Events', true, 'Solve the schedule once and reuse it, re-planning only when a race is lost or a planned race becomes unavailable — instead of re-solving every turn. Prevents the per-turn churn that piled up race streaks and dropped winnable races. Defaults to ON.', 'replan_on_events_only'),
               note('When ON (recommended), the plan is computed once and stays stable through the run — winning a race keeps the plan, and only a loss or an unavailable planned race triggers a re-solve. Turn OFF to restore the old behavior of re-solving the remaining schedule every turn.'),
-              toggle('Disable Schedule Re-Plan Upon Race Loss', false, 'When a race is lost, keep the original schedule instead of re-planning the remaining turns. The loss is still recorded; epithets that depended on the lost race won\u2019t be re-routed. Defaults to off.'),
+              ssToggle('Disable Schedule Re-Plan Upon Race Loss', false, 'When a race is lost, keep the original schedule instead of re-planning the remaining turns. The loss is still recorded; epithets that depended on the lost race won\u2019t be re-routed. Defaults to off.', 'disable_schedule_replan_on_race_loss'),
               note('By default, losing a race re-plans the remaining turns (the lost race may be re-routed to a later turn and epithet branches re-evaluated). Turn this on to lock in the original schedule after a loss instead.'))}
             ${sec('SET-BONUS CHASING',
-              toggle('Chase Achievable Set-Bonuses (Epithets)', true, 'When ON, the solver adds a soft reward for completing every achievable race set/title (Triple Crowns, distance/regional/surface sets, etc.), re-prioritizing the route toward the +random-stat set bonuses. Soft, so it can never make the schedule infeasible. Costs some fans in exchange for stats. Defaults to OFF.'),
+              row('Chase Achievable Set-Bonuses (Epithets)', 'When ON, the solver adds a soft reward for completing every achievable race set/title (Triple Crowns, distance/regional/surface sets, etc.), re-prioritizing the route toward the +random-stat set bonuses. Soft, so it can never make the schedule infeasible. Costs some fans in exchange for stats. Defaults to OFF.', '<div class="tgl" data-swb="enableOpportunisticEpithets"><span class="tgl-sw"></span></div>'),
               note('The Target Epithets below bias the route only when this is ON. Forced Epithets are hard constraints and apply regardless of this toggle.'))}
             ${sec('OPTIMIZATION WEIGHT PRESET',
               `<div class="owpreset"><button class="owbtn" type="button" data-owp="stat">Stat Epithets</button><button class="owbtn on" type="button" data-owp="fans">Fans + Epithets</button></div>`,
@@ -1183,15 +1207,36 @@
     discord() {
       modal({
         title: 'DISCORD WEBHOOK',
-        foot: `<button class="abtn cyan" type="button">TEST</button>${saveBtn('/api/settings/discord-webhook')}`,
+        foot: `<button class="abtn cyan" type="button" id="discord-test">TEST</button>${saveBtn('/api/settings/discord-webhook')}`,
         body: `
           <p class="field-help" style="margin:0 0 14px">Get a ping in Discord when a career finishes, crashes, or hits a milestone.</p>
           <div class="field"><div class="field-label"><span>WEBHOOK URL</span></div>
           <input id="discord-url" class="numf" type="password" placeholder="https://discord.com/api/webhooks/…" style="font-size:11px"></div>
-          ${toggle('Notify on career finish', true)}
-          ${toggle('Notify on crash / stuck', true)}
-          ${toggle('Notify on new epithet', false)}`,
-        onMount: (o) => { wireSave(o); armUnsavedGuard(o); },
+          ${toggle('Notify on career finish', true, '', 'notify_on_finish')}
+          ${toggle('Notify on crash / stuck', true, '', 'notify_on_crash')}
+          ${toggle('Notify on new epithet', false, '', 'notify_on_epithet')}`,
+        onMount: (o) => {
+          // Restore the saved webhook + the 3 notify toggle states from the backend.
+          const setTgl = (key, on) => { const t = o.querySelector(`.tgl[data-k="${key}"]`); if (t) t.classList.toggle('on', !!on); };
+          const initDiscord = api('/api/settings/discord-webhook').then((d) => {
+            if (!d) return;
+            const inp = o.querySelector('#discord-url');
+            if (inp && d.webhook_url && !String(d.webhook_url).includes('••')) inp.value = d.webhook_url;
+            setTgl('notify_on_finish', d.notify_on_finish);
+            setTgl('notify_on_crash', d.notify_on_crash);
+            setTgl('notify_on_epithet', d.notify_on_epithet);
+          }).catch(() => {});
+          wireSave(o); Promise.resolve(initDiscord).then(() => armUnsavedGuard(o));
+          // TEST sends a probe via the SAVED webhook (POST /api/settings/discord-webhook/test);
+          // save the URL first.
+          const tb = o.querySelector('#discord-test');
+          if (tb) tb.addEventListener('click', async () => {
+            tb.textContent = 'TESTING…';
+            try { const r = await api('/api/settings/discord-webhook/test', { method: 'POST' }); tb.textContent = (r && r.success) ? 'SENT ✓' : 'FAILED'; }
+            catch (e) { tb.textContent = 'FAILED'; }
+            setTimeout(() => { tb.textContent = 'TEST'; }, 1500);
+          });
+        },
       });
     },
   };

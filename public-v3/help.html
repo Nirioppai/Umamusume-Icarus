@@ -52,7 +52,7 @@
         <div class="search"><span class="ic">⌕</span><input type="text" id="doc-search" placeholder="search documentation"></div>
         <div class="doc-nav-group">GETTING STARTED</div>
         <div class="doc-nav-item is-active" data-sec="overview">Overview</div>
-        <div class="doc-nav-item" data-sec="whatsnew">What's new in v3.2.1</div>
+        <div class="doc-nav-item" data-sec="whatsnew">What's new in v3.2.2</div>
         <div class="doc-nav-item" data-sec="first-run">First run &amp; login</div>
         <div class="doc-nav-item" data-sec="quick-start">Quick start</div>
         <div class="doc-nav-item" data-sec="userdata">Userdata folder</div>
@@ -88,8 +88,19 @@
         </div>
         <div class="doc-sec" data-sec="whatsnew" hidden>
           <div class="eyebrow">RELEASE NOTES</div>
-          <h1>What's new in v3.2.1</h1>
-          <p>v3.2.1 is a patch on top of v3.2. The headline fixes: forced event choices now actually apply, the Smart Race Solver follows the trainee you picked, and settings modals warn before you lose unsaved edits.</p>
+          <h1>What's new in v3.2.2</h1>
+          <p>v3.2.2 is a patch on top of v3.2.1: forced event choices finally persist across saves, energy/recovery items are used more sensibly, late-game item dumping is far more aggressive, the Discord notify toggles work, and Career History shows a read-only win-probability estimate.</p>
+          <div class="deflist">
+            <div><b>Forced event choices finally stick</b><span>Saving any settings modal used to silently wipe the choices you forced in the Event Choices panel (it re-wrote the whole preset with an empty list), so the runner fell back to Auto. Forced choices are now stored independently and survive every other save — they actually apply in-career.</span></div>
+            <div><b>Energy items only when training</b><span>Vita / Energy Drink / Royal Kale Juice are no longer wasted on REST turns. They fire only when the turn's action is TRAINING and energy is the limiter (the late-game dump still empties them).</span></div>
+            <div><b>Pre-race energy only at 0</b><span>A race only needs more than 0 energy to avoid punishment, so an energy item is now used before a race ONLY when energy is exactly 0 — same turn, before the race — instead of "preemptively" topping up at any low-ish energy.</span></div>
+            <div><b>Summer camp trains at neutral mood</b><span>During the second summer camp (turns 61–64) the bot now TRAINS at neutral mood instead of burning a camp turn on Recreation; and past turn 61 with no Royal Kale Juice left, it releases the held-back cupcake to fix mood on a training turn.</span></div>
+            <div><b>Aggressive late-game item dump</b><span>After turn 64 (with <span class="kw">Save Items Late Game</span> OFF) Empowering Megaphones, Ankle Weights, Good-Luck Charms, and the +5 Energy Drink MAX are now spent on essentially every training turn instead of stranding unused at career end.</span></div>
+            <div><b>Discord notifications work</b><span>The <span class="kw">Notify on career finish / crash / new epithet</span> toggles are now real per-event switches (they were decorative before). New-epithet pings are off by default.</span></div>
+            <div><b>Win-probability estimate</b><span>Career History now shows a read-only pre-race <span class="kw">~P(win)</span> per race from the game's own opponent data. It is preliminary/uncalibrated and never affects how the bot plays.</span></div>
+            <div><b>Removed dead control</b><span>Dropped a misleading "auto-solve before run" checkbox in Setup that did nothing (smart mode already solves the schedule at career start).</span></div>
+          </div>
+          <h3>Earlier in v3.2.1</h3>
           <div class="deflist">
             <div><b>Forced event choices now apply</b><span>Two bugs stopped the <span class="kw">FORCE</span> option in the Event Choices panel from working: a choice forced for an event you had not seen yet was saved under a name-key the runner never matched live, and the stored choice position was read one option off. Both are fixed — a forced choice now resolves by event name and selects exactly the option you picked.</span></div>
             <div><b>Smart Solver follows your trainee</b><span>The Smart Race Solver's <span class="kw">Character Preset</span> used to always show "Admire Vega". It now follows the trainee selected in Setup (matching outfit variants and versioned names).</span></div>
