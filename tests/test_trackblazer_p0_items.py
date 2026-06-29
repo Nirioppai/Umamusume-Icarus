@@ -139,10 +139,13 @@ class TrackblazerP0ItemTests(unittest.TestCase):
         mgr = MantItemManager()
         planner = FakeRacePlanner()
         planner.program[100] = {"grade": "G1", "fans": 30000, "name": "Big G1"}
+        # FORK: pre-conservation G1 prefers Artisan to protect Masters for Climax.
+        # With only 1 Master and no Artisan, the Master is protected (1 <= 3 remaining
+        # Climax races). Give Artisan so the test verifies spending behavior.
         pre = mgr._trackblazer_race_item_targets(
-            {"Master Cleat Hammer": 1, "Glow Sticks": 1}, 20, 100, {"mant_config": {}}, planner
+            {"Artisan Cleat Hammer": 1, "Glow Sticks": 1}, 20, 100, {"mant_config": {}}, planner
         )
-        self.assertIn(("Master Cleat Hammer", 1), pre)
+        self.assertIn(("Artisan Cleat Hammer", 1), pre)
         self.assertIn(("Glow Sticks", 1), pre)
 
         reserved = mgr._trackblazer_race_item_targets(

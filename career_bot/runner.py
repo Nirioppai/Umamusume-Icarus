@@ -616,6 +616,8 @@ class CareerRunner:
                     "run_id": self.status.get("run_id"),
                     "loop_index": self.status.get("loop_index"),
                     "loop_target": self.status.get("loop_target"),
+                    # FORK: snapshot nirio tuning values active for this run
+                    "nirio": {k: v for k, v in _mc_start.items() if str(k).startswith("nirio_")},
                 }
             except Exception:
                 pass
@@ -3352,6 +3354,24 @@ class CareerRunner:
                     self._log_locked("items_use", payload["current_turn"], f"pre-race {used}")
             # v2.1 (#8): refresh the turn-debug item-use rows after pre-race item use.
             self._reemit_item_use_debug(state)
+            # FORK: log pre-race item usage to the career report for log_viewer.html
+            if self.report and self.item_manager.last_pre_race_use_selected:
+                race_turn = int(payload.get("current_turn") or 0)
+                target = None
+                for t in reversed(self.report.get("turns") or []):
+                    if int(t.get("turn") or 0) == race_turn:
+                        target = t
+                        break
+                if not target:
+                    for t in reversed(self.report.get("turns") or []):
+                        if t.get("stats"):
+                            target = t
+                            break
+                if target:
+                    target.setdefault("bot_pre_race_use_selected", []).extend(
+                        self.item_manager.last_pre_race_use_selected)
+                    target["bot_pre_race_use_result"] = dict(
+                        self.item_manager.last_pre_race_use_result)
 
         program_id = payload.get("program_id")
         current_turn = payload["current_turn"]

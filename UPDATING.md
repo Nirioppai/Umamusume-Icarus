@@ -1,7 +1,8 @@
-# UPDATING.md — Post-Update Fork Restoration Process
+# UPDATING.md — Post-Update Fork Integration Process
 
-Step-by-step process for auditing and restoring fork changes after an upstream
-version bump.
+Step-by-step process for auditing and integrating fork changes after an upstream
+version bump. The goal is NOT to blindly restore our code — it's to pick the
+better behavior for each collision and integrate it properly.
 
 **[UPDATES.md](UPDATES.md)** is the inventory — what changed, when, why, and
 whether it's still active. Read it first. This file is the how-to.
@@ -11,12 +12,23 @@ whether it's still active. Read it first. This file is the how-to.
 ## Step 0: Apply the update
 
 Commit the upstream update as a single commit (e.g. `git commit -m "v3.2"`).
-Do NOT mix fork restorations into the same commit — keep the upstream snapshot
+Do NOT mix fork integrations into the same commit — keep the upstream snapshot
 clean so it can be diffed against later.
 
 ---
 
-## Step 1: Run the audit prompt
+## Step 1: Run the test suite BEFORE any changes
+
+```
+pytest tests/ -v 2>&1 | tee test_baseline.txt
+```
+
+This captures upstream's test state. If upstream's own tests fail, that's their
+bug — note it but don't fix it in the integration commit.
+
+---
+
+## Step 2: Run the audit prompt
 
 Copy-paste the block below into Claude Code. Replace `PREV_COMMIT` with the hash
 of the commit immediately before the update (the last fork commit), and `UPDATE_COMMIT`
@@ -32,10 +44,20 @@ Audit every file the update touched against the ACTIVE fork changes in UPDATES.m
 For each collision, tell me:
   1. What our fork had (with the specific FORK: comment or section)
   2. What the update replaced it with
-  3. Your recommendation: keep upstream, restore fork, or merge both — with reasoning
+  3. Your recommendation using the BEHAVIOR COMPARISON below — not "keep ours"
+     by default, but which version is objectively better and how to integrate it
+
+BEHAVIOR COMPARISON (do this for every collision):
+  - What problem does OUR version solve? What's the evidence it works?
+  - What problem does UPSTREAM's version solve? What's new/better about it?
+  - Does our fix BYPASS upstream logic (bad) or INTEGRATE with it (good)?
+  - If ours is better: can it be rewritten to COOPERATE with upstream's config
+    (use their slider as input, use min/max/multiplier instead of replacement)?
+  - If theirs is better: mark ours SUPERSEDED and delete it cleanly.
+  - Run the anti-bias checklist from CLAUDE.md on each decision.
 
 Pay special attention to these DATA CONTRACTS the log viewer depends on. If any
-were broken, they MUST be restored:
+were broken, they MUST be restored (these are non-negotiable):
 
 ### Data contract: granular skip reasons (items.py → log_viewer.html)
 
@@ -97,32 +119,49 @@ dump window analytics, cash-out tracking) is always correct as-is.
 
 ---
 
-After the audit, apply ONLY the restorations. Do not modify any upstream code
-that doesn't collide with our fork. Commit the restorations separately:
-  git commit -m "Restore fork data contracts after vX.Y update"
+After the audit, apply ONLY the integrations. Do not modify any upstream code
+that doesn't collide with our fork. Commit the integrations separately:
+  git commit -m "Integrate fork fixes after vX.Y update"
 
 Then update UPDATES.md:
   - Add a dated entry for the upstream update (status: N/A, upstream snapshot)
-  - Add a dated entry for the restoration commit (status: ACTIVE)
+  - Add a dated entry for the integration commit (status: ACTIVE)
+  - For each collision: record WHICH behavior won and WHY (evidence/logic)
   - Move any superseded fork changes' status to SUPERSEDED
   - Add a collision summary table under "Collision Summary by Version"
-Also update CLAUDE.md if the "Files Safe to Accept Upstream Wholesale" list changed.
+Also update CLAUDE.md if the "Files With Active Fork Modifications" list changed.
 ```
 
 ---
 
-## Step 2: Verify
+## Step 3: Verify integration quality
 
-After restoration, spot-check:
+After integration, check that fixes COOPERATE with upstream, not bypass it:
 
-1. **Python syntax**: `python -c "import ast; ast.parse(open('career_bot/items.py').read())"`
-   (repeat for runner.py with `encoding='utf-8'`)
-2. **Grep for data contracts**:
+1. **No bypass pattern**: grep for our FORK blocks and verify each one feeds INTO
+   upstream logic (modifies inputs, uses `min()`/`max()`, reads upstream config)
+   rather than replacing upstream's output with a hardcoded value.
+2. **User controls still work**: for every upstream slider/toggle we touch, verify
+   the user can still change the setting and see an effect.
+3. **Python syntax**: `python -c "import ast; ast.parse(open('<file>').read())"`
+4. **Grep for data contracts**:
    - `grep -n "return \"skip_" career_bot/items.py` — should show 10+ granular reason strings
    - `grep -n "bot_pre_race_use_selected" career_bot/runner.py` — should show the FORK block
    - `test -f log_viewer.html` — must exist
-3. **No double-logic**: if upstream added their own version of something we patch
-   (e.g. pacing, dump windows), check we're not running both
+
+---
+
+## Step 4: Run tests AFTER integration
+
+```
+pytest tests/ -v 2>&1 | tee test_after.txt
+diff test_baseline.txt test_after.txt
+```
+
+- Tests that passed before and fail now → our integration broke something. Fix it.
+- Tests that failed before and still fail → upstream's bug, not ours. Ignore.
+- Tests that test upstream behavior we intentionally changed → adapt the test with
+  a `# FORK:` comment explaining the new correct behavior.
 
 ---
 
@@ -132,16 +171,23 @@ Copy this table for new versions. Fill in from the audit results.
 
 ### vX.Y (YYYY-MM-DD)
 
-| Fork change | Outcome |
-|---|---|
-| `_skip_buy()` granular reasons | |
-| `_skip_buy()` caller pass-through | |
-| Pre-race item logging (runner.py) | |
-| Megaphone/anklet thresholds | |
-| Hammer dump window | |
-| `_item_cap()` auto_buy priority | |
-| `log_viewer.html` exists | |
-| *(add new fork changes here)* | |
+| Fork change | Winner | Integration |
+|---|---|---|
+| `_skip_buy()` granular reasons | | |
+| `_skip_buy()` caller pass-through | | |
+| Pre-race item logging (runner.py) | | |
+| Nirio skill forcing | | |
+| Nirio mood floor / cupcake | | |
+| Nirio item dump windows | | |
+| Dynamic MCH reserve | | |
+| Nirio race chain mood gating | | |
+| Headless ticket sync | | |
+| `_item_cap()` auto_buy priority | | |
+| `log_viewer.html` exists | | |
+| *(add new fork changes here)* | | |
+
+**Winner** column: `OURS`, `THEIRS`, or `MERGED` (both contribute).
+**Integration** column: how the winning behavior was integrated (cooperative, not bypass).
 
 ---
 
@@ -149,5 +195,5 @@ Copy this table for new versions. Fill in from the audit results.
 
 Upstream updates are applied as whole-commit drops. The author doesn't know about
 our fork changes, so every update will silently revert them. UPDATES.md documents
-WHAT and WHEN. This file documents HOW to detect and fix reversions efficiently,
-including the exact prompt to give Claude Code so it catches everything in one pass.
+WHAT and WHEN. This file documents HOW to evaluate and integrate efficiently,
+picking the better behavior every time — not blindly restoring ours.
