@@ -40,7 +40,11 @@ class SweepyModV536AiDashboardTests(unittest.TestCase):
         return report
 
     def test_dashboard_shadow_backtest_and_confidence_artifacts_are_written(self):
-        for _ in range(3):
+        # The race-risk model only learns a program once it has at least
+        # DEFAULT_AUTO_CONFIG["min_samples_for_model"] (currently 4) starts, so
+        # emit 5 losing races to clear that threshold and let the backtest/shadow
+        # reports actually flag the historically-losing program.
+        for _ in range(5):
             export_report_ai_datasets(self._report(rank=4), self.runtime / "bot_logs", build_version="test")
         ai_trainer.save_auto_config(self.root, {"confidence_threshold": 0.5, "enable_live_policy_assistance": True})
         result = ai_trainer.train_once(self.root, reason="unit", rebuild_stats=True)

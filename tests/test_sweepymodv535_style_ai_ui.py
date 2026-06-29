@@ -71,7 +71,14 @@ def test_smart_solver_distance_mode_help_is_present():
 
 
 def test_ai_learning_has_own_button_and_modal_not_diagnostics_card():
-    assert 'id="v535-ai-learning-btn"' in INDEX
+    # v2.1 (#15 Diag/AI merge): AI learning no longer has its OWN separate launch
+    # button. Diagnostics + AI/Misc are now two tabs of one "DIAG / AI" page,
+    # reached via the single diagnostics launch button (v516-diagnostics-btn) and
+    # switched with data-diagai-tab. The AI modal still exists as its own modal
+    # (it is the "ai" tab) and AI status must still live in that modal, NOT inside
+    # the diagnostics card.
+    assert 'id="v516-diagnostics-btn"' in INDEX
+    assert 'data-diagai-tab="ai"' in INDEX
     assert 'id="v535-ai-learning-modal"' in INDEX
     assert 'id="v535-ai-learning-body"' in INDEX
     diagnostics_card = INDEX.split('id="v516-diagnostics-card"', 1)[1].split('class="v526-discord-setup"', 1)[0]

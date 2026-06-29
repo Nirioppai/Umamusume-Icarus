@@ -91,6 +91,26 @@ class PerFilePresetStoreTests(unittest.TestCase):
         store.set_active("alpha")
         self.assertEqual(store.read_skill_config()["manual_skill_tiers"]["1"], ["Professor of Curvature"])
 
+    def test_skill_redesign_keys_default_and_persist(self):
+        # Stage 1 + Stage 3 skill-purchase redesign config must round-trip through
+        # the per-preset skill config (allowlist + defaults).
+        store = self._store()
+        store.save_settings_preset({"name": "alpha"})
+        store.set_active("alpha")
+        cfg = store.read_skill_config()
+        self.assertEqual(cfg["skill_optimization_target"], "career")
+        self.assertEqual(cfg["skill_condition_gating"], "penalize")
+        self.assertEqual(cfg["skill_condition_dead_factor"], 0.15)
+        store.save_skill_config({
+            "skill_optimization_target": "champions",
+            "skill_condition_gating": "enforce",
+            "skill_tier_multipliers": {"⍟": 200},
+        })
+        cfg = store.read_skill_config()
+        self.assertEqual(cfg["skill_optimization_target"], "champions")
+        self.assertEqual(cfg["skill_condition_gating"], "enforce")
+        self.assertEqual(cfg["skill_tier_multipliers"], {"⍟": 200})
+
     def test_compose_runtime_has_all_layers(self):
         store = self._store()
         store.save_settings_preset({"name": "alpha", "running_style": 2})

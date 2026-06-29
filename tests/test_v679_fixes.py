@@ -1,22 +1,15 @@
 """Regression tests for v6.7.9 fixes:
 
-  1. Authoritative scorer override -- margin gate is configurable
-     via training_scorer_overrides.override_margin_pct and
-     .override_margin_floor.  When the gate blocks the swap, the
-     blocked-override record is written to runner status so the
-     dashboard reasoning can explain it.
-
-  2. ``active_selection`` is persisted to userdata so the picker
+  1. ``active_selection`` is persisted to userdata so the picker
      survives server restarts.
 
-  3. ``/api/character-profile/active`` endpoint falls back to
-     ``runner_status.active_character_profile`` when chara_info
-     is empty, so the panel shows the last-used profile between
-     runs instead of "default".
+  2. The dashboard ``_decision_reasoning`` text surfaces an
+     irregular-training hijack as a prominent line when training
+     replaces a planned race.
 
-  4. The dashboard ``_decision_reasoning`` text now distinguishes
-     "scorer disagreed but margin gate blocked the swap" from a
-     plain "scorer would have picked X".
+(The authoritative training-scorer override and its margin-gate /
+blocked-override reasoning were removed in v2.1, so the tests that
+covered them were dropped.)
 """
 import json
 import os
@@ -32,130 +25,7 @@ from unittest.mock import MagicMock
 sys.modules.setdefault("msgpack", MagicMock())
 
 
-# --- 1. Margin gate config + blocked override recording -------------------
-
-class ScorerOverrideMarginGateTests(unittest.TestCase):
-    """Verify the v6.7.9 changes to ``_apply_authoritative_scorer_override``.
-
-    The function takes a state + a decision and may mutate decision.payload
-    by swapping the chosen training command.  When the margin gate blocks
-    the swap, ``status['last_scorer_override_blocked']`` is populated.
-    """
-
-    def setUp(self):
-        from career_bot.runner import CareerRunner
-        self.runner = CareerRunner.__new__(CareerRunner)
-        # Minimal status + lock so the override function can read/write it
-        import threading
-        self.runner.status = {}
-        self.runner.lock = threading.Lock()
-        self.runner.base_dir = "/tmp"  # any path; resolve_profile uses it for catalog
-
-    def _decision(self, command_id, current_turn=10):
-        return SimpleNamespace(
-            action="command",
-            payload={"command_type": 1, "command_id": command_id, "current_turn": current_turn},
-            reason="Train Speed",
-        )
-
-    def _state(self, *, has_home=True):
-        return {
-            "data": {
-                "chara_info": {"card_id": 100601, "chara_id": 100601, "turn": 10,
-                               "speed": 257, "stamina": 200, "power": 200, "guts": 200, "wiz": 200,
-                               "vital": 80, "motivation": 4},
-                "home_info": ({"command_info_array": [
-                    {"command_type": 1, "command_id": 101, "is_enable": 1,
-                     "params_inc_dec_info_array": [{"target_type": 1, "value": 13}]},
-                    {"command_type": 1, "command_id": 103, "is_enable": 1,
-                     "params_inc_dec_info_array": [{"target_type": 3, "value": 13}]},
-                ]} if has_home else {}),
-            },
-        }
-
-    def test_blocked_override_recorded_when_margin_below_threshold(self):
-        """When scorer disagrees but margin < floor, the override is
-        blocked AND the blocked-record is persisted to status."""
-        # Mock resolve_profile + training_scorer to return controlled values.
-        from career_bot import character_profiles, training_scorer
-
-        # Profile in authoritative mode with the default margin gate (floor=1.0)
-        fake_profile = SimpleNamespace(
-            training_scorer_mode="authoritative",
-            training_scorer_overrides={},
-            profile_id="oguri_cap",
-            training_scorer_config=lambda: {},
-        )
-
-        # Scorer picks command 103 (Guts) with score 0.31; strategy picked
-        # command 101 (Speed) which the scorer ranks at 0.30.  Margin is 0.01,
-        # well below the default floor of 1.0 -- override must block.
-        scorer_scores = [
-            SimpleNamespace(command_id=103, score=0.31, stat_name="guts"),
-            SimpleNamespace(command_id=101, score=0.30, stat_name="speed"),
-        ]
-
-        orig_resolve = character_profiles.resolve_profile
-        orig_score = training_scorer.score_trainings
-        try:
-            character_profiles.resolve_profile = lambda **kw: fake_profile
-            training_scorer.score_trainings = lambda home, chara, config=None: scorer_scores
-            decision = self._decision(command_id=101, current_turn=10)
-            self.runner._apply_authoritative_scorer_override(self._state(), decision)
-            # decision.payload.command_id NOT changed (override blocked)
-            self.assertEqual(decision.payload["command_id"], 101)
-            # Blocked record is in status
-            blocked = self.runner.status.get("last_scorer_override_blocked")
-            self.assertIsNotNone(blocked, "blocked-override record must be persisted")
-            self.assertEqual(blocked["turn"], 10)
-            self.assertEqual(blocked["from_command_id"], 101)
-            self.assertEqual(blocked["to_command_id"], 103)
-            self.assertEqual(blocked["from_stat"], "speed")
-            self.assertEqual(blocked["to_stat"], "guts")
-            self.assertEqual(blocked["reason"], "margin_below_threshold")
-        finally:
-            character_profiles.resolve_profile = orig_resolve
-            training_scorer.score_trainings = orig_score
-
-    def test_lower_margin_floor_lets_override_fire(self):
-        """When the user lowers ``override_margin_floor`` to 0.0,
-        the previously-blocked override now fires."""
-        from career_bot import character_profiles, training_scorer
-
-        fake_profile = SimpleNamespace(
-            training_scorer_mode="authoritative",
-            training_scorer_overrides={"override_margin_floor": 0.0,
-                                        "override_margin_pct": 0.0},
-            profile_id="oguri_cap",
-            training_scorer_config=lambda: {},
-        )
-
-        scorer_scores = [
-            SimpleNamespace(command_id=103, score=0.31, stat_name="guts"),
-            SimpleNamespace(command_id=101, score=0.30, stat_name="speed"),
-        ]
-
-        orig_resolve = character_profiles.resolve_profile
-        orig_score = training_scorer.score_trainings
-        try:
-            character_profiles.resolve_profile = lambda **kw: fake_profile
-            training_scorer.score_trainings = lambda home, chara, config=None: scorer_scores
-            decision = self._decision(command_id=101, current_turn=10)
-            self.runner._apply_authoritative_scorer_override(self._state(), decision)
-            # decision.payload.command_id IS now changed (override fired)
-            self.assertEqual(decision.payload["command_id"], 103,
-                "with margin floor 0, the override should swap to scorer's pick")
-            self.assertIsNotNone(self.runner.status.get("last_scorer_override"))
-            # The blocked record should NOT have been written for this turn
-            blocked = self.runner.status.get("last_scorer_override_blocked")
-            self.assertTrue(blocked is None or blocked.get("turn") != 10,
-                "no blocked-override record when the override actually fires")
-        finally:
-            character_profiles.resolve_profile = orig_resolve
-            training_scorer.score_trainings = orig_score
-
-
-# --- 2. active_selection persistence -------------------------------------
+# --- 1. active_selection persistence -------------------------------------
 
 class ActiveSelectionPersistenceTests(unittest.TestCase):
     """``active_selection`` writes through to userdata on every UI pick
@@ -252,74 +122,8 @@ class DecisionReasoningTextTests(unittest.TestCase):
         first_match = next(l for l in lines if "Irregular-training hijack" in l)
         self.assertNotIn("v6.3 scorer override", first_match)
 
-    def test_blocked_override_reason_shows_margin_explanation(self):
-        """When the authoritative override was blocked by the margin
-        gate this turn, the reasoning explains the block rather than
-        just saying "scorer would have picked X"."""
-        self.runner.status["last_scorer_override_blocked"] = {
-            "turn": 10,
-            "from_command_id": 101,
-            "from_stat": "speed",
-            "to_command_id": 103,
-            "to_stat": "guts",
-            "margin": 0.01,
-            "min_margin": 1.0,
-            "reason": "margin_below_threshold",
-        }
-        self.runner.status["training_scorer_hint"] = {
-            "best_stat": "guts",
-            "best_score": 0.31,
-        }
-        self.runner.status["active_character_profile"] = {
-            "training_scorer_overrides": {
-                "stat_priority": ["speed", "power", "wit", "stamina", "guts"]
-            }
-        }
-        decision = SimpleNamespace(
-            action="command",
-            payload={"current_turn": 10, "command_type": 1, "command_id": 101},
-            reason="Train Speed",
-        )
-        lines = self.runner._decision_reasoning(
-            action="train", facility="Train Speed",
-            detail="", stats=self._stats(), decision=decision, payload=decision.payload,
-        )
-        text = "\n".join(lines)
-        # Should mention BOTH scorer's pick AND why the override didn't fire
-        self.assertIn("scorer would have picked guts", text)
-        self.assertIn("authoritative override blocked", text,
-            "reasoning must explain WHY the override didn't fire")
-        self.assertIn("margin", text)
 
-    def test_plain_disagreement_when_no_blocked_record(self):
-        """When the override was NOT blocked (hint mode, or different
-        turn), the reasoning uses the plain "would have picked" message."""
-        # No blocked record for THIS turn
-        self.runner.status["last_scorer_override_blocked"] = None
-        self.runner.status["training_scorer_hint"] = {
-            "best_stat": "guts",
-            "best_score": 0.31,
-        }
-        self.runner.status["active_character_profile"] = {
-            "training_scorer_overrides": {
-                "stat_priority": ["speed", "power", "wit", "stamina", "guts"]
-            }
-        }
-        decision = SimpleNamespace(
-            action="command",
-            payload={"current_turn": 10, "command_type": 1, "command_id": 101},
-            reason="Train Speed",
-        )
-        lines = self.runner._decision_reasoning(
-            action="train", facility="Train Speed",
-            detail="", stats=self._stats(), decision=decision, payload=decision.payload,
-        )
-        text = "\n".join(lines)
-        self.assertIn("scorer would have picked guts", text)
-        self.assertNotIn("authoritative override blocked", text)
-
-
-# --- 5. Shadow-precision: win-rate gate on race warnings -----------------
+# --- 3. Shadow-precision: win-rate gate on race warnings -----------------
 
 class WinRateWarningGateTests(unittest.TestCase):
     """A race only emits a negative ("warning") adjustment when its

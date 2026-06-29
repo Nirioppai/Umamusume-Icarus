@@ -59,19 +59,23 @@ class SweepyModV513MasterP1Tests(unittest.TestCase):
             self.assertTrue(next(row for row in calendar if row["turn"] == 37)["is_summer"])
             self.assertTrue(next(row for row in calendar if row["turn"] == 74)["is_finale"])
 
-    def test_mant_strategy_scores_training_from_official_baseline_when_payload_is_sparse(self):
+    def test_mant_strategy_reads_official_baseline_when_payload_is_sparse(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / "data").mkdir()
             master_data.synthesize_training_effects_core(root, self._master_data())
             strategy = MantStrategy(SimpleNamespace(base_dir=root))
             command = {"command_type": 1, "command_id": 101, "training_level": 1, "failure_rate": 0, "is_enable": 1}
-            chara = {"turn": 20, "vital": 70, "max_vital": 100, "speed": 100, "stamina": 100, "power": 100, "guts": 100, "wiz": 100, "skill_point": 0}
-            score = strategy._score_command(command, {}, chara, {"base_score": [0, 0, 0, 0, 0], "stat_value_multiplier": [0.01, 0.01, 0.01, 0.01, 0.01, 0.005]})
-            self.assertGreater(score, 0)
-            summary = strategy._official_training_summary(command)
-            self.assertEqual(summary["stat_total"], 15)
-            self.assertEqual(summary["energy_delta"], -21)
+            # The legacy _score_command / _official_training_summary were removed
+            # along with the dormant Classic scorer; the shared official-baseline
+            # lookup that feeds _command_main_stat_gain is still here.  Verify it
+            # resolves the synthesized effect row and surfaces the speed/power/
+            # skill-point/energy deltas.
+            items = strategy._official_training_effect_items(command)
+            by_target = {int(it["target_type"]): int(it["value"]) for it in items}
+            self.assertEqual(by_target.get(1), 10)   # speed
+            self.assertEqual(by_target.get(3), 5)    # power
+            self.assertEqual(by_target.get(10), -21) # energy_delta
 
     def test_trackblazer_uses_official_scenario_summer_turns(self):
         with tempfile.TemporaryDirectory() as td:

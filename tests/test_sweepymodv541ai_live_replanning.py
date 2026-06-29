@@ -127,7 +127,7 @@ def test_trackblazer_candidate_rows_use_profile_specific_risk(monkeypatch, tmp_p
     monkeypatch.setattr(trackblazer, "_trackblazer_reward_core", lambda base_dir: {})
     monkeypatch.setattr(trackblazer, "_performance_rates", lambda base_dir: {})
 
-    def fake_risk(base_dir, program_id, trainee_id="", preset_name="", min_samples=2):
+    def fake_risk(base_dir, program_id, trainee_id="", preset_name="", min_samples=2, _data=None):
         seen.append((program_id, trainee_id, preset_name))
         return {"penalty": 12, "samples": 8, "scope": "profile"}
 

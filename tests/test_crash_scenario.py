@@ -91,7 +91,7 @@ def test_full_crash_sequence_survives_chara_less_race_out():
     client = FakeClient()
     runner._buy_skills = lambda c, s, p, f: s
     runner._handle_items = lambda c, s, p, b, d=None: s
-    runner.item_manager.handle_pre_race = lambda c, s, p, pl, st_, rp: (s, 0)
+    runner.item_manager.handle_pre_race = lambda c, s, p, pl, st_, rp, **kwargs: (s, 0)
     runner.item_manager.use_attempt_events = []
     runner._run(client, {"name": "t", "scenario_id": 4}, st(60), FakeStrategy(), max_steps=10)
     assert runner.status["last_error"] == "", runner.status["last_error"]
