@@ -270,6 +270,11 @@ class MantTrackblazerCore:
         _tss = (preset or {}).get("trackblazer_solver_settings") or {}
         max_races_in_row = int(_mc.get("max_races_in_row") or _tss.get("max_races_in_row") or 5)
         streak_ok = manual or consec < max_races_in_row
+        # FORK: (nirio) block optional race chains when mood is critically low.
+        _nirio_chain_mood = int(_mc.get("nirio_chain_mood_floor") or tb_rules.DEFAULT_NIRIO_CHAIN_MOOD_FLOOR)
+        _nirio_critical_turn = int(_mc.get("nirio_mood_critical_turn") or tb_rules.DEFAULT_NIRIO_MOOD_CRITICAL_TURN)
+        if not manual and streak_ok and turn >= _nirio_critical_turn and motivation <= _nirio_chain_mood and consec >= 1:
+            streak_ok = False
 
         # Must-run MARQUEE guard: the fixed set-races (Takarazuka / Arima / Japan
         # Cup / Tenno Sho / Triple Crown / ...) are too valuable to skip. If the
@@ -320,6 +325,14 @@ class MantTrackblazerCore:
                         and not tb_rules.is_year_end_rest_exempt(turn)
                         and not cfg.get("ignore_low_energy_racing_block", False)):
                     return self._as_command(rest or recreation, chara, "trackblazer hard-block race (energy<=1, 3+ consecutive)")
+                # FORK: (nirio) soft mood chain-break — prefer training when mood is low.
+                _nirio_repair = int(_mc.get("nirio_mood_repair_turn") or tb_rules.DEFAULT_NIRIO_MOOD_REPAIR_TURN)
+                if (not manual and turn >= _nirio_repair and motivation <= _nirio_chain_mood
+                        and consec >= 1 and not tb_rules.is_year_end_rest_exempt(turn)):
+                    bcmd_mood, _ = self._best_training(data, chara, preset, training)
+                    if bcmd_mood is not None:
+                        return self._as_command(bcmd_mood, chara,
+                            f"trackblazer: nirio mood break (mot {motivation}, chain {consec}, train instead)")
                 # STEP 2: irregular training (Year 2+) — hijack this race turn to
                 # train when an exceptional training is available. Skipped in manual
                 # mode (user's pick is forced) AND for marquee set-races (Takarazuka,

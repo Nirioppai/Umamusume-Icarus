@@ -140,6 +140,32 @@ Quick-reference table for each upstream update. Detailed context is in the entri
 | Upstream live stat cap / route | THEIRS | New features, accepted wholesale |
 | Upstream unsaved changes guard | THEIRS | New feature, works with nirio UI |
 
+### v3.2.2 (2026-06-29)
+
+| Fork change | Winner | Integration |
+|---|---|---|
+| `_skip_buy()` granular reasons | OURS | Data contract — upstream still returns True/False |
+| `_skip_buy()` caller pass-through | OURS | Data contract — log viewer depends on it |
+| Pre-race item logging (runner.py) | OURS | Data contract — upstream still only has live UI |
+| Nirio skill forcing | MERGED | Nirio force + pre_finals both above gate; upstream's redesign scores downstream |
+| Nirio mood floor / cupcake | OURS | Integrated with upstream's new kale-release (complementary) |
+| Nirio charm dump (60-64) | OURS | Upstream has no 60-64 intermediate; their 65+ dump is accepted |
+| Nirio mega dump turn/multiplier | **THEIRS** | **SUPERSEDED** — upstream drops score floor in dump mode, strictly more aggressive |
+| Nirio anklet dump turn/multiplier | **THEIRS** | **SUPERSEDED** — upstream drops score floor in dump mode |
+| Nirio cashout conservation | **THEIRS** | **SUPERSEDED** — already decided in v3.2.1 |
+| Nirio whistle dump | OURS | min() of both turns — cooperative |
+| Dynamic MCH reserve | MERGED | Uses upstream slider as max, dynamically reduces |
+| Nirio race chain mood gating | OURS | Upstream still has no mood-aware gating |
+| Skill hoard threshold | MERGED | min(upstream 1500, nirio 1000) |
+| Pre-conservation G1 hammer | OURS | Artisan-first preserves Masters for Climax |
+| Headless ticket sync | OURS | Upstream still consumes ticket in check_saved_auth |
+| `_item_cap()` auto_buy priority | OURS | auto_buy_items still ignored by upstream |
+| Upstream win probability | THEIRS | New feature, accepted wholesale |
+| Upstream energy doctrine | THEIRS | New feature (suppress_energy, training-only) |
+| Upstream summer train-over-rec | THEIRS | New feature, no conflict |
+| Upstream cupcake kale-release | THEIRS | New feature, complementary with our mood floor |
+| Upstream Discord toggles | THEIRS | New feature, accepted wholesale |
+
 ### 2026-06-29 — Fix headless bypass ticket consumed before pre-load
 **Commit:** `86aecd3` **File(s):** `main.py`
 **Context:** `check_saved_auth()` creates a UmaClient and calls `c.login()` to test the headless bypass. This consumes the Steam session ticket. But `saved_cfg` (returned to the caller) still holds the old ticket. The startup pre-load then creates a second UmaClient with the stale ticket, causing 394 errors on `load/index`. Fixed by syncing the client's (possibly refreshed) ticket back into `saved_cfg` before returning it.
@@ -173,14 +199,25 @@ Quick-reference table for each upstream update. Detailed context is in the entri
 ### 2026-06-29 — Lower megaphone/anklet dump defaults
 **Commit:** `fa8d027` **File(s):** `career_bot/trackblazer_rules.py`, `public-v3/modals.js`
 **Context:** Run still ended with 3 megaphones and 3 anklets. Lowered defaults: mega turn 65→62, multiplier 50→35%; anklet turn 65→60, multiplier 50→30%. Anklets start earlier because they require matching training type.
-**Status:** ACTIVE
+**Status:** SUPERSEDED (by v3.2.2 — upstream drops score floor entirely in dump mode, strictly more aggressive)
 
 ### 2026-06-29 — v3.2.1 upstream update applied
 **Commit:** `41f48f9`
 **Context:** Applied upstream v3.2.1. Key additions: skill purchase redesign (condition gating, graded spreadsheet tiers, optimization target), clock retry 2507/205 fix, live stat cap, route awareness, race short mode, SSE event stream, unsaved changes guard, solver character match, unconditional manual career resume. All active fork changes were silently reverted and required restoration (see next entry).
 **Status:** N/A (upstream snapshot)
 
-### 2026-06-29 — Restore fork data contracts and nirio behavior after v3.2.1
+### 2026-06-29 — Integrate fork fixes after v3.2.1
+**Commit:** `17ee015` **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`
+**Context:** v3.2.1 reverted all active fork changes. Integrated: data contracts, nirio tuning, MCH reserve, skill forcing, race chain gating. Upstream's new features (condition gating, graded tiers, live stat cap, SSE, unsaved guard) accepted. Five bypasses fixed to proper integrations (MCH uses upstream slider as max, cashout respects toggle, hoard uses min(), cupcake preserves reserve).
+**Status:** ACTIVE
+
+### 2026-06-29 — v3.2.2 upstream update applied
+**Commit:** `06b81db`
+**Context:** Applied upstream v3.2.2. Key additions: win probability calculator, energy doctrine (suppress_energy, training-only), summer training-over-recreation guard, cupcake kale-release, charm/mega/anklet dump more aggressive post-64 (drops score floor), Discord notification toggles + test, solver settings persistence (ssToggle/ssSelect), NPC core data expansion. All active fork changes silently reverted again.
+**Status:** N/A (upstream snapshot)
+
+### 2026-06-29 — Integrate fork fixes after v3.2.2
 **Commit:** (pending) **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`
-**Context:** v3.2.1 reverted all active fork changes. Restored: (1) granular skip reasons in `_skip_buy()`, (2) caller pass-through, (3) pre-race item logging FORK block, (4) all nirio tuning (mood floor, charm/mega/anklet/whistle dump windows, cashout, dynamic MCH reserve, skill forcing, race chain mood gating), (5) nirio UI section and constants, (6) headless ticket sync, (7) `_item_cap()` auto_buy priority (lost since v3.1, now restored). Upstream's new features (condition gating, graded tiers, live stat cap, route info, SSE, unsaved guard) accepted wholesale. Nirio skill forcing re-applied ON TOP of upstream's redesign — both address different problems (timing vs quality).
+**Context:** v3.2.2 reverted all fork changes AND improved item dump logic. Anti-bias evaluation: upstream's new charm/mega/anklet dump (drops score floor in dump mode) is more aggressive than our nirio mega/anklet intermediates → those 3 nirio knobs SUPERSEDED. Nirio charm intermediate (60-64) still fills a gap upstream doesn't cover. Cashout already superseded in v3.2.1. Remaining 10 nirio knobs, data contracts, MCH reserve, skill forcing, mood gating, ticket sync, auto_buy all restored with proper integration.
+**Winner:** MERGED — upstream's dump improvements accepted, nirio trimmed to 10 constants (from 16), non-redundant fixes re-applied.
 **Status:** ACTIVE
