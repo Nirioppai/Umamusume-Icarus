@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "version": 1,
+  "updated_at": "2026-06-29T15:24:00",
+  "evaluated_experiences": 0,
+  "clean_win_rate": 0.0,
+  "clock_rescue_rate": 0.0,
+  "style_change_bad_result_rate": 0.0,
+  "limitations": [
+    "Only the actually-used style has a true observed outcome; alternate-style outcomes remain estimates."
+  ]
+}

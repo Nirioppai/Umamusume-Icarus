@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "updated_at": "2026-06-29T15:24:00",
+  "suggestions": [
+    {
+      "setting": "outcomeRiskWeight",
+      "suggested_delta": 0.2,
+      "reason": "4 race program(s) have repeated local losses; strengthen learned risk penalties.",
+      "confidence": 0.75,
+      "examples": [
+        "74",
+        "76",
+        "79",
+        "81"
+      ]
+    }
+  ]
+}

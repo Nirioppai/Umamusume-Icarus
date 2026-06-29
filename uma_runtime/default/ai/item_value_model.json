@@ -1,0 +1,230 @@
+{
+  "version": 2,
+  "updated_at": "2026-06-29T15:24:00",
+  "model": {
+    "3101": {
+      "samples": 21,
+      "avg_reward": 3.554,
+      "adjustment": 3.554,
+      "confidence": 0.84,
+      "name": "3101",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1101": {
+      "samples": 42,
+      "avg_reward": 3.184,
+      "adjustment": 3.184,
+      "confidence": 0.913,
+      "name": "1101",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "11001": {
+      "samples": 36,
+      "avg_reward": 4.7903,
+      "adjustment": 4.7903,
+      "confidence": 0.9,
+      "name": "11001",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1205": {
+      "samples": 9,
+      "avg_reward": 6.2089,
+      "adjustment": 6.2089,
+      "confidence": 0.6923,
+      "name": "1205",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1104": {
+      "samples": 33,
+      "avg_reward": -1.1233,
+      "adjustment": -1.1233,
+      "confidence": 0.8919,
+      "name": "1104",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1202": {
+      "samples": 14,
+      "avg_reward": 0.3789,
+      "adjustment": 0.3789,
+      "confidence": 0.7778,
+      "name": "1202",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1203": {
+      "samples": 10,
+      "avg_reward": 7.6271,
+      "adjustment": 7.6271,
+      "confidence": 0.7143,
+      "name": "1203",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2101": {
+      "samples": 22,
+      "avg_reward": 4.9557,
+      "adjustment": 4.9557,
+      "confidence": 0.8462,
+      "name": "2101",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1102": {
+      "samples": 52,
+      "avg_reward": 2.9652,
+      "adjustment": 2.9652,
+      "confidence": 0.9286,
+      "name": "1102",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "10001": {
+      "samples": 10,
+      "avg_reward": 1.6735,
+      "adjustment": 1.6735,
+      "confidence": 0.7143,
+      "name": "10001",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1201": {
+      "samples": 17,
+      "avg_reward": 4.4834,
+      "adjustment": 4.4834,
+      "confidence": 0.8095,
+      "name": "1201",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "11002": {
+      "samples": 50,
+      "avg_reward": 5.2616,
+      "adjustment": 5.2616,
+      "confidence": 0.9259,
+      "name": "11002",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2002": {
+      "samples": 10,
+      "avg_reward": 6.5466,
+      "adjustment": 6.5466,
+      "confidence": 0.7143,
+      "name": "2002",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "4201": {
+      "samples": 9,
+      "avg_reward": 4.4894,
+      "adjustment": 4.4894,
+      "confidence": 0.6923,
+      "name": "Miracle Cure",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "8002": {
+      "samples": 16,
+      "avg_reward": 1.9027,
+      "adjustment": 1.9027,
+      "confidence": 0.8,
+      "name": "Motivating Megaphone",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1103": {
+      "samples": 44,
+      "avg_reward": 0.7777,
+      "adjustment": 0.7777,
+      "confidence": 0.9167,
+      "name": "1103",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "9001": {
+      "samples": 10,
+      "avg_reward": 1.442,
+      "adjustment": 1.442,
+      "confidence": 0.7143,
+      "name": "9001",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2301": {
+      "samples": 17,
+      "avg_reward": 2.4691,
+      "adjustment": 2.4691,
+      "confidence": 0.8095,
+      "name": "2301",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "4103": {
+      "samples": 8,
+      "avg_reward": 4.0111,
+      "adjustment": 4.0111,
+      "confidence": 0.6667,
+      "name": "Rich Hand Cream",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2001": {
+      "samples": 43,
+      "avg_reward": 2.2704,
+      "adjustment": 2.2704,
+      "confidence": 0.9149,
+      "name": "2001",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2302": {
+      "samples": 4,
+      "avg_reward": 10.116,
+      "adjustment": 10.116,
+      "confidence": 0.5,
+      "name": "Berry Sweet Cupcake",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "8003": {
+      "samples": 19,
+      "avg_reward": 1.1561,
+      "adjustment": 1.1561,
+      "confidence": 0.8261,
+      "name": "8003",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "7001": {
+      "samples": 10,
+      "avg_reward": 0.9495,
+      "adjustment": 0.9495,
+      "confidence": 0.7143,
+      "name": "7001",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1105": {
+      "samples": 17,
+      "avg_reward": -1.873,
+      "adjustment": -1.873,
+      "confidence": 0.8095,
+      "name": "1105",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "4001": {
+      "samples": 7,
+      "avg_reward": 8.8337,
+      "adjustment": 8.8337,
+      "confidence": 0.6364,
+      "name": "4001",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1005": {
+      "samples": 4,
+      "avg_reward": 0.845,
+      "adjustment": 0.845,
+      "confidence": 0.5,
+      "name": "Wit Notepad",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "5001": {
+      "samples": 4,
+      "avg_reward": 0.505,
+      "adjustment": 0.505,
+      "confidence": 0.5,
+      "name": "Speed Training Application",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "11003": {
+      "samples": 5,
+      "avg_reward": 6.5366,
+      "adjustment": 6.5366,
+      "confidence": 0.5556,
+      "name": "Glow Sticks",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    }
+  }
+}

@@ -1,0 +1,498 @@
+{
+  "success": true,
+  "version": 2,
+  "updated_at": "2026-06-29T15:24:00",
+  "ai_root": "C:\\Active Codebase\\SWEEPY\\umamusume-icarus\\uma_runtime\\default\\ai",
+  "confidence": "low",
+  "records": {
+    "turn_decisions": 154,
+    "career_summaries": 4,
+    "race_programs": 44,
+    "clock_retry_rows": 7,
+    "clock_policy_enabled_rows": 0,
+    "item_records": 32,
+    "event_records": 33,
+    "epithet_records": 0,
+    "style_adaptation_experiences": 0,
+    "style_change_outcomes": 0
+  },
+  "health": {
+    "checked_at": "2026-06-29T15:24:00",
+    "turn_decisions": 154,
+    "career_summaries": 4,
+    "race_rows": 78,
+    "race_rows_with_result": 78,
+    "race_result_coverage": 1.0,
+    "clock_retry_rows": 7,
+    "clock_policy_enabled_rows": 0,
+    "clock_policy_enabled_rate": 0.0,
+    "career_summaries_with_final_stats": 3,
+    "item_records_parsed": 32,
+    "event_records_parsed": 33,
+    "safe_for_live_policy": true,
+    "warnings": [
+      "Some career summaries are missing final stats."
+    ]
+  },
+  "style_adaptation": {
+    "model": {
+      "version": 1,
+      "updated_at": "2026-06-29T15:24:00",
+      "algorithm": "conservative_contextual_bandit_feature_table",
+      "source_labels": [
+        "api_observed_data",
+        "official_table_data",
+        "empirical_estimate",
+        "unknown_hidden_formula"
+      ],
+      "experience_rows": 0,
+      "completed_experiences": 0,
+      "style_change_outcomes": 0,
+      "feature_values": {},
+      "styles": {},
+      "notes": [
+        "This model learns from observable race outcomes and official table metadata only.",
+        "It does not claim exact lane-blocking, acceleration, hidden opponent AI, or server-side race simulation formulas."
+      ]
+    },
+    "report": {
+      "success": true,
+      "version": 1,
+      "updated_at": "2026-06-29T15:24:00",
+      "mode": "shadow",
+      "completed_experiences": 0,
+      "style_change_outcomes": 0,
+      "bad_switches": 0,
+      "bad_switch_rate": 0.0,
+      "clean_wins": 0,
+      "clock_rescued_wins": 0,
+      "auto_apply_unlocked": false,
+      "safe_for_auto_apply": false,
+      "recommendation": "Auto Apply remains locked; continue Shadow/Recommend until safety thresholds pass.",
+      "styles": {},
+      "thresholds": {
+        "min_experiences": 100,
+        "min_style_change_outcomes": 20,
+        "max_bad_switch_rate": 0.2,
+        "min_confidence": 0.7
+      }
+    },
+    "shadow": {
+      "success": true,
+      "version": 1,
+      "updated_at": "2026-06-29T15:24:00",
+      "evaluated_experiences": 0,
+      "style_change_outcomes": 0,
+      "bad_switch_rate": 0.0,
+      "summary": "Shadow report compares observed style decisions and outcomes; counterfactual style results are not assumed."
+    },
+    "backtest": {
+      "success": true,
+      "version": 1,
+      "updated_at": "2026-06-29T15:24:00",
+      "evaluated_experiences": 0,
+      "clean_win_rate": 0.0,
+      "clock_rescue_rate": 0.0,
+      "style_change_bad_result_rate": 0.0,
+      "limitations": [
+        "Only the actually-used style has a true observed outcome; alternate-style outcomes remain estimates."
+      ]
+    }
+  },
+  "local_llm": {
+    "enabled": false,
+    "mode": "offline",
+    "provider": "lmstudio",
+    "base_url": "http://localhost:1234/v1",
+    "model": "",
+    "last_connection_success": false,
+    "last_connection_at": null,
+    "last_summary_at": null,
+    "last_advice_at": null,
+    "summary_headline": "",
+    "risk_flags": [],
+    "candidate_rules": [],
+    "shadow_recommendation": ""
+  },
+  "live_policy": {
+    "enabled": false,
+    "race_adjustments": 0,
+    "item_adjustments": 23,
+    "event_adjustments": 0,
+    "confidence_threshold": 0.65,
+    "recommendation": {
+      "enabled": false,
+      "recommend_enable": false,
+      "status": "recommended_off",
+      "message": "Recommended: KEEP DISABLED. Only 154 turn records are available; collect more completed careers first. Model confidence is still low.",
+      "reasons": [
+        "Only 154 turn records are available; collect more completed careers first.",
+        "Model confidence is still low."
+      ],
+      "turn_records": 154,
+      "race_rows": 78,
+      "race_rows_with_result": 78,
+      "race_result_coverage": 1.0,
+      "adjustment_count": 23,
+      "confidence_threshold": 0.65,
+      "shadow_precision": 0.0,
+      "shadow_evaluated_races": 0,
+      "min_shadow_precision": 0.6,
+      "min_shadow_evaluations": 100
+    }
+  },
+  "shadow_mode": {
+    "version": 2,
+    "updated_at": "2026-06-29T15:24:00",
+    "evaluated_races": 0,
+    "warnings": 0,
+    "useful_warnings": 0,
+    "false_alarms": 0,
+    "precision": 0.0,
+    "avg_adjustment": 0.0,
+    "examples": [],
+    "mode": "shadow",
+    "summary": "Shadow Mode compares learned race-risk hints against historical outcomes without changing live play."
+  },
+  "backtest": {
+    "version": 2,
+    "updated_at": "2026-06-29T15:24:00",
+    "historical_race_rows": 78,
+    "failed_races": 28,
+    "risk_warnings": 16,
+    "failed_races_captured": 8,
+    "capture_rate": 0.2857,
+    "winning_false_warnings": 8,
+    "false_warning_rate": 0.5,
+    "late_senior_races": 14,
+    "late_senior_failures": 5,
+    "suggested_config_tuning": [
+      {
+        "setting": "outcomeRiskWeight",
+        "suggested_delta": 0.2,
+        "reason": "4 race program(s) have repeated local losses; strengthen learned risk penalties.",
+        "confidence": 0.75,
+        "examples": [
+          "74",
+          "76",
+          "79",
+          "81"
+        ]
+      }
+    ],
+    "examples": [
+      {
+        "turn": 36,
+        "program_id": "74",
+        "rank": 1,
+        "penalty": 34.5,
+        "confidence": 0.5
+      },
+      {
+        "turn": 44,
+        "program_id": "76",
+        "rank": 1,
+        "penalty": 31.5,
+        "confidence": 0.5
+      },
+      {
+        "turn": 46,
+        "program_id": "79",
+        "rank": 1,
+        "penalty": 26.1437,
+        "confidence": 0.5
+      },
+      {
+        "turn": 48,
+        "program_id": "81",
+        "rank": 1,
+        "penalty": 28.6105,
+        "confidence": 0.5
+      },
+      {
+        "turn": 60,
+        "program_id": "74",
+        "rank": 1,
+        "penalty": 34.5,
+        "confidence": 0.5
+      },
+      {
+        "turn": 68,
+        "program_id": "76",
+        "rank": 1,
+        "penalty": 31.5,
+        "confidence": 0.5
+      },
+      {
+        "turn": 70,
+        "program_id": "79",
+        "rank": 1,
+        "penalty": 26.1437,
+        "confidence": 0.5
+      },
+      {
+        "turn": 72,
+        "program_id": "81",
+        "rank": 1,
+        "penalty": 28.6105,
+        "confidence": 0.5
+      },
+      {
+        "turn": 36,
+        "program_id": "74",
+        "rank": 8,
+        "penalty": 34.5,
+        "confidence": 0.5
+      },
+      {
+        "turn": 44,
+        "program_id": "76",
+        "rank": 2,
+        "penalty": 31.5,
+        "confidence": 0.5
+      },
+      {
+        "turn": 46,
+        "program_id": "79",
+        "rank": 2,
+        "penalty": 26.1437,
+        "confidence": 0.5
+      },
+      {
+        "turn": 48,
+        "program_id": "81",
+        "rank": 4,
+        "penalty": 28.6105,
+        "confidence": 0.5
+      },
+      {
+        "turn": 60,
+        "program_id": "74",
+        "rank": 2,
+        "penalty": 34.5,
+        "confidence": 0.5
+      },
+      {
+        "turn": 68,
+        "program_id": "76",
+        "rank": 6,
+        "penalty": 31.5,
+        "confidence": 0.5
+      },
+      {
+        "turn": 70,
+        "program_id": "79",
+        "rank": 3,
+        "penalty": 26.1437,
+        "confidence": 0.5
+      }
+    ],
+    "summary": "Backtest estimates whether learned risk would have flagged historically bad races."
+  },
+  "top_risky_races": [
+    {
+      "program_id": "74",
+      "name": "Takarazuka Kinen",
+      "starts": 4,
+      "win_rate": 0.5,
+      "clean_win_rate": 0.5,
+      "clock_dependency_rate": 0.0,
+      "avg_rank": 3.0
+    },
+    {
+      "program_id": "76",
+      "name": "Tenno Sho (Autumn)",
+      "starts": 4,
+      "win_rate": 0.5,
+      "clean_win_rate": 0.5,
+      "clock_dependency_rate": 0.0,
+      "avg_rank": 2.5
+    },
+    {
+      "program_id": "79",
+      "name": "Japan Cup",
+      "starts": 4,
+      "win_rate": 0.5,
+      "clean_win_rate": 0.5,
+      "clock_dependency_rate": 0.0,
+      "avg_rank": 1.75
+    },
+    {
+      "program_id": "81",
+      "name": "Arima Kinen",
+      "starts": 4,
+      "win_rate": 0.5,
+      "clean_win_rate": 0.5,
+      "clock_dependency_rate": 0.0,
+      "avg_rank": 2.25
+    },
+    {
+      "program_id": "77",
+      "name": "Queen Elizabeth II Cup",
+      "starts": 3,
+      "win_rate": 0.6667,
+      "clean_win_rate": 0.6667,
+      "clock_dependency_rate": 0.0,
+      "avg_rank": 1.333
+    }
+  ],
+  "top_item_values": [
+    {
+      "samples": 4,
+      "avg_reward": 10.116,
+      "adjustment": 10.116,
+      "confidence": 0.5,
+      "name": "Berry Sweet Cupcake",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 7,
+      "avg_reward": 8.8337,
+      "adjustment": 8.8337,
+      "confidence": 0.6364,
+      "name": "4001",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 10,
+      "avg_reward": 7.6271,
+      "adjustment": 7.6271,
+      "confidence": 0.7143,
+      "name": "1203",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 10,
+      "avg_reward": 6.5466,
+      "adjustment": 6.5466,
+      "confidence": 0.7143,
+      "name": "2002",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 5,
+      "avg_reward": 6.5366,
+      "adjustment": 6.5366,
+      "confidence": 0.5556,
+      "name": "Glow Sticks",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 9,
+      "avg_reward": 6.2089,
+      "adjustment": 6.2089,
+      "confidence": 0.6923,
+      "name": "1205",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 50,
+      "avg_reward": 5.2616,
+      "adjustment": 5.2616,
+      "confidence": 0.9259,
+      "name": "11002",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 22,
+      "avg_reward": 4.9557,
+      "adjustment": 4.9557,
+      "confidence": 0.8462,
+      "name": "2101",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 36,
+      "avg_reward": 4.7903,
+      "adjustment": 4.7903,
+      "confidence": 0.9,
+      "name": "11001",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    {
+      "samples": 9,
+      "avg_reward": 4.4894,
+      "adjustment": 4.4894,
+      "confidence": 0.6923,
+      "name": "Miracle Cure",
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    }
+  ],
+  "top_event_values": [],
+  "suggestions": [
+    {
+      "setting": "outcomeRiskWeight",
+      "suggested_delta": 0.2,
+      "reason": "4 race program(s) have repeated local losses; strengthen learned risk penalties.",
+      "confidence": 0.75,
+      "examples": [
+        "74",
+        "76",
+        "79",
+        "81"
+      ]
+    }
+  ],
+  "epithet_confidence": [],
+  "preset_trainee_confidence": [
+    {
+      "key": "global::global",
+      "careers": 0,
+      "completed": 0,
+      "completion_rate": 0.0,
+      "avg_final_fans": 0.0,
+      "avg_final_stats": {},
+      "race_rows": 78,
+      "race_win_rate": 0.641,
+      "confidence": 0.9398
+    },
+    {
+      "key": "Long Pace v2 v3 canon::unknown",
+      "careers": 3,
+      "completed": 3,
+      "completion_rate": 1.0,
+      "avg_final_fans": 372785.0,
+      "avg_final_stats": {
+        "speed": 723.0,
+        "stamina": 899.5,
+        "power": 598.5,
+        "guts": 414.5,
+        "wit": 568.5,
+        "skill_point": 2203.5,
+        "hp": 35.0,
+        "max_hp": 100.0,
+        "mood": 2.0,
+        "fans": 370940.0
+      },
+      "race_rows": 0,
+      "race_win_rate": 0.0,
+      "confidence": 0.375
+    },
+    {
+      "key": "Long Pace::unknown",
+      "careers": 1,
+      "completed": 1,
+      "completion_rate": 1.0,
+      "avg_final_fans": 0.0,
+      "avg_final_stats": {
+        "speed": 988.0,
+        "stamina": 1001.0,
+        "power": 878.0,
+        "guts": 498.0,
+        "wit": 508.0,
+        "skill_point": 2640.0,
+        "hp": 60.0,
+        "max_hp": 100.0,
+        "mood": 4.0,
+        "fans": 821279.0
+      },
+      "race_rows": 0,
+      "race_win_rate": 0.0,
+      "confidence": 0.1667
+    }
+  ],
+  "warnings": [
+    "Some career summaries are missing final stats.",
+    "5 race programs have local win rate below 75%."
+  ]
+}

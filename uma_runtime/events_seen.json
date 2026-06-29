@@ -1,0 +1,467 @@
+{
+ "830078001": {
+  "story_id": "830078001",
+  "event_id": "10002",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   2,
+   1
+  ]
+ },
+ "830078002": {
+  "story_id": "830078002",
+  "event_id": "10002",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   2,
+   1
+  ]
+ },
+ "801045002": {
+  "story_id": "801045002",
+  "event_id": "20000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "801056002": {
+  "story_id": "801056002",
+  "event_id": "20000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "501016513": {
+  "story_id": "501016513",
+  "event_id": "3052",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "501016708": {
+  "story_id": "501016708",
+  "event_id": "7005",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 24,
+  "choice_select_indices": [
+   2,
+   3
+  ]
+ },
+ "501016506": {
+  "story_id": "501016506",
+  "event_id": "10000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "501016709": {
+  "story_id": "501016709",
+  "event_id": "7006",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 23,
+  "choice_select_indices": [
+   1,
+   3
+  ]
+ },
+ "830028002": {
+  "story_id": "830028002",
+  "event_id": "10002",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ },
+ "830074002": {
+  "story_id": "830074002",
+  "event_id": "10002",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "801077001": {
+  "story_id": "801077001",
+  "event_id": "20000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "820027002": {
+  "story_id": "820027002",
+  "event_id": "10002",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "400004343": {
+  "story_id": "400004343",
+  "event_id": "203643",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ },
+ "501016515": {
+  "story_id": "501016515",
+  "event_id": "3052",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "501016510": {
+  "story_id": "501016510",
+  "event_id": "10000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "801068002": {
+  "story_id": "801068002",
+  "event_id": "20000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "501016516": {
+  "story_id": "501016516",
+  "event_id": "7019",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "801068001": {
+  "story_id": "801068001",
+  "event_id": "20000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "400004325": {
+  "story_id": "400004325",
+  "event_id": "203625",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ },
+ "820042001": {
+  "story_id": "820042001",
+  "event_id": "10002",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "400004334": {
+  "story_id": "400004334",
+  "event_id": "203634",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ },
+ "501016511": {
+  "story_id": "501016511",
+  "event_id": "10000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "830086002": {
+  "story_id": "830086002",
+  "event_id": "10002",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "501016715": {
+  "story_id": "501016715",
+  "event_id": "7017",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "501016520": {
+  "story_id": "501016520",
+  "event_id": "10000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "400004354": {
+  "story_id": "400004354",
+  "event_id": "203654",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ },
+ "400000036": {
+  "story_id": "400000036",
+  "event_id": "1012",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 2,
+  "choice_select_indices": [
+   2,
+   3
+  ]
+ },
+ "400004340": {
+  "story_id": "400004340",
+  "event_id": "203640",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ },
+ "400004345": {
+  "story_id": "400004345",
+  "event_id": "203645",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ },
+ "501016720": {
+  "story_id": "501016720",
+  "event_id": "7020",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 5,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   3,
+   5,
+   7,
+   1
+  ]
+ },
+ "400004346": {
+  "story_id": "400004346",
+  "event_id": "203646",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ },
+ "801055002": {
+  "story_id": "801055002",
+  "event_id": "20000",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   1
+  ]
+ },
+ "501016710": {
+  "story_id": "501016710",
+  "event_id": "7007",
+  "event_name": "",
+  "support_card_id": 0,
+  "num_choices": 2,
+  "picked": 1,
+  "source": "fallback",
+  "count": 1,
+  "choice_select_indices": [
+   1,
+   2
+  ]
+ }
+}

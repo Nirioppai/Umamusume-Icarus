@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-06-29T15:24:00",
+  "turn_decisions": 154,
+  "career_summaries": 4,
+  "race_rows": 78,
+  "race_rows_with_result": 78,
+  "race_result_coverage": 1.0,
+  "clock_retry_rows": 7,
+  "clock_policy_enabled_rows": 0,
+  "clock_policy_enabled_rate": 0.0,
+  "career_summaries_with_final_stats": 3,
+  "item_records_parsed": 32,
+  "event_records_parsed": 33,
+  "safe_for_live_policy": true,
+  "warnings": [
+    "Some career summaries are missing final stats."
+  ]
+}

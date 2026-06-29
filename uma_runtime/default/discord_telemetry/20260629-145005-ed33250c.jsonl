@@ -1,0 +1,4 @@
+{"type": "career_start", "run_id": "20260629-145005-ed33250c", "ts": 1782715805.1477277, "preset": {"name": "Long Pace v2 v3 canon", "scenario_id": 4, "strategy_mode": null}, "status": {"preset": "Long Pace v2 v3 canon", "scenario_id": 4, "started_at": 1782715805.1468863}}
+{"type": "log", "turn": 0, "action": "started", "detail": "preset Long Pace v2 v3 canon (burn_clocks=False)", "time": "14:50:05", "run_id": "20260629-145005-ed33250c", "ts": 1782715805.148072}
+{"type": "log", "turn": 77, "action": "stop", "detail": "stop requested", "time": "14:50:10", "run_id": "20260629-145005-ed33250c", "ts": 1782715810.3842113}
+{"finished": false, "last_error": "", "turn": 77, "steps": 0, "fans_start": 821279, "fans_current": 821279, "fans_gained": 0, "fans_per_hour": 0, "skills_bought": 0, "items_bought": 0, "items_used": 0, "clocks_used": 0, "type": "career_summary", "run_id": "20260629-145005-ed33250c", "ts": 1782715810.3866348}

@@ -1,0 +1,142 @@
+{
+  "started_at": "2026-06-29T14:50:05",
+  "ended_at": "2026-06-29T14:50:10",
+  "preset_name": "Long Pace v2 v3 canon",
+  "scenario_id": 4,
+  "status": "stopped",
+  "error": null,
+  "final_turn": 0,
+  "turns": [],
+  "runtime_settings": {
+    "burn_clocks": false,
+    "clock_retry_policy": {
+      "user_enabled": false,
+      "enabled": false,
+      "source": "report_finalize"
+    },
+    "decision_mode": "trackblazer",
+    "stat_focus_mode": "balanced",
+    "run_id": "20260629-145005-ed33250c",
+    "loop_index": 1,
+    "loop_target": 1,
+    "build_version": "v3.2.1 (2026-06-28)"
+  },
+  "runner_status": {
+    "running": false,
+    "paused": false,
+    "loop_index": 1,
+    "loop_target": 1,
+    "preset": "Long Pace v2 v3 canon",
+    "scenario_id": 4,
+    "turn": 77,
+    "steps": 0,
+    "last_action": "started",
+    "last_error": "",
+    "finished": false,
+    "skills_bought": 0,
+    "items_bought": 0,
+    "items_used": 0,
+    "clocks_used": 0,
+    "carat_retries_used": 0,
+    "burn_clocks_requested": false,
+    "clock_retry_policy": {
+      "user_enabled": false,
+      "enabled": false,
+      "source": "career_start"
+    },
+    "careers_completed": 0,
+    "fans_start": 821279,
+    "fans_current": 821279,
+    "fans_gained": 0,
+    "fans_per_hour": 0,
+    "started_at": 1782715805.1468863,
+    "recoveries": 0,
+    "recent_server_rejects": 0,
+    "last_seen_at": 1782715810.3823245,
+    "stale_seconds": 0,
+    "same_turn_count": 0,
+    "last_state_snapshot": "C:\\Active Codebase\\SWEEPY\\umamusume-icarus\\uma_runtime\\default\\state_snapshots\\20260629-145005-ed33250c.jsonl",
+    "run_id": "20260629-145005-ed33250c",
+    "warnings": [],
+    "log": [
+      {
+        "id": 1,
+        "action": "started",
+        "turn": 0,
+        "detail": "preset Long Pace v2 v3 canon (burn_clocks=False)",
+        "time": "14:50:05"
+      },
+      {
+        "id": 2,
+        "action": "stop",
+        "turn": 77,
+        "detail": "stop requested",
+        "time": "14:50:10"
+      }
+    ],
+    "action_history": [],
+    "race_results": [],
+    "decision_trace": {},
+    "last_style_adaptation": {},
+    "lifetime": {
+      "first_started_at": 1782715018.3818002,
+      "session_started_at": 1782715018.3818002,
+      "total_runtime_seconds": 792,
+      "total_fans_gained": 0,
+      "careers_completed": 0,
+      "runs_started": 1,
+      "last_updated_at": 1782715810.3831437,
+      "session_only": true,
+      "total_runtime_seconds_live": 792,
+      "total_fans_gained_live": 0,
+      "fans_per_hour_live": 0
+    },
+    "tp_restore_reasoning": [],
+    "preset_training_stat_priority": [
+      "speed",
+      "power",
+      "stamina",
+      "wit",
+      "guts"
+    ],
+    "current_chara": {
+      "card_id": 101601,
+      "turn": 77,
+      "fans": 821279,
+      "vital": 60,
+      "max_vital": 100,
+      "motivation": 4,
+      "stats": {
+        "hp": 60,
+        "max_hp": 100,
+        "motivation": 4,
+        "speed": 988,
+        "stamina": 1001,
+        "power": 878,
+        "guts": 498,
+        "wit": 508,
+        "skill_point": 2640
+      }
+    },
+    "clocks_left": 0,
+    "standard_clocks": 0,
+    "free_clocks": 0,
+    "free_continue_time": 1782676569,
+    "route_info": {
+      "route_id": 10004,
+      "route_race_ids": [
+        371,
+        40022,
+        40023,
+        40024,
+        40025,
+        40026,
+        40027
+      ],
+      "route_race_count": 7
+    },
+    "burn_clocks": false,
+    "replan_log": []
+  },
+  "build_version": "v3.2.1 (2026-06-28)"
+}

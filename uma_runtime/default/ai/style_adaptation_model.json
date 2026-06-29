@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-29T15:24:00",
+  "algorithm": "conservative_contextual_bandit_feature_table",
+  "source_labels": [
+    "api_observed_data",
+    "official_table_data",
+    "empirical_estimate",
+    "unknown_hidden_formula"
+  ],
+  "experience_rows": 0,
+  "completed_experiences": 0,
+  "style_change_outcomes": 0,
+  "feature_values": {},
+  "styles": {},
+  "notes": [
+    "This model learns from observable race outcomes and official table metadata only.",
+    "It does not claim exact lane-blocking, acceleration, hidden opponent AI, or server-side race simulation formulas."
+  ]
+}

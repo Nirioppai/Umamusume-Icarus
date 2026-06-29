@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "version": 1,
+  "updated_at": "2026-06-29T15:24:00",
+  "mode": "shadow",
+  "completed_experiences": 0,
+  "style_change_outcomes": 0,
+  "bad_switches": 0,
+  "bad_switch_rate": 0.0,
+  "clean_wins": 0,
+  "clock_rescued_wins": 0,
+  "auto_apply_unlocked": false,
+  "safe_for_auto_apply": false,
+  "recommendation": "Auto Apply remains locked; continue Shadow/Recommend until safety thresholds pass.",
+  "styles": {},
+  "thresholds": {
+    "min_experiences": 100,
+    "min_style_change_outcomes": 20,
+    "max_bad_switch_rate": 0.2,
+    "min_confidence": 0.7
+  }
+}

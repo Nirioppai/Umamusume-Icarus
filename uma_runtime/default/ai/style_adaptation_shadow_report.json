@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "version": 1,
+  "updated_at": "2026-06-29T15:24:00",
+  "evaluated_experiences": 0,
+  "style_change_outcomes": 0,
+  "bad_switch_rate": 0.0,
+  "summary": "Shadow report compares observed style decisions and outcomes; counterfactual style results are not assumed."
+}

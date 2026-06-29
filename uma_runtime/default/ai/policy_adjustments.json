@@ -1,0 +1,129 @@
+{
+  "version": 2,
+  "updated_at": "2026-06-29T15:24:00",
+  "enabled": false,
+  "confidence_threshold": 0.65,
+  "max_abs_live_adjustment": 25.0,
+  "warn_win_rate_ceiling": 0.5,
+  "races": {},
+  "items": {
+    "3101": {
+      "adjustment": 3.554,
+      "confidence": 0.84,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1101": {
+      "adjustment": 3.184,
+      "confidence": 0.913,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "11001": {
+      "adjustment": 4.7903,
+      "confidence": 0.9,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1205": {
+      "adjustment": 6.2089,
+      "confidence": 0.6923,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1104": {
+      "adjustment": -1.1233,
+      "confidence": 0.8919,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1202": {
+      "adjustment": 0.3789,
+      "confidence": 0.7778,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1203": {
+      "adjustment": 7.6271,
+      "confidence": 0.7143,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2101": {
+      "adjustment": 4.9557,
+      "confidence": 0.8462,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1102": {
+      "adjustment": 2.9652,
+      "confidence": 0.9286,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "10001": {
+      "adjustment": 1.6735,
+      "confidence": 0.7143,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1201": {
+      "adjustment": 4.4834,
+      "confidence": 0.8095,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "11002": {
+      "adjustment": 5.2616,
+      "confidence": 0.9259,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2002": {
+      "adjustment": 6.5466,
+      "confidence": 0.7143,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "4201": {
+      "adjustment": 4.4894,
+      "confidence": 0.6923,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "8002": {
+      "adjustment": 1.9027,
+      "confidence": 0.8,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1103": {
+      "adjustment": 0.7777,
+      "confidence": 0.9167,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "9001": {
+      "adjustment": 1.442,
+      "confidence": 0.7143,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2301": {
+      "adjustment": 2.4691,
+      "confidence": 0.8095,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "4103": {
+      "adjustment": 4.0111,
+      "confidence": 0.6667,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "2001": {
+      "adjustment": 2.2704,
+      "confidence": 0.9149,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "8003": {
+      "adjustment": 1.1561,
+      "confidence": 0.8261,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "7001": {
+      "adjustment": 0.9495,
+      "confidence": 0.7143,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    },
+    "1105": {
+      "adjustment": -1.873,
+      "confidence": 0.8095,
+      "reason": "Learned from turns where this item appeared in buy/use telemetry."
+    }
+  },
+  "events": {},
+  "reversible": true,
+  "safety": "AI adjustments only modify scores for legal candidate actions; deterministic gates still choose/execute."
+}

@@ -1,0 +1,4 @@
+{"turn": 77, "action": "command", "reason": "summer/finale: train wiz (score 41.3)", "energy": 35, "mood": 2, "training_candidates": [{"stat": "wiz", "score": 41.35, "gain": 6, "failure": 0}], "ts": 1782717769.7367487}
+{"turn": 77, "action": "command", "reason": "summer/finale: train wiz (score 41.3)", "energy": 35, "mood": 2, "training_candidates": [{"stat": "wiz", "score": 41.35, "gain": 6, "failure": 0}], "ts": 1782717770.9511256}
+{"turn": 78, "action": "race", "reason": "Twinkle Star Climax Race 3", "energy": 40, "mood": 2, "training_candidates": [{"stat": "wiz", "score": 41.35, "gain": 6, "failure": 0}], "ts": 1782717779.7803326}
+{"turn": 78, "action": "finish", "reason": "ready to finish", "energy": 40, "mood": 2, "training_candidates": [{"stat": "wiz", "score": 41.35, "gain": 6, "failure": 0}], "ts": 1782717829.4865634}

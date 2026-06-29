@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "updated_at": "2026-06-29T15:24:00",
+  "groups": {
+    "Long Pace::unknown": {
+      "careers": 1,
+      "completed": 1,
+      "completion_rate": 1.0,
+      "avg_final_fans": 0.0,
+      "avg_final_stats": {
+        "speed": 988.0,
+        "stamina": 1001.0,
+        "power": 878.0,
+        "guts": 498.0,
+        "wit": 508.0,
+        "skill_point": 2640.0,
+        "hp": 60.0,
+        "max_hp": 100.0,
+        "mood": 4.0,
+        "fans": 821279.0
+      },
+      "race_rows": 0,
+      "race_win_rate": 0.0,
+      "confidence": 0.1667
+    },
+    "Long Pace v2 v3 canon::unknown": {
+      "careers": 3,
+      "completed": 3,
+      "completion_rate": 1.0,
+      "avg_final_fans": 372785.0,
+      "avg_final_stats": {
+        "speed": 723.0,
+        "stamina": 899.5,
+        "power": 598.5,
+        "guts": 414.5,
+        "wit": 568.5,
+        "skill_point": 2203.5,
+        "hp": 35.0,
+        "max_hp": 100.0,
+        "mood": 2.0,
+        "fans": 370940.0
+      },
+      "race_rows": 0,
+      "race_win_rate": 0.0,
+      "confidence": 0.375
+    },
+    "global::global": {
+      "careers": 0,
+      "completed": 0,
+      "completion_rate": 0.0,
+      "avg_final_fans": 0.0,
+      "avg_final_stats": {},
+      "race_rows": 78,
+      "race_win_rate": 0.641,
+      "confidence": 0.9398
+    }
+  }
+}

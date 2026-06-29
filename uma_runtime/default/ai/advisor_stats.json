@@ -1,0 +1,1978 @@
+{
+  "schema_version": 1,
+  "dataset_version": "SweepyCL AI Dataset v2",
+  "updated_at": "2026-06-29T15:24:00",
+  "records": {
+    "turn_decisions": 154,
+    "career_summaries": 4
+  },
+  "actions": {
+    "command": {
+      "count": 75,
+      "reward_sum": 59.8195,
+      "avg_reward": 0.7976
+    },
+    "race": {
+      "count": 78,
+      "reward_sum": 225.3402,
+      "avg_reward": 2.889
+    },
+    "finish": {
+      "count": 1,
+      "reward_sum": 20.0,
+      "avg_reward": 20.0
+    }
+  },
+  "turn_bands": {
+    "early": {
+      "count": 48,
+      "reward_sum": 39.7493,
+      "avg_reward": 0.8281
+    },
+    "classic": {
+      "count": 48,
+      "reward_sum": 167.7573,
+      "avg_reward": 3.4949
+    },
+    "senior": {
+      "count": 48,
+      "reward_sum": 75.4869,
+      "avg_reward": 1.5726
+    },
+    "finale": {
+      "count": 10,
+      "reward_sum": 22.1662,
+      "avg_reward": 2.2166
+    }
+  },
+  "race_programs": {
+    "1078": {
+      "starts": 2,
+      "wins": 2,
+      "reward_sum": 18.0905,
+      "avg_reward": 9.0452,
+      "win_rate": 1.0
+    },
+    "632": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": -9.693,
+      "avg_reward": -4.8465,
+      "win_rate": 0.5
+    },
+    "633": {
+      "starts": 1,
+      "wins": 0,
+      "reward_sum": -10.1509,
+      "avg_reward": -10.1509,
+      "win_rate": 0.0
+    },
+    "636": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": -2.2322,
+      "avg_reward": -1.1161,
+      "win_rate": 0.5
+    },
+    "624": {
+      "starts": 2,
+      "wins": 2,
+      "reward_sum": 12.6437,
+      "avg_reward": 6.3218,
+      "win_rate": 1.0
+    },
+    "625": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": 1.8821,
+      "avg_reward": 0.9411,
+      "win_rate": 0.5
+    },
+    "180": {
+      "starts": 2,
+      "wins": 2,
+      "reward_sum": 20.3847,
+      "avg_reward": 10.1924,
+      "win_rate": 1.0
+    },
+    "183": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.569,
+      "avg_reward": 10.569,
+      "win_rate": 1.0
+    },
+    "169": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.6691,
+      "avg_reward": 10.6691,
+      "win_rate": 1.0
+    },
+    "163": {
+      "starts": 2,
+      "wins": 2,
+      "reward_sum": 24.6002,
+      "avg_reward": 12.3001,
+      "win_rate": 1.0
+    },
+    "174": {
+      "starts": 2,
+      "wins": 2,
+      "reward_sum": 20.6018,
+      "avg_reward": 10.3009,
+      "win_rate": 1.0
+    },
+    "164": {
+      "starts": 2,
+      "wins": 0,
+      "reward_sum": -33.3212,
+      "avg_reward": -16.6606,
+      "win_rate": 0.0
+    },
+    "166": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": -2.8157,
+      "avg_reward": -1.4078,
+      "win_rate": 0.5
+    },
+    "74": {
+      "starts": 4,
+      "wins": 2,
+      "reward_sum": -1.9365,
+      "avg_reward": -0.4841,
+      "win_rate": 0.5
+    },
+    "109": {
+      "starts": 3,
+      "wins": 3,
+      "reward_sum": 31.4878,
+      "avg_reward": 10.4959,
+      "win_rate": 1.0
+    },
+    "76": {
+      "starts": 4,
+      "wins": 2,
+      "reward_sum": -1.6265,
+      "avg_reward": -0.4066,
+      "win_rate": 0.5
+    },
+    "77": {
+      "starts": 3,
+      "wins": 2,
+      "reward_sum": 15.2346,
+      "avg_reward": 5.0782,
+      "win_rate": 0.6667
+    },
+    "79": {
+      "starts": 4,
+      "wins": 2,
+      "reward_sum": 13.7014,
+      "avg_reward": 3.4253,
+      "win_rate": 0.5
+    },
+    "81": {
+      "starts": 4,
+      "wins": 2,
+      "reward_sum": 22.2326,
+      "avg_reward": 5.5582,
+      "win_rate": 0.5
+    },
+    "6": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.7819,
+      "avg_reward": 10.7819,
+      "win_rate": 1.0
+    },
+    "8": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": -0.1349,
+      "avg_reward": -0.0675,
+      "win_rate": 0.5
+    },
+    "9": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": -0.0249,
+      "avg_reward": -0.0125,
+      "win_rate": 0.5
+    },
+    "11": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.9684,
+      "avg_reward": 10.9684,
+      "win_rate": 1.0
+    },
+    "3": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": 0.7057,
+      "avg_reward": 0.3529,
+      "win_rate": 0.5
+    },
+    "14": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.9102,
+      "avg_reward": 10.9102,
+      "win_rate": 1.0
+    },
+    "4": {
+      "starts": 2,
+      "wins": 2,
+      "reward_sum": 22.2545,
+      "avg_reward": 11.1273,
+      "win_rate": 1.0
+    },
+    "17": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": 0.4063,
+      "avg_reward": 0.2031,
+      "win_rate": 0.5
+    },
+    "73": {
+      "starts": 2,
+      "wins": 0,
+      "reward_sum": -23.388,
+      "avg_reward": -11.694,
+      "win_rate": 0.0
+    },
+    "85": {
+      "starts": 3,
+      "wins": 3,
+      "reward_sum": 34.3479,
+      "avg_reward": 11.4493,
+      "win_rate": 1.0
+    },
+    "87": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 11.4209,
+      "avg_reward": 11.4209,
+      "win_rate": 1.0
+    },
+    "91": {
+      "starts": 2,
+      "wins": 1,
+      "reward_sum": -1.1919,
+      "avg_reward": -0.596,
+      "win_rate": 0.5
+    },
+    "2324": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 13.1361,
+      "avg_reward": 13.1361,
+      "win_rate": 1.0
+    },
+    "2418": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 8.0,
+      "avg_reward": 8.0,
+      "win_rate": 1.0
+    },
+    "629": {
+      "starts": 1,
+      "wins": 0,
+      "reward_sum": -10.5131,
+      "avg_reward": -10.5131,
+      "win_rate": 0.0
+    },
+    "630": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.4132,
+      "avg_reward": 10.4132,
+      "win_rate": 1.0
+    },
+    "627": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.269,
+      "avg_reward": 10.269,
+      "win_rate": 1.0
+    },
+    "181": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.6845,
+      "avg_reward": 10.6845,
+      "win_rate": 1.0
+    },
+    "171": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 12.5941,
+      "avg_reward": 12.5941,
+      "win_rate": 1.0
+    },
+    "176": {
+      "starts": 1,
+      "wins": 1,
+      "reward_sum": 10.6273,
+      "avg_reward": 10.6273,
+      "win_rate": 1.0
+    },
+    "10": {
+      "starts": 1,
+      "wins": 0,
+      "reward_sum": -12.8279,
+      "avg_reward": -12.8279,
+      "win_rate": 0.0
+    },
+    "5": {
+      "starts": 1,
+      "wins": 0,
+      "reward_sum": -16.6612,
+      "avg_reward": -16.6612,
+      "win_rate": 0.0
+    },
+    "2319": {
+      "starts": 1,
+      "wins": 0,
+      "reward_sum": -7.7594,
+      "avg_reward": -7.7594,
+      "win_rate": 0.0
+    },
+    "2416": {
+      "starts": 1,
+      "wins": 0,
+      "reward_sum": -20.0,
+      "avg_reward": -20.0,
+      "win_rate": 0.0
+    }
+  },
+  "race_programs_context": {
+    "by_program": {
+      "1078": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 18.0905,
+        "win_rate": 1.0,
+        "avg_reward": 9.0452
+      },
+      "632": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -9.693,
+        "win_rate": 0.5,
+        "avg_reward": -4.8465
+      },
+      "633": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.1509,
+        "win_rate": 0.0,
+        "avg_reward": -10.1509
+      },
+      "636": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -2.2322,
+        "win_rate": 0.5,
+        "avg_reward": -1.1161
+      },
+      "624": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 12.6437,
+        "win_rate": 1.0,
+        "avg_reward": 6.3218
+      },
+      "625": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": 1.8821,
+        "win_rate": 0.5,
+        "avg_reward": 0.9411
+      },
+      "180": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 20.3847,
+        "win_rate": 1.0,
+        "avg_reward": 10.1924
+      },
+      "183": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.569,
+        "win_rate": 1.0,
+        "avg_reward": 10.569
+      },
+      "169": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6691,
+        "win_rate": 1.0,
+        "avg_reward": 10.6691
+      },
+      "163": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 24.6002,
+        "win_rate": 1.0,
+        "avg_reward": 12.3001
+      },
+      "174": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 20.6018,
+        "win_rate": 1.0,
+        "avg_reward": 10.3009
+      },
+      "164": {
+        "starts": 2,
+        "wins": 0,
+        "reward_sum": -33.3212,
+        "win_rate": 0.0,
+        "avg_reward": -16.6606
+      },
+      "166": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -2.8157,
+        "win_rate": 0.5,
+        "avg_reward": -1.4078
+      },
+      "74": {
+        "starts": 4,
+        "wins": 2,
+        "reward_sum": -1.9365,
+        "win_rate": 0.5,
+        "avg_reward": -0.4841
+      },
+      "109": {
+        "starts": 3,
+        "wins": 3,
+        "reward_sum": 31.4878,
+        "win_rate": 1.0,
+        "avg_reward": 10.4959
+      },
+      "76": {
+        "starts": 4,
+        "wins": 2,
+        "reward_sum": -1.6265,
+        "win_rate": 0.5,
+        "avg_reward": -0.4066
+      },
+      "77": {
+        "starts": 3,
+        "wins": 2,
+        "reward_sum": 15.2346,
+        "win_rate": 0.6667,
+        "avg_reward": 5.0782
+      },
+      "79": {
+        "starts": 4,
+        "wins": 2,
+        "reward_sum": 13.7014,
+        "win_rate": 0.5,
+        "avg_reward": 3.4253
+      },
+      "81": {
+        "starts": 4,
+        "wins": 2,
+        "reward_sum": 22.2326,
+        "win_rate": 0.5,
+        "avg_reward": 5.5582
+      },
+      "6": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.7819,
+        "win_rate": 1.0,
+        "avg_reward": 10.7819
+      },
+      "8": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -0.1349,
+        "win_rate": 0.5,
+        "avg_reward": -0.0675
+      },
+      "9": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -0.0249,
+        "win_rate": 0.5,
+        "avg_reward": -0.0125
+      },
+      "11": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.9684,
+        "win_rate": 1.0,
+        "avg_reward": 10.9684
+      },
+      "3": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": 0.7057,
+        "win_rate": 0.5,
+        "avg_reward": 0.3529
+      },
+      "14": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.9102,
+        "win_rate": 1.0,
+        "avg_reward": 10.9102
+      },
+      "4": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 22.2545,
+        "win_rate": 1.0,
+        "avg_reward": 11.1273
+      },
+      "17": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": 0.4063,
+        "win_rate": 0.5,
+        "avg_reward": 0.2031
+      },
+      "73": {
+        "starts": 2,
+        "wins": 0,
+        "reward_sum": -23.388,
+        "win_rate": 0.0,
+        "avg_reward": -11.694
+      },
+      "85": {
+        "starts": 3,
+        "wins": 3,
+        "reward_sum": 34.3479,
+        "win_rate": 1.0,
+        "avg_reward": 11.4493
+      },
+      "87": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.4209,
+        "win_rate": 1.0,
+        "avg_reward": 11.4209
+      },
+      "91": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -1.1919,
+        "win_rate": 0.5,
+        "avg_reward": -0.596
+      },
+      "2324": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.1361,
+        "win_rate": 1.0,
+        "avg_reward": 13.1361
+      },
+      "2418": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 8.0,
+        "win_rate": 1.0,
+        "avg_reward": 8.0
+      },
+      "629": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.5131,
+        "win_rate": 0.0,
+        "avg_reward": -10.5131
+      },
+      "630": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.4132,
+        "win_rate": 1.0,
+        "avg_reward": 10.4132
+      },
+      "627": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.269,
+        "win_rate": 1.0,
+        "avg_reward": 10.269
+      },
+      "181": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6845,
+        "win_rate": 1.0,
+        "avg_reward": 10.6845
+      },
+      "171": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.5941,
+        "win_rate": 1.0,
+        "avg_reward": 12.5941
+      },
+      "176": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6273,
+        "win_rate": 1.0,
+        "avg_reward": 10.6273
+      },
+      "10": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.8279,
+        "win_rate": 0.0,
+        "avg_reward": -12.8279
+      },
+      "5": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -16.6612,
+        "win_rate": 0.0,
+        "avg_reward": -16.6612
+      },
+      "2319": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -7.7594,
+        "win_rate": 0.0,
+        "avg_reward": -7.7594
+      },
+      "2416": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -20.0,
+        "win_rate": 0.0,
+        "avg_reward": -20.0
+      }
+    },
+    "by_program_scenario": {
+      "1078:4": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 18.0905,
+        "win_rate": 1.0,
+        "avg_reward": 9.0452
+      },
+      "632:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -9.693,
+        "win_rate": 0.5,
+        "avg_reward": -4.8465
+      },
+      "633:4": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.1509,
+        "win_rate": 0.0,
+        "avg_reward": -10.1509
+      },
+      "636:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -2.2322,
+        "win_rate": 0.5,
+        "avg_reward": -1.1161
+      },
+      "624:4": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 12.6437,
+        "win_rate": 1.0,
+        "avg_reward": 6.3218
+      },
+      "625:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": 1.8821,
+        "win_rate": 0.5,
+        "avg_reward": 0.9411
+      },
+      "180:4": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 20.3847,
+        "win_rate": 1.0,
+        "avg_reward": 10.1924
+      },
+      "183:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.569,
+        "win_rate": 1.0,
+        "avg_reward": 10.569
+      },
+      "169:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6691,
+        "win_rate": 1.0,
+        "avg_reward": 10.6691
+      },
+      "163:4": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 24.6002,
+        "win_rate": 1.0,
+        "avg_reward": 12.3001
+      },
+      "174:4": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 20.6018,
+        "win_rate": 1.0,
+        "avg_reward": 10.3009
+      },
+      "164:4": {
+        "starts": 2,
+        "wins": 0,
+        "reward_sum": -33.3212,
+        "win_rate": 0.0,
+        "avg_reward": -16.6606
+      },
+      "166:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -2.8157,
+        "win_rate": 0.5,
+        "avg_reward": -1.4078
+      },
+      "74:4": {
+        "starts": 4,
+        "wins": 2,
+        "reward_sum": -1.9365,
+        "win_rate": 0.5,
+        "avg_reward": -0.4841
+      },
+      "109:4": {
+        "starts": 3,
+        "wins": 3,
+        "reward_sum": 31.4878,
+        "win_rate": 1.0,
+        "avg_reward": 10.4959
+      },
+      "76:4": {
+        "starts": 4,
+        "wins": 2,
+        "reward_sum": -1.6265,
+        "win_rate": 0.5,
+        "avg_reward": -0.4066
+      },
+      "77:4": {
+        "starts": 3,
+        "wins": 2,
+        "reward_sum": 15.2346,
+        "win_rate": 0.6667,
+        "avg_reward": 5.0782
+      },
+      "79:4": {
+        "starts": 4,
+        "wins": 2,
+        "reward_sum": 13.7014,
+        "win_rate": 0.5,
+        "avg_reward": 3.4253
+      },
+      "81:4": {
+        "starts": 4,
+        "wins": 2,
+        "reward_sum": 22.2326,
+        "win_rate": 0.5,
+        "avg_reward": 5.5582
+      },
+      "6:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.7819,
+        "win_rate": 1.0,
+        "avg_reward": 10.7819
+      },
+      "8:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -0.1349,
+        "win_rate": 0.5,
+        "avg_reward": -0.0675
+      },
+      "9:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -0.0249,
+        "win_rate": 0.5,
+        "avg_reward": -0.0125
+      },
+      "11:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.9684,
+        "win_rate": 1.0,
+        "avg_reward": 10.9684
+      },
+      "3:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": 0.7057,
+        "win_rate": 0.5,
+        "avg_reward": 0.3529
+      },
+      "14:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.9102,
+        "win_rate": 1.0,
+        "avg_reward": 10.9102
+      },
+      "4:4": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 22.2545,
+        "win_rate": 1.0,
+        "avg_reward": 11.1273
+      },
+      "17:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": 0.4063,
+        "win_rate": 0.5,
+        "avg_reward": 0.2031
+      },
+      "73:4": {
+        "starts": 2,
+        "wins": 0,
+        "reward_sum": -23.388,
+        "win_rate": 0.0,
+        "avg_reward": -11.694
+      },
+      "85:4": {
+        "starts": 3,
+        "wins": 3,
+        "reward_sum": 34.3479,
+        "win_rate": 1.0,
+        "avg_reward": 11.4493
+      },
+      "87:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.4209,
+        "win_rate": 1.0,
+        "avg_reward": 11.4209
+      },
+      "91:4": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": -1.1919,
+        "win_rate": 0.5,
+        "avg_reward": -0.596
+      },
+      "2324:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.1361,
+        "win_rate": 1.0,
+        "avg_reward": 13.1361
+      },
+      "2418:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 8.0,
+        "win_rate": 1.0,
+        "avg_reward": 8.0
+      },
+      "629:4": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.5131,
+        "win_rate": 0.0,
+        "avg_reward": -10.5131
+      },
+      "630:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.4132,
+        "win_rate": 1.0,
+        "avg_reward": 10.4132
+      },
+      "627:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.269,
+        "win_rate": 1.0,
+        "avg_reward": 10.269
+      },
+      "181:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6845,
+        "win_rate": 1.0,
+        "avg_reward": 10.6845
+      },
+      "171:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.5941,
+        "win_rate": 1.0,
+        "avg_reward": 12.5941
+      },
+      "176:4": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6273,
+        "win_rate": 1.0,
+        "avg_reward": 10.6273
+      },
+      "10:4": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.8279,
+        "win_rate": 0.0,
+        "avg_reward": -12.8279
+      },
+      "5:4": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -16.6612,
+        "win_rate": 0.0,
+        "avg_reward": -16.6612
+      },
+      "2319:4": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -7.7594,
+        "win_rate": 0.0,
+        "avg_reward": -7.7594
+      },
+      "2416:4": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -20.0,
+        "win_rate": 0.0,
+        "avg_reward": -20.0
+      }
+    },
+    "by_program_scenario_preset": {
+      "1078:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.1592,
+        "win_rate": 1.0,
+        "avg_reward": 9.1592
+      },
+      "632:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.95,
+        "win_rate": 1.0,
+        "avg_reward": 9.95
+      },
+      "633:4:Long Pace": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.1509,
+        "win_rate": 0.0,
+        "avg_reward": -10.1509
+      },
+      "636:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.9435,
+        "win_rate": 1.0,
+        "avg_reward": 9.9435
+      },
+      "624:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 5.99,
+        "win_rate": 1.0,
+        "avg_reward": 5.99
+      },
+      "625:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.0837,
+        "win_rate": 1.0,
+        "avg_reward": 13.0837
+      },
+      "180:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.1907,
+        "win_rate": 1.0,
+        "avg_reward": 10.1907
+      },
+      "183:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.569,
+        "win_rate": 1.0,
+        "avg_reward": 10.569
+      },
+      "169:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6691,
+        "win_rate": 1.0,
+        "avg_reward": 10.6691
+      },
+      "163:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.2402,
+        "win_rate": 1.0,
+        "avg_reward": 12.2402
+      },
+      "174:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.2384,
+        "win_rate": 1.0,
+        "avg_reward": 10.2384
+      },
+      "164:4:Long Pace": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.9893,
+        "win_rate": 0.0,
+        "avg_reward": -12.9893
+      },
+      "166:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 8.987,
+        "win_rate": 1.0,
+        "avg_reward": 8.987
+      },
+      "74:4:Long Pace": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 26.3295,
+        "win_rate": 1.0,
+        "avg_reward": 13.1647
+      },
+      "109:4:Long Pace": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 20.7618,
+        "win_rate": 1.0,
+        "avg_reward": 10.3809
+      },
+      "76:4:Long Pace": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 26.526,
+        "win_rate": 1.0,
+        "avg_reward": 13.263
+      },
+      "77:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.0767,
+        "win_rate": 1.0,
+        "avg_reward": 13.0767
+      },
+      "79:4:Long Pace": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 32.904,
+        "win_rate": 1.0,
+        "avg_reward": 16.452
+      },
+      "81:4:Long Pace": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 40.098,
+        "win_rate": 1.0,
+        "avg_reward": 20.049
+      },
+      "6:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.7819,
+        "win_rate": 1.0,
+        "avg_reward": 10.7819
+      },
+      "8:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.4864,
+        "win_rate": 1.0,
+        "avg_reward": 10.4864
+      },
+      "9:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.5964,
+        "win_rate": 1.0,
+        "avg_reward": 10.5964
+      },
+      "11:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.9684,
+        "win_rate": 1.0,
+        "avg_reward": 10.9684
+      },
+      "3:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 14.9429,
+        "win_rate": 1.0,
+        "avg_reward": 14.9429
+      },
+      "14:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.9102,
+        "win_rate": 1.0,
+        "avg_reward": 10.9102
+      },
+      "4:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.863,
+        "win_rate": 1.0,
+        "avg_reward": 9.863
+      },
+      "17:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.5069,
+        "win_rate": 1.0,
+        "avg_reward": 10.5069
+      },
+      "73:4:Long Pace": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -9.0017,
+        "win_rate": 0.0,
+        "avg_reward": -9.0017
+      },
+      "85:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.1684,
+        "win_rate": 1.0,
+        "avg_reward": 11.1684
+      },
+      "87:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.4209,
+        "win_rate": 1.0,
+        "avg_reward": 11.4209
+      },
+      "91:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.0754,
+        "win_rate": 1.0,
+        "avg_reward": 11.0754
+      },
+      "2324:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.1361,
+        "win_rate": 1.0,
+        "avg_reward": 13.1361
+      },
+      "2418:4:Long Pace": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 8.0,
+        "win_rate": 1.0,
+        "avg_reward": 8.0
+      },
+      "1078:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 8.9313,
+        "win_rate": 1.0,
+        "avg_reward": 8.9313
+      },
+      "629:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.5131,
+        "win_rate": 0.0,
+        "avg_reward": -10.5131
+      },
+      "630:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.4132,
+        "win_rate": 1.0,
+        "avg_reward": 10.4132
+      },
+      "632:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -19.643,
+        "win_rate": 0.0,
+        "avg_reward": -19.643
+      },
+      "627:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.269,
+        "win_rate": 1.0,
+        "avg_reward": 10.269
+      },
+      "636:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.1757,
+        "win_rate": 0.0,
+        "avg_reward": -12.1757
+      },
+      "624:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 6.6537,
+        "win_rate": 1.0,
+        "avg_reward": 6.6537
+      },
+      "625:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -11.2016,
+        "win_rate": 0.0,
+        "avg_reward": -11.2016
+      },
+      "180:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.194,
+        "win_rate": 1.0,
+        "avg_reward": 10.194
+      },
+      "181:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6845,
+        "win_rate": 1.0,
+        "avg_reward": 10.6845
+      },
+      "171:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.5941,
+        "win_rate": 1.0,
+        "avg_reward": 12.5941
+      },
+      "163:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.36,
+        "win_rate": 1.0,
+        "avg_reward": 12.36
+      },
+      "174:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.3634,
+        "win_rate": 1.0,
+        "avg_reward": 10.3634
+      },
+      "164:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -20.3319,
+        "win_rate": 0.0,
+        "avg_reward": -20.3319
+      },
+      "166:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -11.8027,
+        "win_rate": 0.0,
+        "avg_reward": -11.8027
+      },
+      "74:4:Long Pace v2 v3 canon": {
+        "starts": 2,
+        "wins": 0,
+        "reward_sum": -28.266,
+        "win_rate": 0.0,
+        "avg_reward": -14.133
+      },
+      "176:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6273,
+        "win_rate": 1.0,
+        "avg_reward": 10.6273
+      },
+      "85:4:Long Pace v2 v3 canon": {
+        "starts": 2,
+        "wins": 2,
+        "reward_sum": 23.1795,
+        "win_rate": 1.0,
+        "avg_reward": 11.5898
+      },
+      "76:4:Long Pace v2 v3 canon": {
+        "starts": 2,
+        "wins": 0,
+        "reward_sum": -28.1525,
+        "win_rate": 0.0,
+        "avg_reward": -14.0763
+      },
+      "77:4:Long Pace v2 v3 canon": {
+        "starts": 2,
+        "wins": 1,
+        "reward_sum": 2.1579,
+        "win_rate": 0.5,
+        "avg_reward": 1.0789
+      },
+      "79:4:Long Pace v2 v3 canon": {
+        "starts": 2,
+        "wins": 0,
+        "reward_sum": -19.2026,
+        "win_rate": 0.0,
+        "avg_reward": -9.6013
+      },
+      "81:4:Long Pace v2 v3 canon": {
+        "starts": 2,
+        "wins": 0,
+        "reward_sum": -17.8654,
+        "win_rate": 0.0,
+        "avg_reward": -8.9327
+      },
+      "8:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.6213,
+        "win_rate": 0.0,
+        "avg_reward": -10.6213
+      },
+      "9:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.6213,
+        "win_rate": 0.0,
+        "avg_reward": -10.6213
+      },
+      "10:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.8279,
+        "win_rate": 0.0,
+        "avg_reward": -12.8279
+      },
+      "3:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -14.2372,
+        "win_rate": 0.0,
+        "avg_reward": -14.2372
+      },
+      "4:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.3915,
+        "win_rate": 1.0,
+        "avg_reward": 12.3915
+      },
+      "5:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -16.6612,
+        "win_rate": 0.0,
+        "avg_reward": -16.6612
+      },
+      "17:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.1006,
+        "win_rate": 0.0,
+        "avg_reward": -10.1006
+      },
+      "73:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -14.3863,
+        "win_rate": 0.0,
+        "avg_reward": -14.3863
+      },
+      "109:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.726,
+        "win_rate": 1.0,
+        "avg_reward": 10.726
+      },
+      "91:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.2673,
+        "win_rate": 0.0,
+        "avg_reward": -12.2673
+      },
+      "2319:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -7.7594,
+        "win_rate": 0.0,
+        "avg_reward": -7.7594
+      },
+      "2416:4:Long Pace v2 v3 canon": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -20.0,
+        "win_rate": 0.0,
+        "avg_reward": -20.0
+      }
+    },
+    "by_program_scenario_preset_phase": {
+      "1078:4:Long Pace:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.1592,
+        "win_rate": 1.0,
+        "avg_reward": 9.1592
+      },
+      "632:4:Long Pace:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.95,
+        "win_rate": 1.0,
+        "avg_reward": 9.95
+      },
+      "633:4:Long Pace:early": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.1509,
+        "win_rate": 0.0,
+        "avg_reward": -10.1509
+      },
+      "636:4:Long Pace:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.9435,
+        "win_rate": 1.0,
+        "avg_reward": 9.9435
+      },
+      "624:4:Long Pace:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 5.99,
+        "win_rate": 1.0,
+        "avg_reward": 5.99
+      },
+      "625:4:Long Pace:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.0837,
+        "win_rate": 1.0,
+        "avg_reward": 13.0837
+      },
+      "180:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.1907,
+        "win_rate": 1.0,
+        "avg_reward": 10.1907
+      },
+      "183:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.569,
+        "win_rate": 1.0,
+        "avg_reward": 10.569
+      },
+      "169:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6691,
+        "win_rate": 1.0,
+        "avg_reward": 10.6691
+      },
+      "163:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.2402,
+        "win_rate": 1.0,
+        "avg_reward": 12.2402
+      },
+      "174:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.2384,
+        "win_rate": 1.0,
+        "avg_reward": 10.2384
+      },
+      "164:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.9893,
+        "win_rate": 0.0,
+        "avg_reward": -12.9893
+      },
+      "166:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 8.987,
+        "win_rate": 1.0,
+        "avg_reward": 8.987
+      },
+      "74:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.9915,
+        "win_rate": 1.0,
+        "avg_reward": 12.9915
+      },
+      "109:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.8809,
+        "win_rate": 1.0,
+        "avg_reward": 10.8809
+      },
+      "76:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.5515,
+        "win_rate": 1.0,
+        "avg_reward": 13.5515
+      },
+      "77:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.0767,
+        "win_rate": 1.0,
+        "avg_reward": 13.0767
+      },
+      "79:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 16.764,
+        "win_rate": 1.0,
+        "avg_reward": 16.764
+      },
+      "81:4:Long Pace:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 19.486,
+        "win_rate": 1.0,
+        "avg_reward": 19.486
+      },
+      "6:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.7819,
+        "win_rate": 1.0,
+        "avg_reward": 10.7819
+      },
+      "8:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.4864,
+        "win_rate": 1.0,
+        "avg_reward": 10.4864
+      },
+      "9:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.5964,
+        "win_rate": 1.0,
+        "avg_reward": 10.5964
+      },
+      "11:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.9684,
+        "win_rate": 1.0,
+        "avg_reward": 10.9684
+      },
+      "3:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 14.9429,
+        "win_rate": 1.0,
+        "avg_reward": 14.9429
+      },
+      "14:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.9102,
+        "win_rate": 1.0,
+        "avg_reward": 10.9102
+      },
+      "4:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.863,
+        "win_rate": 1.0,
+        "avg_reward": 9.863
+      },
+      "17:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.5069,
+        "win_rate": 1.0,
+        "avg_reward": 10.5069
+      },
+      "73:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -9.0017,
+        "win_rate": 0.0,
+        "avg_reward": -9.0017
+      },
+      "74:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.338,
+        "win_rate": 1.0,
+        "avg_reward": 13.338
+      },
+      "109:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 9.8809,
+        "win_rate": 1.0,
+        "avg_reward": 9.8809
+      },
+      "85:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.1684,
+        "win_rate": 1.0,
+        "avg_reward": 11.1684
+      },
+      "87:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.4209,
+        "win_rate": 1.0,
+        "avg_reward": 11.4209
+      },
+      "76:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.9745,
+        "win_rate": 1.0,
+        "avg_reward": 12.9745
+      },
+      "79:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 16.14,
+        "win_rate": 1.0,
+        "avg_reward": 16.14
+      },
+      "91:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.0754,
+        "win_rate": 1.0,
+        "avg_reward": 11.0754
+      },
+      "81:4:Long Pace:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 20.612,
+        "win_rate": 1.0,
+        "avg_reward": 20.612
+      },
+      "2324:4:Long Pace:finale": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 13.1361,
+        "win_rate": 1.0,
+        "avg_reward": 13.1361
+      },
+      "2418:4:Long Pace:finale": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 8.0,
+        "win_rate": 1.0,
+        "avg_reward": 8.0
+      },
+      "1078:4:Long Pace v2 v3 canon:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 8.9313,
+        "win_rate": 1.0,
+        "avg_reward": 8.9313
+      },
+      "629:4:Long Pace v2 v3 canon:early": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.5131,
+        "win_rate": 0.0,
+        "avg_reward": -10.5131
+      },
+      "630:4:Long Pace v2 v3 canon:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.4132,
+        "win_rate": 1.0,
+        "avg_reward": 10.4132
+      },
+      "632:4:Long Pace v2 v3 canon:early": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -19.643,
+        "win_rate": 0.0,
+        "avg_reward": -19.643
+      },
+      "627:4:Long Pace v2 v3 canon:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.269,
+        "win_rate": 1.0,
+        "avg_reward": 10.269
+      },
+      "636:4:Long Pace v2 v3 canon:early": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.1757,
+        "win_rate": 0.0,
+        "avg_reward": -12.1757
+      },
+      "624:4:Long Pace v2 v3 canon:early": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 6.6537,
+        "win_rate": 1.0,
+        "avg_reward": 6.6537
+      },
+      "625:4:Long Pace v2 v3 canon:early": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -11.2016,
+        "win_rate": 0.0,
+        "avg_reward": -11.2016
+      },
+      "180:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.194,
+        "win_rate": 1.0,
+        "avg_reward": 10.194
+      },
+      "181:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6845,
+        "win_rate": 1.0,
+        "avg_reward": 10.6845
+      },
+      "171:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.5941,
+        "win_rate": 1.0,
+        "avg_reward": 12.5941
+      },
+      "163:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.36,
+        "win_rate": 1.0,
+        "avg_reward": 12.36
+      },
+      "174:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.3634,
+        "win_rate": 1.0,
+        "avg_reward": 10.3634
+      },
+      "164:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -20.3319,
+        "win_rate": 0.0,
+        "avg_reward": -20.3319
+      },
+      "166:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -11.8027,
+        "win_rate": 0.0,
+        "avg_reward": -11.8027
+      },
+      "74:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -18.9248,
+        "win_rate": 0.0,
+        "avg_reward": -18.9248
+      },
+      "176:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.6273,
+        "win_rate": 1.0,
+        "avg_reward": 10.6273
+      },
+      "85:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.166,
+        "win_rate": 1.0,
+        "avg_reward": 11.166
+      },
+      "76:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -9.0297,
+        "win_rate": 0.0,
+        "avg_reward": -9.0297
+      },
+      "77:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 11.8825,
+        "win_rate": 1.0,
+        "avg_reward": 11.8825
+      },
+      "79:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -7.9124,
+        "win_rate": 0.0,
+        "avg_reward": -7.9124
+      },
+      "81:4:Long Pace v2 v3 canon:classic": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.5387,
+        "win_rate": 0.0,
+        "avg_reward": -10.5387
+      },
+      "8:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.6213,
+        "win_rate": 0.0,
+        "avg_reward": -10.6213
+      },
+      "9:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.6213,
+        "win_rate": 0.0,
+        "avg_reward": -10.6213
+      },
+      "10:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.8279,
+        "win_rate": 0.0,
+        "avg_reward": -12.8279
+      },
+      "3:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -14.2372,
+        "win_rate": 0.0,
+        "avg_reward": -14.2372
+      },
+      "4:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.3915,
+        "win_rate": 1.0,
+        "avg_reward": 12.3915
+      },
+      "5:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -16.6612,
+        "win_rate": 0.0,
+        "avg_reward": -16.6612
+      },
+      "17:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -10.1006,
+        "win_rate": 0.0,
+        "avg_reward": -10.1006
+      },
+      "73:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -14.3863,
+        "win_rate": 0.0,
+        "avg_reward": -14.3863
+      },
+      "74:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -9.3412,
+        "win_rate": 0.0,
+        "avg_reward": -9.3412
+      },
+      "109:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 10.726,
+        "win_rate": 1.0,
+        "avg_reward": 10.726
+      },
+      "85:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 1,
+        "reward_sum": 12.0135,
+        "win_rate": 1.0,
+        "avg_reward": 12.0135
+      },
+      "76:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -19.1228,
+        "win_rate": 0.0,
+        "avg_reward": -19.1228
+      },
+      "77:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -9.7246,
+        "win_rate": 0.0,
+        "avg_reward": -9.7246
+      },
+      "79:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -11.2902,
+        "win_rate": 0.0,
+        "avg_reward": -11.2902
+      },
+      "91:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -12.2673,
+        "win_rate": 0.0,
+        "avg_reward": -12.2673
+      },
+      "81:4:Long Pace v2 v3 canon:senior": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -7.3267,
+        "win_rate": 0.0,
+        "avg_reward": -7.3267
+      },
+      "2319:4:Long Pace v2 v3 canon:finale": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -7.7594,
+        "win_rate": 0.0,
+        "avg_reward": -7.7594
+      },
+      "2416:4:Long Pace v2 v3 canon:finale": {
+        "starts": 1,
+        "wins": 0,
+        "reward_sum": -20.0,
+        "win_rate": 0.0,
+        "avg_reward": -20.0
+      }
+    }
+  }
+}

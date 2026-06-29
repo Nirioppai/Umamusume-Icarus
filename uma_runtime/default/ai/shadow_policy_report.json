@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "updated_at": "2026-06-29T15:24:00",
+  "evaluated_races": 0,
+  "warnings": 0,
+  "useful_warnings": 0,
+  "false_alarms": 0,
+  "precision": 0.0,
+  "avg_adjustment": 0.0,
+  "examples": [],
+  "mode": "shadow",
+  "summary": "Shadow Mode compares learned race-risk hints against historical outcomes without changing live play."
+}

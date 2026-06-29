@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "dataset_version": "SweepyCL AI Dataset v2",
+  "exported_at": "2026-06-29T15:24:00",
+  "ai_root": "C:\\Active Codebase\\SWEEPY\\umamusume-icarus\\uma_runtime\\default\\ai",
+  "counts": {
+    "turn_decisions": 2,
+    "career_summaries": 1,
+    "synthetic_scenarios": 3,
+    "failed_runs": 0
+  },
+  "advisor_stats_path": "C:\\Active Codebase\\SWEEPY\\umamusume-icarus\\uma_runtime\\default\\ai\\advisor_stats.json",
+  "records": {
+    "turn_decisions": 154,
+    "career_summaries": 4
+  }
+}

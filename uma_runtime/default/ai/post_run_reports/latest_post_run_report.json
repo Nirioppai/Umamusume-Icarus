@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "generated_at": "2026-06-29T15:24:00",
+  "training_reason": "career_complete",
+  "records": {
+    "turn_decisions": 154,
+    "career_summaries": 4
+  },
+  "top_risky_races": [
+    {
+      "program_id": "164",
+      "win_rate": 0.0,
+      "starts": 2,
+      "avg_rank": 3.5
+    },
+    {
+      "program_id": "73",
+      "win_rate": 0.0,
+      "starts": 2,
+      "avg_rank": 3.0
+    },
+    {
+      "program_id": "74",
+      "win_rate": 0.5,
+      "starts": 4,
+      "avg_rank": 3.0
+    },
+    {
+      "program_id": "76",
+      "win_rate": 0.5,
+      "starts": 4,
+      "avg_rank": 2.5
+    },
+    {
+      "program_id": "79",
+      "win_rate": 0.5,
+      "starts": 4,
+      "avg_rank": 1.75
+    },
+    {
+      "program_id": "81",
+      "win_rate": 0.5,
+      "starts": 4,
+      "avg_rank": 2.25
+    },
+    {
+      "program_id": "632",
+      "win_rate": 0.5,
+      "starts": 2,
+      "avg_rank": 7.0
+    },
+    {
+      "program_id": "636",
+      "win_rate": 0.5,
+      "starts": 2,
+      "avg_rank": 2.0
+    },
+    {
+      "program_id": "625",
+      "win_rate": 0.5,
+      "starts": 2,
+      "avg_rank": 1.5
+    },
+    {
+      "program_id": "166",
+      "win_rate": 0.5,
+      "starts": 2,
+      "avg_rank": 2.0
+    }
+  ],
+  "suggested_config_tuning": [
+    {
+      "setting": "outcomeRiskWeight",
+      "suggested_delta": 0.2,
+      "reason": "4 race program(s) have repeated local losses; strengthen learned risk penalties.",
+      "confidence": 0.75,
+      "examples": [
+        "74",
+        "76",
+        "79",
+        "81"
+      ]
+    }
+  ],
+  "summary": "Local AI advisor updated analytics tables, learned scoring models, and reversible policy hints."
+}

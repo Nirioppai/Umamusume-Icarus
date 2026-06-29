@@ -1,0 +1,402 @@
+{
+  "version": 2,
+  "updated_at": "2026-06-29T15:24:00",
+  "events": {
+    "830078001": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "830078002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "801045002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "801056002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016513": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016708": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016506": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016709": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "830028002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "830074002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "801077001": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "820027002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "400004343": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016515": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016510": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "801068002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016516": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "801068001": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "400004325": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "820042001": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "400004334": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016511": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "830086002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016715": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016520": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "400004354": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "400000036": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "400004340": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "400004345": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016720": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "400004346": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "801055002": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    },
+    "501016710": {
+      "samples": 1,
+      "choices": {
+        "seen": {
+          "samples": 1,
+          "avg_reward": 0.0,
+          "confidence": 0.3333
+        }
+      },
+      "avg_reward": 0.0,
+      "confidence": 0.3333
+    }
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "version": 2,
+  "trained_at": "2026-06-29T15:24:00",
+  "reason": "career_complete",
+  "records": {
+    "turn_decisions": 154,
+    "career_summaries": 4
+  },
+  "auto_config": {
+    "enabled": true,
+    "train_after_completed_careers": 1,
+    "interval_minutes": 60,
+    "min_turn_records": 10,
+    "min_samples_for_model": 4,
+    "enable_live_policy_assistance": false,
+    "confidence_threshold": 0.65,
+    "max_abs_live_adjustment": 25.0,
+    "warn_win_rate_ceiling": 0.5,
+    "train_while_runner_active": false,
+    "generate_synthetic_prompts": true,
+    "generate_post_run_report": true,
+    "enable_shadow_mode": true,
+    "enable_backtesting": true,
+    "style_adaptation_mode": "shadow",
+    "style_adaptation_min_confidence": 0.7,
+    "style_adaptation_min_aptitude": 5,
+    "style_adaptation_protect_goal_races": true,
+    "style_adaptation_protect_forced_epithets": true,
+    "style_adaptation_auto_min_experiences": 100,
+    "style_adaptation_auto_min_switches": 20,
+    "style_adaptation_auto_max_bad_switch_rate": 0.2,
+    "style_adaptation_switch_margin": 0.08
+  },
+  "model_files": {
+    "race_outcome_table": "race_outcome_table.json",
+    "item_effectiveness_table": "item_effectiveness_table.json",
+    "event_outcome_table": "event_outcome_table.json",
+    "race_risk_model": "race_risk_model.json",
+    "item_value_model": "item_value_model.json",
+    "event_value_model": "event_value_model.json",
+    "policy_adjustments": "policy_adjustments.json",
+    "suggested_config_tuning": "suggested_config_tuning.json",
+    "shadow_policy_report": "shadow_policy_report.json",
+    "backtest_report": "backtest_report.json",
+    "epithet_confidence": "epithet_confidence.json",
+    "preset_trainee_confidence": "preset_trainee_confidence.json",
+    "ai_dashboard": "ai_dashboard.json",
+    "style_adaptation_model": "style_adaptation_model.json",
+    "style_adaptation_report": "style_adaptation_report.json",
+    "style_adaptation_backtest": "style_adaptation_backtest.json",
+    "style_adaptation_shadow_report": "style_adaptation_shadow_report.json",
+    "latest_training_run": "latest_training_run.json",
+    "auto_state": "auto_training_state.json"
+  },
+  "llm_prompt_pack": {
+    "updated_at": "2026-06-29T15:24:00",
+    "prompt_count": 29,
+    "path": "C:\\Active Codebase\\SWEEPY\\umamusume-icarus\\uma_runtime\\default\\ai\\llm_advisor\\latest_prompt_pack.jsonl"
+  },
+  "live_policy_enabled": false,
+  "live_policy_recommendation": {
+    "enabled": false,
+    "recommend_enable": false,
+    "status": "recommended_off",
+    "message": "Recommended: KEEP DISABLED. Only 154 turn records are available; collect more completed careers first. Model confidence is still low.",
+    "reasons": [
+      "Only 154 turn records are available; collect more completed careers first.",
+      "Model confidence is still low."
+    ],
+    "turn_records": 154,
+    "race_rows": 78,
+    "race_rows_with_result": 78,
+    "race_result_coverage": 1.0,
+    "adjustment_count": 23,
+    "confidence_threshold": 0.65,
+    "shadow_precision": 0.0,
+    "shadow_evaluated_races": 0,
+    "min_shadow_precision": 0.6,
+    "min_shadow_evaluations": 100
+  },
+  "dataset_ready": true,
+  "data_health": {
+    "checked_at": "2026-06-29T15:24:00",
+    "turn_decisions": 154,
+    "career_summaries": 4,
+    "race_rows": 78,
+    "race_rows_with_result": 78,
+    "race_result_coverage": 1.0,
+    "clock_retry_rows": 7,
+    "clock_policy_enabled_rows": 0,
+    "clock_policy_enabled_rate": 0.0,
+    "career_summaries_with_final_stats": 3,
+    "item_records_parsed": 32,
+    "event_records_parsed": 33,
+    "safe_for_live_policy": true,
+    "warnings": [
+      "Some career summaries are missing final stats."
+    ]
+  },
+  "dashboard": {
+    "confidence": "low",
+    "warnings": [
+      "Some career summaries are missing final stats.",
+      "5 race programs have local win rate below 75%."
+    ]
+  },
+  "shadow_mode": {
+    "evaluated_races": 0,
+    "precision": 0.0
+  },
+  "backtest": {
+    "capture_rate": 0.2857,
+    "risk_warnings": 16
+  },
+  "style_adaptation": {
+    "mode": "shadow",
+    "completed_experiences": 0,
+    "style_change_outcomes": 0,
+    "auto_apply_unlocked": false,
+    "recommendation": "Auto Apply remains locked; continue Shadow/Recommend until safety thresholds pass."
+  },
+  "post_run_report": {
+    "path": "C:\\Active Codebase\\SWEEPY\\umamusume-icarus\\uma_runtime\\default\\ai\\post_run_reports\\latest_post_run_report.json",
+    "summary": "Local AI advisor updated analytics tables, learned scoring models, and reversible policy hints."
+  }
+}
