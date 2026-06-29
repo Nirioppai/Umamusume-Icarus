@@ -81,10 +81,10 @@
         ? '<span class="tagbadge bg-amber">FORCED</span>'
         : '<span class="fbtn">AUTO</span>';
       row.innerHTML = `
-        <span style="font:700 11px var(--mono);color:${isActive ? 'var(--amber)' : 'var(--ink-3)'}">${n + 1}</span>
-        <div><div style="font:600 12px var(--mono);color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(evName(e))}</div>
-        <div style="font:500 9px var(--mono);color:var(--label);margin-top:2px">${esc(catLabel(e))}${e.count ? ' · seen ' + e.count + '×' : ''}</div></div>
-        <span style="font:500 10px var(--mono);color:${isForced(e) ? 'var(--green)' : 'var(--label)'}">${esc(seenChoiceText(e))}</span>
+        <span style="font:700 var(--fs-md) var(--mono);color:${isActive ? 'var(--amber)' : 'var(--ink-3)'}">${n + 1}</span>
+        <div><div style="font:600 var(--fs-base) var(--mono);color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(evName(e))}</div>
+        <div style="font:500 var(--fs-xs) var(--mono);color:var(--label);margin-top:2px">${esc(catLabel(e))}${e.count ? ' · seen ' + e.count + '×' : ''}</div></div>
+        <span style="font:500 var(--fs-sm) var(--mono);color:${isForced(e) ? 'var(--green)' : 'var(--label)'}">${esc(seenChoiceText(e))}</span>
         <span class="r">${mode}</span>`;
       row.addEventListener('click', () => { activeId = e.story_id; renderList(); renderDetail(); });
       host.appendChild(row);
@@ -104,7 +104,7 @@
         <div class="card" style="margin-bottom:9px;${c.chosen ? 'border-color:var(--amber-dk);border-left:2px solid var(--amber);background:#0d0b06' : ''}">
           <div class="card-body">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <span style="font:700 12px var(--mono);color:${c.chosen ? 'var(--amber)' : 'var(--ink-2)'}">${esc(c.label)}</span>
+              <span style="font:700 var(--fs-base) var(--mono);color:${c.chosen ? 'var(--amber)' : 'var(--ink-2)'}">${esc(c.label)}</span>
               ${c.chosen ? '<span class="tagbadge bg-amber">FORCED ✓</span>' : '<button class="fbtn" data-force="' + c.i + '" type="button" style="border-color:var(--cyan-bd);color:var(--cyan)">FORCE THIS</button>'}
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:6px">${eff}</div>
@@ -114,21 +114,21 @@
     host.innerHTML = `
       <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">
         <span class="tagbadge ${catBadge(e)}" style="letter-spacing:.12em">${esc(catLabel(e).toUpperCase())}</span>
-        ${e.auto_source ? `<span style="font:500 9px var(--mono);color:var(--label)">src ${esc(e.auto_source)}</span>` : ''}
+        ${e.auto_source ? `<span style="font:500 var(--fs-xs) var(--mono);color:var(--label)">src ${esc(e.auto_source)}</span>` : ''}
       </div>
-      <div style="font:700 16px var(--cond);letter-spacing:.03em;color:#fff;margin-bottom:4px">${esc(evName(e))}</div>
-      <div style="font:500 10px var(--mono);color:var(--label);margin-bottom:16px">seen ${e.count || 0}× this profile</div>
+      <div style="font:700 var(--fs-3xl) var(--cond);letter-spacing:.03em;color:#fff;margin-bottom:4px">${esc(evName(e))}</div>
+      <div style="font:500 var(--fs-sm) var(--mono);color:var(--label);margin-bottom:16px">seen ${e.count || 0}× this profile</div>
       <div class="card-title" style="margin-bottom:10px;color:var(--label)">CHOICES</div>
       ${cards}
       <div style="border-top:1px solid var(--line);margin:16px 0 14px"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <span style="font:600 10px var(--cond);letter-spacing:.14em;color:var(--ink-2)">OVERRIDE MODE</span>
+        <span style="font:600 var(--fs-sm) var(--cond);letter-spacing:.14em;color:var(--ink-2)">OVERRIDE MODE</span>
         <div style="display:flex;gap:6px">
           <button class="seg ${!isForced(e) ? 'is-active' : ''}" data-mode="auto" type="button">AUTO</button>
           <button class="seg ${isForced(e) ? 'is-active' : ''}" data-mode="force" type="button">FORCE</button>
         </div>
       </div>
-      <div style="font:500 9px/1.6 var(--mono);color:var(--label);background:var(--bar);border:1px solid var(--line);border-radius:4px;padding:10px 11px">Override is saved to the active preset and applied at the next career start. Auto lets the bot's advisor pick by current goals.</div>`;
+      <div style="font:500 var(--fs-xs)/1.6 var(--mono);color:var(--label);background:var(--bar);border:1px solid var(--line);border-radius:4px;padding:10px 11px">Override is saved to the active preset and applied at the next career start. Auto lets the bot's advisor pick by current goals.</div>`;
 
     host.querySelectorAll('[data-force]').forEach((b) => b.addEventListener('click', () => setOverride(e, Number(b.dataset.force))));
     host.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {

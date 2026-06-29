@@ -195,7 +195,7 @@
     // "~" marks this as a PRELIMINARY, uncalibrated estimate (default logistic
     // scale, pending backtest calibration). It is computed vs the NAMED rivals
     // only — the full starting gate is larger — so it is an optimistic upper bound.
-    return `<span class="winprob ${tone}" style="font-size:11px;font-weight:600" `
+    return `<span class="winprob ${tone}" style="font-size:var(--fs-md);font-weight:600" `
       + `title="Preliminary (uncalibrated) pre-race estimate vs the ${(w.field_size || 1) - 1} named rival(s) only — the full gate is larger, so this is optimistic. Top-3 ~${top3}%. Read-only, does not affect play.">`
       + `~P(win) ${pct}%</span>`;
   }

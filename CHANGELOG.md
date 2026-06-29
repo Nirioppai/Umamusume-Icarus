@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.2.3 (2026-06-29)
+
+Adds a **Display** (appearance) panel — scale the whole interface's text size and pick your own fonts — plus a single centralized type-scale config under the hood.
+
+**Added / Changed**
+- New **DISPLAY** button in the top navbar (with a ⚙ gear, like Tempt Fate / Retries) opens an Appearance panel where you can:
+  - Set the interface **font size** — Small / Normal / Large / X-Large — which scales every font at once (handy if the dense UI is hard to read).
+  - Choose separate **Body**, **Heading**, and **Numeric** fonts from a curated list of Google Fonts (including the high-legibility Atkinson Hyperlegible, serif options, and several monospaces).
+  - Switch the **accent theme** (the 6 colours that were previously only reachable by clicking the ICARUS logo).
+  Choices apply instantly and are remembered per device. (Selected fonts download from Google Fonts and need an internet connection; offline, a matching system font is used instead.)
+- Under the hood, every hardcoded font size across the v3 UI was moved into one centralized type-scale config (CSS variables in `styles.css`), so all sizes can be tuned from a single place. Nothing changes size at the "Normal" setting.
+- On the dashboard, the LOGOUT button moved down into the transport bar (next to RUN / PAUSE / STOP), and the new DISPLAY button takes its former spot in the top-right of the navbar.
+- This build also includes the late-game megaphone (Reset Whistle) dump fix and the 3rd/final-climax Master Cleat Hammer display fix described in v3.2.2.
+
 ## v3.2.2 (2026-06-29)
 
 Patch release on top of v3.2.1: forced event choices finally persist, smarter energy/recovery-item use, much more aggressive late-game item dumping, functional Discord notifications, and a read-only race win-probability estimate.
@@ -11,7 +25,8 @@ Patch release on top of v3.2.1: forced event choices finally persist, smarter en
 
 **Added / Changed**
 - Second summer camp (turns 61–64): the bot now TRAINS at neutral mood instead of spending a precious camp turn on Recreation; and once past turn 61 with no Royal Kale Juice left, it releases the held-back cupcake to fix mood on a training turn rather than recreating.
-- Late-game item dumping (after turn 64, when "Save Items Late Game" is OFF) is now far more aggressive: Empowering Megaphones, Ankle Weights, Good-Luck Charms, and the small +5 Energy Drink MAX are spent on essentially every training turn instead of stranding unused at career end. (Ankle weights still only apply to their own stat's training; the "Save Items Late Game" toggle keeps the old conservative behavior.)
+- Late-game item dumping (after turn 64, when "Save Items Late Game" is OFF) is now far more aggressive: Empowering Megaphones, Ankle Weights, Good-Luck Charms, and the small +5 Energy Drink MAX are spent on essentially every training turn instead of stranding unused at career end. (Ankle weights still only apply to their own stat's training; the "Save Items Late Game" toggle keeps the old conservative behavior.) Also fixed a Reset Whistle turn in the dump window wrongly suppressing the megaphone/anklet that turn (it stranded lower-tier megaphones).
+- Career History now correctly shows the Master Cleat Hammer on the 3rd (final) climax race. The hammer was always used on all three climaxes; the panel just hid it on the last one because that race shares its turn with career finish — a display fix, no behavior change.
 - Discord notifications: the "Notify on career finish / crash / new epithet" toggles are now real per-event switches (previously decorative). A crashed/stuck career routes to the crash toggle, a clean finish to the finish toggle, and a newly earned set-bonus epithet pings the epithet toggle (off by default).
 - Career History now shows a read-only pre-race win-probability estimate per race (~P(win)), computed from the game's own opponent stat data. It is preliminary/uncalibrated and does not affect how the bot plays.
 - Removed a misleading "auto-solve before run" checkbox in Setup that did nothing (smart mode already solves the schedule at career start).

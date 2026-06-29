@@ -7,15 +7,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=10">
 <style>
-  .doc-main h3 { font: 600 13px var(--cond); letter-spacing: .06em; color: var(--ink); margin: 18px 0 6px; }
+  .doc-main h3 { font: 600 var(--fs-lg) var(--cond); letter-spacing: .06em; color: var(--ink); margin: 18px 0 6px; }
   .doc-main ol, .doc-main ul { margin: 6px 0 14px; padding-left: 20px; color: #c4c9d2; }
-  .doc-main ol li, .doc-main ul li { font: 400 13px/1.65 var(--sans); margin: 4px 0; }
+  .doc-main ol li, .doc-main ul li { font: 400 var(--fs-lg)/1.65 var(--sans); margin: 4px 0; }
   .doc-main .deflist { display: flex; flex-direction: column; gap: 7px; margin: 8px 0 16px; }
-  .doc-main .deflist > div { display: grid; grid-template-columns: 220px 1fr; gap: 12px; font: 400 12.5px/1.55 var(--sans); color: #c4c9d2; border-bottom: 1px solid var(--line-soft); padding-bottom: 7px; }
-  .doc-main .deflist b { font: 600 12px var(--mono); color: var(--ink); }
-  .doc-main code { font: 500 12px var(--mono); color: var(--cyan); background: var(--bar); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
+  .doc-main .deflist > div { display: grid; grid-template-columns: 220px 1fr; gap: 12px; font: 400 var(--fs-lg)/1.55 var(--sans); color: #c4c9d2; border-bottom: 1px solid var(--line-soft); padding-bottom: 7px; }
+  .doc-main .deflist b { font: 600 var(--fs-base) var(--mono); color: var(--ink); }
+  .doc-main code { font: 500 var(--fs-base) var(--mono); color: var(--cyan); background: var(--bar); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
 </style>
 </head>
 <body>
@@ -52,7 +52,7 @@
         <div class="search"><span class="ic">⌕</span><input type="text" id="doc-search" placeholder="search documentation"></div>
         <div class="doc-nav-group">GETTING STARTED</div>
         <div class="doc-nav-item is-active" data-sec="overview">Overview</div>
-        <div class="doc-nav-item" data-sec="whatsnew">What's new in v3.2.2</div>
+        <div class="doc-nav-item" data-sec="whatsnew">What's new in v3.2.3</div>
         <div class="doc-nav-item" data-sec="first-run">First run &amp; login</div>
         <div class="doc-nav-item" data-sec="quick-start">Quick start</div>
         <div class="doc-nav-item" data-sec="userdata">Userdata folder</div>
@@ -88,8 +88,19 @@
         </div>
         <div class="doc-sec" data-sec="whatsnew" hidden>
           <div class="eyebrow">RELEASE NOTES</div>
-          <h1>What's new in v3.2.2</h1>
-          <p>v3.2.2 is a patch on top of v3.2.1: forced event choices finally persist across saves, energy/recovery items are used more sensibly, late-game item dumping is far more aggressive, the Discord notify toggles work, and Career History shows a read-only win-probability estimate.</p>
+          <h1>What's new in v3.2.3</h1>
+          <p>v3.2.3 adds a <strong>Display</strong> (appearance) panel — scale the whole interface's text size and pick your own fonts — backed by a single centralized type-scale config under the hood.</p>
+          <div class="deflist">
+            <div><b>New DISPLAY button &amp; panel</b><span>A <span class="kw">DISPLAY</span> button (with a ⚙ gear, like Tempt Fate / Retries) now sits in the top-right of the navbar on every page. It opens an Appearance panel for text size, fonts, and the accent theme. Choices apply instantly and are remembered per device.</span></div>
+            <div><b>Font size scaling</b><span>Pick <span class="kw">Small / Normal / Large / X-Large</span> to scale every font in the interface at once — handy if the dense UI is hard to read. Nothing changes size at the Normal setting.</span></div>
+            <div><b>Selectable fonts</b><span>Choose separate <span class="kw">Body</span>, <span class="kw">Heading</span>, and <span class="kw">Numeric</span> fonts from a curated list of Google Fonts, including the high-legibility <em>Atkinson Hyperlegible</em>, serif options, and several monospaces. (Selected fonts download from Google Fonts and need internet; offline, a matching system font is used.)</span></div>
+            <div><b>Theme moved into Display</b><span>The six accent colours (amber / cyan / emerald / violet / rose / ice) are now selectable in the Display panel too — they were previously only reachable by clicking the ICARUS logo (which still works).</span></div>
+            <div><b>Centralized type config</b><span>Under the hood, every hardcoded font size across the v3 UI was moved into one type-scale config (CSS variables in <code>styles.css</code>), so all sizes can be tuned from a single place.</span></div>
+            <div><b>Logout moved to the transport bar</b><span>On the dashboard, <span class="kw">LOGOUT</span> moved down next to <span class="kw">RUN / PAUSE / STOP</span>, freeing its old navbar spot for the new DISPLAY button.</span></div>
+            <div><b>Also included</b><span>The late-game megaphone (Reset Whistle) dump fix and the 3rd/final-climax Master Cleat Hammer display fix described in v3.2.2 are in this build.</span></div>
+          </div>
+          <h3>Earlier in v3.2.2</h3>
+          <p>v3.2.2 was a patch on top of v3.2.1: forced event choices finally persist across saves, energy/recovery items are used more sensibly, late-game item dumping is far more aggressive, the Discord notify toggles work, and Career History shows a read-only win-probability estimate.</p>
           <div class="deflist">
             <div><b>Forced event choices finally stick</b><span>Saving any settings modal used to silently wipe the choices you forced in the Event Choices panel (it re-wrote the whole preset with an empty list), so the runner fell back to Auto. Forced choices are now stored independently and survive every other save — they actually apply in-career.</span></div>
             <div><b>Energy items only when training</b><span>Vita / Energy Drink / Royal Kale Juice are no longer wasted on REST turns. They fire only when the turn's action is TRAINING and energy is the limiter (the late-game dump still empties them).</span></div>
@@ -1123,7 +1134,7 @@
 
       <div style="width:240px;flex-shrink:0;border-left:1px solid var(--line);padding:22px 18px">
         <div class="doc-nav-group" style="padding:0 0 12px">NEED HELP?</div>
-        <p style="font:500 11px/1.6 var(--mono);color:var(--label);margin:0 0 4px">Pick a topic on the left, or use search. This guide covers every page, setting, and control in Icarus — what each does and how to use it.</p>
+        <p style="font:500 var(--fs-md)/1.6 var(--mono);color:var(--label);margin:0 0 4px">Pick a topic on the left, or use search. This guide covers every page, setting, and control in Icarus — what each does and how to use it.</p>
         <div style="border-top:1px solid var(--line);margin:22px 0 16px"></div>
         <div class="doc-nav-group" style="padding:0 0 10px">QUICK LINKS</div>
         <div style="display:flex;flex-direction:column;gap:8px">
@@ -1139,7 +1150,7 @@
 
   </div>
 </div>
-<script src="core.js?v=12"></script>
+<script src="core.js?v=14"></script>
 <script>
   Icarus.mountChrome();
   const docMain = document.querySelector('.doc-main');

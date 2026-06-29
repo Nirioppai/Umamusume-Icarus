@@ -38,12 +38,12 @@
       row.style.cssText = 'grid-template-columns:44px 1fr 90px 130px 70px 90px 150px' + (a.status === 'idle' ? ';opacity:.82' : '');
       row.innerHTML = `
         <span class="statusdot ${s.dot}"></span>
-        <div><div style="font:700 13px var(--cond);letter-spacing:.04em;color:var(--ink)">${esc(a.name)}</div>
-        <div style="font:500 9px var(--mono);color:${a.status === 'error' ? 'var(--red)' : 'var(--label)'};margin-top:2px">${esc(a.trainee)}</div></div>
-        <span style="font:600 11px var(--mono);color:var(--ink-2)">${a.port}</span>
-        <span style="font:600 10px var(--mono)" class="${s.cls}">${s.txt}</span>
-        <span class="r" style="font:600 11px var(--mono);color:var(--ink-2)">${a.runs}</span>
-        <span class="r" style="font:600 11px var(--mono);color:var(--amber)">${fmtCompact(a.fans)}</span>
+        <div><div style="font:700 var(--fs-lg) var(--cond);letter-spacing:.04em;color:var(--ink)">${esc(a.name)}</div>
+        <div style="font:500 var(--fs-xs) var(--mono);color:${a.status === 'error' ? 'var(--red)' : 'var(--label)'};margin-top:2px">${esc(a.trainee)}</div></div>
+        <span style="font:600 var(--fs-md) var(--mono);color:var(--ink-2)">${a.port}</span>
+        <span style="font:600 var(--fs-sm) var(--mono)" class="${s.cls}">${s.txt}</span>
+        <span class="r" style="font:600 var(--fs-md) var(--mono);color:var(--ink-2)">${a.runs}</span>
+        <span class="r" style="font:600 var(--fs-md) var(--mono);color:var(--amber)">${fmtCompact(a.fans)}</span>
         <span style="display:flex;gap:6px;justify-content:flex-end">${controlFor(a)}</span>`;
       host.appendChild(row);
     });

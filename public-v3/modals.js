@@ -106,7 +106,7 @@
       </div>`;
   };
   const aptGrid = () => row('Manual Solver Aptitudes', 'Override Sprint / Mile / Medium / Long / Turf / Dirt grades (per trainee).',
-    `<div class="row2" style="grid-template-columns:repeat(6,1fr);width:100%">${APTS.map((a, i) => `<div><div style="font:600 8px var(--cond);letter-spacing:.1em;color:var(--label);text-align:center;margin-bottom:4px">${a.slice(0, 4).toUpperCase()}</div><select class="self" style="min-width:0;width:100%;padding:7px 4px;font-size:11px;text-align:center">${['S', 'A', 'B', 'C', 'D', 'E', 'F', 'G'].map((g) => `<option${g === ['A', 'B', 'A', 'A', 'A', 'G'][i] ? ' selected' : ''}>${g}</option>`).join('')}</select></div>`).join('')}</div>`, true);
+    `<div class="row2" style="grid-template-columns:repeat(6,1fr);width:100%">${APTS.map((a, i) => `<div><div style="font:600 var(--fs-2xs) var(--cond);letter-spacing:.1em;color:var(--label);text-align:center;margin-bottom:4px">${a.slice(0, 4).toUpperCase()}</div><select class="self" style="min-width:0;width:100%;padding:7px 4px;font-size:var(--fs-md);text-align:center">${['S', 'A', 'B', 'C', 'D', 'E', 'F', 'G'].map((g) => `<option${g === ['A', 'B', 'A', 'A', 'A', 'G'][i] ? ' selected' : ''}>${g}</option>`).join('')}</select></div>`).join('')}</div>`, true);
 
   const saveBtn = (endpoint, label = 'SAVE') => `<button class="abtn amber" type="button" data-save="${endpoint}">${label}</button>`;
   // Registry of per-modal value collectors. A collector returns the exact
@@ -188,7 +188,7 @@
     ov.style.zIndex = '80';
     ov.innerHTML = `<div class="modal" style="width:400px">
       <div class="modal-head"><span class="modal-mark"></span><span class="modal-title">UNSAVED CHANGES</span></div>
-      <div class="modal-body" style="padding:18px"><p style="font:500 12px/1.7 var(--mono);color:var(--ink-2);margin:0">You’ve made changes that haven’t been saved. Save them before closing?</p></div>
+      <div class="modal-body" style="padding:18px"><p style="font:500 var(--fs-base)/1.7 var(--mono);color:var(--ink-2);margin:0">You’ve made changes that haven’t been saved. Save them before closing?</p></div>
       <div class="modal-foot"><button class="abtn" type="button" data-uc-discard>DISCARD CHANGES</button><button class="abtn amber" type="button" data-uc-save>SAVE CHANGES</button></div>
     </div>`;
     document.body.appendChild(ov);
@@ -689,20 +689,20 @@
         ${skFilters(true)}
       </div>
       <div data-planpanel="prefinals" style="display:none">
-        <div class="sk-card"><p style="margin:8px 0;font:400 12px var(--sans);color:var(--dim)">This plan uses the same weighted purchase rules when triggered by pre finals.</p>${toggle('Enable Plan', false, 'Purchase skills during pre finals.', 'sk.pre_finals_enabled')}</div>
+        <div class="sk-card"><p style="margin:8px 0;font:400 var(--fs-base) var(--sans);color:var(--dim)">This plan uses the same weighted purchase rules when triggered by pre finals.</p>${toggle('Enable Plan', false, 'Purchase skills during pre finals.', 'sk.pre_finals_enabled')}</div>
       </div>
       <div data-planpanel="complete" style="display:none">
-        <div class="sk-card"><p style="margin:8px 0;font:400 12px var(--sans);color:var(--dim)">This plan uses the same weighted purchase rules when triggered by career complete.</p>${toggle('Enable Plan', false, 'Purchase skills during career complete.', 'sk.career_complete_enabled')}</div>
+        <div class="sk-card"><p style="margin:8px 0;font:400 var(--fs-base) var(--sans);color:var(--dim)">This plan uses the same weighted purchase rules when triggered by career complete.</p>${toggle('Enable Plan', false, 'Purchase skills during career complete.', 'sk.career_complete_enabled')}</div>
       </div>
 
-      ${skSec('STRATEGY &amp; PLANNED SKILLS', sel('Automated Skill Point Spending Strategy', [['best_skills_first', 'Best Skills First'], ['optimize_rank', 'Optimize Rank']], 'best_skills_first', '', 'sk.skill_spending_strategy') + sel('Skill Optimization Target', [['career', 'Career (Fans / Single-Mode)'], ['team_trials', 'Team Trials'], ['champions', 'Champions Meeting (PvP)']], 'career', 'Career (default) keeps fans-first single-mode value. Team Trials / Champions instead weight each skill by its rank on your finished uma in that mode — and KEEP single-mode-disabled skills, which Career hard-drops because the game turns them off during a career run. Works alongside (not instead of) the strategy above.', 'sk.skill_optimization_target') + `<div class="srow"><div class="srow-text"><strong>Planned Skills</strong><span id="sk-selcount">Selected 0 / ${SK_SKILLS.length} skills</span></div><div class="srow-ctrl"><button class="abtn danger" type="button" id="sk-clear">CLEAR</button></div></div><div class="sk-tabs"><button class="sk-tab on" type="button" data-listtab="plan">Plan (0)</button><button class="sk-tab" type="button" data-listtab="blacklist">Blacklist (0)</button></div>` + tglRow('sk-showsel', 'Show Only Selected Skills', false, 'Filter the list to only currently selected skills.') + `<input class="sk-search" id="sk-search" placeholder="Search skills by name..."><div style="font:400 10px var(--sans);color:var(--dim);margin:2px 0 6px">Click a skill to add it to the plan (the tier picker opens automatically) · right-click any skill to add it to a tier list.</div><div class="sk-list" id="sk-list"></div>`)}
+      ${skSec('STRATEGY &amp; PLANNED SKILLS', sel('Automated Skill Point Spending Strategy', [['best_skills_first', 'Best Skills First'], ['optimize_rank', 'Optimize Rank']], 'best_skills_first', '', 'sk.skill_spending_strategy') + sel('Skill Optimization Target', [['career', 'Career (Fans / Single-Mode)'], ['team_trials', 'Team Trials'], ['champions', 'Champions Meeting (PvP)']], 'career', 'Career (default) keeps fans-first single-mode value. Team Trials / Champions instead weight each skill by its rank on your finished uma in that mode — and KEEP single-mode-disabled skills, which Career hard-drops because the game turns them off during a career run. Works alongside (not instead of) the strategy above.', 'sk.skill_optimization_target') + `<div class="srow"><div class="srow-text"><strong>Planned Skills</strong><span id="sk-selcount">Selected 0 / ${SK_SKILLS.length} skills</span></div><div class="srow-ctrl"><button class="abtn danger" type="button" id="sk-clear">CLEAR</button></div></div><div class="sk-tabs"><button class="sk-tab on" type="button" data-listtab="plan">Plan (0)</button><button class="sk-tab" type="button" data-listtab="blacklist">Blacklist (0)</button></div>` + tglRow('sk-showsel', 'Show Only Selected Skills', false, 'Filter the list to only currently selected skills.') + `<input class="sk-search" id="sk-search" placeholder="Search skills by name..."><div style="font:400 var(--fs-sm) var(--sans);color:var(--dim);margin:2px 0 6px">Click a skill to add it to the plan (the tier picker opens automatically) · right-click any skill to add it to a tier list.</div><div class="sk-list" id="sk-list"></div>`)}
 
       <div class="sk-seclabel">MANUAL SKILL TIERS <span class="sk-status off" id="sk-status">INACTIVE \u2014 NO TIERS SET (AUTO PLAN IN USE)</span></div>
       <div class="sk-card" style="padding:16px 18px">
-        <p style="margin:0 0 12px;font:400 12px/1.7 var(--sans);color:var(--dim)">Build a tier list of the skills you want the bot to buy. Whenever any tier has skills, this list <b style="color:var(--ink-2)">drives purchasing</b> \u2014 the bot buys these by tier (T1 first), and manually-listed skills are bought even if they're off-distance/off-style. Within a tier, smart score / cost breaks ties.<br>If all tiers are empty, the bot uses the automatic skill-point plan instead.</p>
+        <p style="margin:0 0 12px;font:400 var(--fs-base)/1.7 var(--sans);color:var(--dim)">Build a tier list of the skills you want the bot to buy. Whenever any tier has skills, this list <b style="color:var(--ink-2)">drives purchasing</b> \u2014 the bot buys these by tier (T1 first), and manually-listed skills are bought even if they're off-distance/off-style. Within a tier, smart score / cost breaks ties.<br>If all tiers are empty, the bot uses the automatic skill-point plan instead.</p>
         ${tglRow('sk-auto', 'After selected skills are bought, switch to AUTO purchasing', false, 'Off (default) buys only the skills in these tiers then stops; on lets the automatic plan spend the rest once your listed skills are all owned.')}
         <div id="sk-tiers"></div>
-        <p style="margin:10px 0 0;font:400 11px var(--sans);color:var(--dim)">Right-click a skill in <b style="color:var(--ink-2)">Planned Skills</b> above to add it to a tier.</p>
+        <p style="margin:10px 0 0;font:400 var(--fs-md) var(--sans);color:var(--dim)">Right-click a skill in <b style="color:var(--ink-2)">Planned Skills</b> above to add it to a tier.</p>
       </div>`;
   }
 
@@ -850,9 +850,9 @@
   const rarityRibbon = (rarity) => {
     const R = String(rarity || '').toUpperCase(); if (!R) return '';
     const bg = R === 'SSR' ? 'linear-gradient(120deg,#7ad7f0,#b98cff,#ff9ec7)' : R === 'SR' ? 'linear-gradient(135deg,#f6d36a,#caa13a)' : 'linear-gradient(135deg,#cdd4df,#9aa3b2)';
-    return `<span style="position:absolute;top:5px;left:5px;font:800 8px var(--cond);letter-spacing:.05em;color:#1a1206;background:${bg};padding:2px 5px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.45)">${esc(R)}</span>`;
+    return `<span style="position:absolute;top:5px;left:5px;font:800 var(--fs-2xs) var(--cond);letter-spacing:.05em;color:#1a1206;background:${bg};padding:2px 5px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.45)">${esc(R)}</span>`;
   };
-  const cornerStar = '<span style="position:absolute;top:4px;right:5px;color:#f6c945;font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,.5)">\u2605</span>';
+  const cornerStar = '<span style="position:absolute;top:4px;right:5px;color:#f6c945;font-size:var(--fs-base);text-shadow:0 1px 2px rgba(0,0,0,.5)">\u2605</span>';
   const udSource = (s) => ({ pointer: 'pointer file', env: 'environment variable', build: 'in-build folder', legacy: 'legacy path' }[String(s || '').toLowerCase()] || (s || '\u2014'));
 
   // ---- Build Custom Deck: owned support cards from /api/session, applied to
@@ -923,18 +923,18 @@
     grid.innerHTML = `<div class="sk-empty">Finding recommended supports for ${esc(trainee.name || 'this trainee')}\u2026</div>`;
 
     const ownedBadge = (c) => c.owned
-      ? `<span style="display:inline-block;font:700 8px var(--cond);letter-spacing:.06em;padding:2px 6px;border-radius:3px;background:rgba(123,255,176,.16);color:#7bffb0">OWNED${c.owned_limit_break != null ? ' LB' + Math.max(0, Number(c.owned_limit_break)) : ''}</span>`
-      : `<span style="display:inline-block;font:700 8px var(--cond);letter-spacing:.06em;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,.06);color:var(--label)">NOT OWNED</span>`;
-    const setupCard = (c) => `<div class="cardcell" style="position:relative;${c.owned ? '' : 'opacity:.6'}"><div class="cardcell-img" style="height:78px;position:relative">${cardImg(c.card_id || '10001', 78)}${rarityRibbon(c.rarity)}${c.owned ? cornerStar : ''}</div><div style="padding:9px"><div style="font:700 11px var(--cond);letter-spacing:.04em;color:var(--ink)">${esc(c.name || 'Unknown')}${c.epithet ? ` <em style="font-style:italic;opacity:.7">${esc(c.epithet)}</em>` : ''}</div><div style="font:600 9px var(--mono);color:var(--label);margin-top:3px">${esc([c.type, c.owned ? ('LB' + Math.max(0, Number(c.owned_limit_break ?? 0))) : null].filter(Boolean).join(' \u00b7 ') || 'support')}</div><div style="margin-top:5px">${ownedBadge(c)}</div></div></div>`;
-    const setupBlock = (label, cards, bonus) => `<div style="margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font:700 11px var(--cond);letter-spacing:.14em;color:var(--ink)">${esc(label || 'Setup')}</span>${bonus != null && bonus !== '' ? `<span style="font:700 9px var(--mono);color:var(--panel);background:var(--amber);padding:2px 7px;border-radius:3px">RACE BONUS ${esc(String(bonus))}</span>` : ''}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${(cards || []).map(setupCard).join('')}</div></div>`;
+      ? `<span style="display:inline-block;font:700 var(--fs-2xs) var(--cond);letter-spacing:.06em;padding:2px 6px;border-radius:3px;background:rgba(123,255,176,.16);color:#7bffb0">OWNED${c.owned_limit_break != null ? ' LB' + Math.max(0, Number(c.owned_limit_break)) : ''}</span>`
+      : `<span style="display:inline-block;font:700 var(--fs-2xs) var(--cond);letter-spacing:.06em;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,.06);color:var(--label)">NOT OWNED</span>`;
+    const setupCard = (c) => `<div class="cardcell" style="position:relative;${c.owned ? '' : 'opacity:.6'}"><div class="cardcell-img" style="height:78px;position:relative">${cardImg(c.card_id || '10001', 78)}${rarityRibbon(c.rarity)}${c.owned ? cornerStar : ''}</div><div style="padding:9px"><div style="font:700 var(--fs-md) var(--cond);letter-spacing:.04em;color:var(--ink)">${esc(c.name || 'Unknown')}${c.epithet ? ` <em style="font-style:italic;opacity:.7">${esc(c.epithet)}</em>` : ''}</div><div style="font:600 var(--fs-xs) var(--mono);color:var(--label);margin-top:3px">${esc([c.type, c.owned ? ('LB' + Math.max(0, Number(c.owned_limit_break ?? 0))) : null].filter(Boolean).join(' \u00b7 ') || 'support')}</div><div style="margin-top:5px">${ownedBadge(c)}</div></div></div>`;
+    const setupBlock = (label, cards, bonus) => `<div style="margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font:700 var(--fs-md) var(--cond);letter-spacing:.14em;color:var(--ink)">${esc(label || 'Setup')}</span>${bonus != null && bonus !== '' ? `<span style="font:700 var(--fs-xs) var(--mono);color:var(--panel);background:var(--amber);padding:2px 7px;border-radius:3px">RACE BONUS ${esc(String(bonus))}</span>` : ''}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${(cards || []).map(setupCard).join('')}</div></div>`;
 
     // 1) Prefer the scraped Game8 Trackblazer build (setups / budget / alternates).
     let sg = null;
     try { sg = await api(`/api/trainee/support-setups?card_id=${encodeURIComponent(trainee.id)}`); } catch (e) { /* preview */ }
     if (sg && sg.found && ((sg.setups && sg.setups.length) || sg.budget)) {
-      const src = sg.source_url ? `<a href="${esc(sg.source_url)}" target="_blank" rel="noopener" style="color:var(--cyan);font:600 9px var(--mono);text-decoration:none">Game8 source \u2197</a>` : '';
-      const notes = (sg.notes && sg.notes.length) ? `<div style="font:500 10px/1.6 var(--mono);color:var(--dim);margin-bottom:12px">${esc(sg.notes.join(' \u00b7 '))}</div>` : '';
-      let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font:500 10px var(--mono);color:var(--label)">Trackblazer build \u2014 cards you own are marked ${ownedBadge({ owned: true })}</span>${src}</div>${notes}`;
+      const src = sg.source_url ? `<a href="${esc(sg.source_url)}" target="_blank" rel="noopener" style="color:var(--cyan);font:600 var(--fs-xs) var(--mono);text-decoration:none">Game8 source \u2197</a>` : '';
+      const notes = (sg.notes && sg.notes.length) ? `<div style="font:500 var(--fs-sm)/1.6 var(--mono);color:var(--dim);margin-bottom:12px">${esc(sg.notes.join(' \u00b7 '))}</div>` : '';
+      let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font:500 var(--fs-sm) var(--mono);color:var(--label)">Trackblazer build \u2014 cards you own are marked ${ownedBadge({ owned: true })}</span>${src}</div>${notes}`;
       (sg.setups || []).forEach((s, i) => { html += setupBlock(s.label || `Setup ${i + 1}`, s.cards, s.race_bonus); });
       if (sg.budget && (sg.budget.cards || []).length) html += setupBlock('Budget Build' + (sg.budget.label ? ' \u2014 ' + sg.budget.label : ''), sg.budget.cards, sg.budget.race_bonus);
       if ((sg.alternates || []).length) html += setupBlock('Alternates', sg.alternates);
@@ -947,8 +947,8 @@
     try { data = await api(`/api/trainee/recommended-supports?card_id=${encodeURIComponent(trainee.id)}`); } catch (e) { /* preview */ }
     const recs = (data && data.recommended) || [];
     if (!recs.length) { grid.innerHTML = `<div class="sk-empty">${data && data.owned_count === 0 ? 'No owned support cards loaded \u2014 log in and load your account first.' : 'No recommendations available for this trainee.'}</div>`; return; }
-    const recCard = (c) => `<div class="cardcell" style="position:relative"><div class="cardcell-img" style="height:78px;position:relative">${cardImg(c.id || c.card_id || '10001', 78)}${rarityRibbon(c.rarity)}${cornerStar}</div><div style="padding:9px"><div style="font:700 11px var(--cond);letter-spacing:.04em;color:var(--ink)">${esc(c.name || 'Unknown')}</div><div style="font:600 9px var(--mono);color:var(--label);margin-top:3px">${esc([c.type, c.limit_break != null ? ('LB' + Math.max(0, Number(c.limit_break))) : null].filter(Boolean).join(' \u00b7 ') || 'support')}</div>${c.reason ? `<div style="font:500 9px/1.4 var(--mono);color:var(--cyan);margin-top:5px">${esc(c.reason)}</div>` : ''}</div></div>`;
-    grid.innerHTML = `<div style="font:500 10px var(--mono);color:var(--dim);margin-bottom:12px">No Game8 Trackblazer build for this trainee \u2014 best picks from your ${data.owned_count || recs.length} owned cards.</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${recs.map(recCard).join('')}</div>`;
+    const recCard = (c) => `<div class="cardcell" style="position:relative"><div class="cardcell-img" style="height:78px;position:relative">${cardImg(c.id || c.card_id || '10001', 78)}${rarityRibbon(c.rarity)}${cornerStar}</div><div style="padding:9px"><div style="font:700 var(--fs-md) var(--cond);letter-spacing:.04em;color:var(--ink)">${esc(c.name || 'Unknown')}</div><div style="font:600 var(--fs-xs) var(--mono);color:var(--label);margin-top:3px">${esc([c.type, c.limit_break != null ? ('LB' + Math.max(0, Number(c.limit_break))) : null].filter(Boolean).join(' \u00b7 ') || 'support')}</div>${c.reason ? `<div style="font:500 var(--fs-xs)/1.4 var(--mono);color:var(--cyan);margin-top:5px">${esc(c.reason)}</div>` : ''}</div></div>`;
+    grid.innerHTML = `<div style="font:500 var(--fs-sm) var(--mono);color:var(--dim);margin-bottom:12px">No Game8 Trackblazer build for this trainee \u2014 best picks from your ${data.owned_count || recs.length} owned cards.</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${recs.map(recCard).join('')}</div>`;
   }
 
   // ---- Userdata folder: live info + set-path (path + non-destructive migrate). ----
@@ -967,7 +967,7 @@
     if (info.is_fallback_build_dir) warns.push("You're using the in-build folder \u2014 settings are lost on the next version unless you reuse the same folder.");
     if (info.is_legacy_path) warns.push('Resolving via a legacy path. Set an Icarus path here to migrate cleanly.');
     const w = o.querySelector('#ud-warn');
-    if (w && warns.length) { w.style.display = ''; w.innerHTML = warns.map((p) => `<div style="font:500 10px/1.5 var(--mono);color:var(--amber);background:#1a1206;border:1px solid var(--amber);border-radius:4px;padding:8px 10px;margin-bottom:6px">\u26a0 ${esc(p)}</div>`).join(''); }
+    if (w && warns.length) { w.style.display = ''; w.innerHTML = warns.map((p) => `<div style="font:500 var(--fs-sm)/1.5 var(--mono);color:var(--amber);background:#1a1206;border:1px solid var(--amber);border-radius:4px;padding:8px 10px;margin-bottom:6px">\u26a0 ${esc(p)}</div>`).join(''); }
   }
   SAVE_COLLECTORS['/api/userdata/set-path'] = (o) => {
     const inp = o && o.querySelector('#ud-path'); const path = inp ? inp.value.trim() : '';
@@ -1104,20 +1104,6 @@
               slider('sc-ah2', 'Artisan Hammer Min Stock for G2', 0, 3, 0, 1, '', '', 'mant.trackblazer_artisan_hammer_min_stock_for_g2'),
               slider('sc-gs', 'Glow Stick Final-Day Reserve', 0, 3, 1, 1, '', '', 'mant.trackblazer_glow_stick_final_reserve'),
               slider('sc-gsf', 'Glow Stick Minimum Fans', 0, 30000, 20000, 1000, '', '', 'mant.trackblazer_glow_stick_min_fans'))}
-            ${sec('(NIRIO) FORK TUNING',
-              note('<b style="color:var(--amber)">Fork-only knobs.</b> These tune late-game skill buying, mood management, and item spending. Mega/anklet/cashout sliders removed — upstream v3.2.2 dump logic is now better for those. Saved per-preset.'),
-              slider('nr-sft', 'Skill Force Turn', 30, 73, 60, 1, '', 'Force skill buying after this turn if SP ≥ floor.', 'mant.nirio_skill_force_turn'),
-              slider('nr-ssf', 'Skill SP Floor', 100, 1500, 500, 50, '', 'Min SP required for forced skill buying.', 'mant.nirio_skill_sp_floor'),
-              slider('nr-sht', 'Skill Hoard Threshold', 500, 2000, 1000, 50, '', 'Buy skills immediately above this SP.', 'mant.nirio_skill_hoard_threshold'),
-              slider('nr-mrt', 'Mood Repair Turn', 30, 70, 50, 1, '', 'Use cupcakes aggressively after this turn when mood ≤ floor.', 'mant.nirio_mood_repair_turn'),
-              slider('nr-mfl', 'Mood Floor', 1, 4, 2, 1, '', 'Trigger mood repair when motivation ≤ this.', 'mant.nirio_mood_floor'),
-              slider('nr-mct', 'Mood Critical Turn', 50, 73, 68, 1, '', 'Hard-block optional race chains when mood ≤ floor after this turn.', 'mant.nirio_mood_critical_turn'),
-              slider('nr-cmf', 'Chain Mood Floor', 1, 4, 2, 1, '', 'Block race chains when motivation ≤ this (after critical turn).', 'mant.nirio_chain_mood_floor'),
-              slider('nr-cdt', 'Charm Dump Turn', 40, 72, 60, 1, '', 'Lower Good-Luck Charm thresholds after this turn.', 'mant.nirio_charm_dump_turn'),
-              slider('nr-cdg', 'Charm Dump Min Gain', 1, 20, 8, 1, '', 'Minimum stat gain for charm in dump window.', 'mant.nirio_charm_dump_min_gain'),
-              slider('nr-cdf', 'Charm Dump Failure Rate', 1, 30, 10, 1, '', 'Min failure rate to trigger charm in dump window.', 'mant.nirio_charm_dump_failure_rate'),
-              slider('nr-wdt', 'Whistle Dump Turn', 40, 72, 60, 1, '', 'Allow whistle usage after this turn.', 'mant.nirio_whistle_dump_turn'),
-              slider('nr-mcr', 'MCH Climax Reserve', 0, 5, 3, 1, '', 'Master Cleat Hammers reserved for climax races.', 'mant.nirio_mch_reserve'))}
 `,
         onMount: (o) => { wireSave(o); Promise.resolve(initSettingsModal(o)).then(() => armUnsavedGuard(o)); },
       });
@@ -1131,8 +1117,8 @@
         foot: `<button class="abtn cyan" type="button">SOLVE PREVIEW</button><button class="abtn danger" type="button" id="solver-reset-apt">RESET APTITUDES</button>${saveBtn('/api/smart-solver/config')}`,
         body: `
             ${sec('SMART RACE SOLVER',
-              `<div class="srow"><div class="srow-text"><strong>Active Mode</strong><span>Use the compact Smart Race Solver / Manual Selection buttons on the Trackblazer card to switch modes.</span></div><div class="srow-ctrl"><span style="color:var(--cyan);font:700 12px var(--mono)">Smart Race Solver</span></div></div>`,
-              `<div class="srow"><div class="srow-text"><strong>Character Preset</strong><span>Uses the trainee selected in Setup. Changing this list updates the active trainee selection.</span></div><div class="srow-ctrl" style="flex-direction:column;align-items:flex-end;gap:8px"><span id="solver-char-name" style="color:var(--amber);font:700 13px var(--mono)">Air Shakur</span><button class="abtn amberline" type="button" id="solver-refresh">REFRESH PROFILE</button></div></div>`,
+              `<div class="srow"><div class="srow-text"><strong>Active Mode</strong><span>Use the compact Smart Race Solver / Manual Selection buttons on the Trackblazer card to switch modes.</span></div><div class="srow-ctrl"><span style="color:var(--cyan);font:700 var(--fs-base) var(--mono)">Smart Race Solver</span></div></div>`,
+              `<div class="srow"><div class="srow-text"><strong>Character Preset</strong><span>Uses the trainee selected in Setup. Changing this list updates the active trainee selection.</span></div><div class="srow-ctrl" style="flex-direction:column;align-items:flex-end;gap:8px"><span id="solver-char-name" style="color:var(--amber);font:700 var(--fs-lg) var(--mono)">Air Shakur</span><button class="abtn amberline" type="button" id="solver-refresh">REFRESH PROFILE</button></div></div>`,
               `<div class="search charsearch"><span class="ic">⌕</span><input type="text" placeholder="Search characters…" id="solver-char-search"></div><div class="charlist" id="solver-char-list">${SOLVER_CHARS.map((c) => charRow(c.name, c.id, c.id === SV.charId)).join('')}</div>`)}
             ${sec('APTITUDES',
               `<p class="field-help" style="margin:0 0 6px">Manual Start replaces the trainee preset for solver planning. Estimated Parent Sparks are added on top, and Solver Final is sent to the route solver.</p>`,
@@ -1182,7 +1168,7 @@
               <div class="search" style="flex:1;border:1px solid var(--line-card);border-radius:4px;padding:8px 11px"><span class="ic">⌕</span><input type="text" id="cd-search" placeholder="search owned support cards"></div>
               <select class="self" id="cd-type" style="width:160px"><option>All types</option><option>Speed</option><option>Stamina</option><option>Power</option><option>Guts</option><option>Wit</option><option>Friend</option></select>
             </div>
-            <div id="cd-status" style="font:500 9px var(--mono);color:var(--label);margin-bottom:8px"></div>
+            <div id="cd-status" style="font:500 var(--fs-xs) var(--mono);color:var(--label);margin-bottom:8px"></div>
             <div class="cardgrid" id="cd-grid"></div>
           </div>`,
         onMount: (o) => { wireSave(o); Promise.resolve(mountCustomDeck(o)).then(() => armUnsavedGuard(o)); },
@@ -1205,13 +1191,13 @@
         body: `
           <p class="field-help" style="margin:0 0 16px">Your settings, presets, accounts, and Steam auth live in a userdata folder. Pointing this somewhere stable means your data survives version upgrades.</p>
           <div class="fsec"><div class="fsec-title">CURRENT</div>
-            <div style="display:flex;justify-content:space-between;font:500 11px var(--mono);margin-bottom:8px"><span class="c-mut">Folder</span><span id="ud-current" style="color:var(--ink-2)">…</span></div>
-            <div style="display:flex;justify-content:space-between;font:500 11px var(--mono);margin-bottom:8px"><span class="c-mut">Resolved via</span><span id="ud-source" style="color:var(--ink-2)">…</span></div>
-            <div style="display:flex;justify-content:space-between;font:500 11px var(--mono)"><span class="c-mut">Pointer</span><span id="ud-pointer" class="c-cyan">…</span></div>
+            <div style="display:flex;justify-content:space-between;font:500 var(--fs-md) var(--mono);margin-bottom:8px"><span class="c-mut">Folder</span><span id="ud-current" style="color:var(--ink-2)">…</span></div>
+            <div style="display:flex;justify-content:space-between;font:500 var(--fs-md) var(--mono);margin-bottom:8px"><span class="c-mut">Resolved via</span><span id="ud-source" style="color:var(--ink-2)">…</span></div>
+            <div style="display:flex;justify-content:space-between;font:500 var(--fs-md) var(--mono)"><span class="c-mut">Pointer</span><span id="ud-pointer" class="c-cyan">…</span></div>
           </div>
           <div id="ud-warn" style="display:none"></div>
           <div class="fsec"><div class="fsec-title">SET A STABLE FOLDER</div>
-            <input id="ud-path" class="numf" type="text" placeholder="C:\\Umamusume API Bot\\Icarus_userdata" style="font-size:11px;margin-bottom:10px">
+            <input id="ud-path" class="numf" type="text" placeholder="C:\\Umamusume API Bot\\Icarus_userdata" style="font-size:var(--fs-md);margin-bottom:10px">
             <div class="srow"><div class="srow-text"><strong>Also copy current settings/presets/auth</strong><span>Non-destructive copy into the new folder.</span></div><div class="srow-ctrl"><div class="tgl on" id="ud-migrate"><span class="tgl-sw"></span></div></div></div>
           </div>`,
         onMount: (o) => { wireSave(o); Promise.resolve(mountUserdata(o)).then(() => armUnsavedGuard(o)); },
@@ -1225,7 +1211,7 @@
         body: `
           <p class="field-help" style="margin:0 0 14px">Get a ping in Discord when a career finishes, crashes, or hits a milestone.</p>
           <div class="field"><div class="field-label"><span>WEBHOOK URL</span></div>
-          <input id="discord-url" class="numf" type="password" placeholder="https://discord.com/api/webhooks/…" style="font-size:11px"></div>
+          <input id="discord-url" class="numf" type="password" placeholder="https://discord.com/api/webhooks/…" style="font-size:var(--fs-md)"></div>
           ${toggle('Notify on career finish', true, '', 'notify_on_finish')}
           ${toggle('Notify on crash / stuck', true, '', 'notify_on_crash')}
           ${toggle('Notify on new epithet', false, '', 'notify_on_epithet')}`,

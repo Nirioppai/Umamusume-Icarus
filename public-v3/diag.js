@@ -76,7 +76,7 @@
   function aiView() {
     const statusColor = { online: 'green', authed: 'green', set: 'ink-2' };
     const style = (ai.style || []).map(([k, v]) => `
-      <div style="flex:1"><div style="display:flex;justify-content:space-between;font:500 10px var(--mono);margin-bottom:5px"><span style="color:var(--label)">${esc(k)}</span><span style="color:${v >= 40 ? 'var(--cyan)' : 'var(--ink-2)'}">${v}%</span></div>
+      <div style="flex:1"><div style="display:flex;justify-content:space-between;font:500 var(--fs-sm) var(--mono);margin-bottom:5px"><span style="color:var(--label)">${esc(k)}</span><span style="color:${v >= 40 ? 'var(--cyan)' : 'var(--ink-2)'}">${v}%</span></div>
       <div class="barmini"><div class="${v >= 40 ? 'fill-cyan' : ''}" style="width:${v}%"></div></div></div>`).join('');
     const untrained = !ai.trained ? `
       <div class="card" style="border-color:var(--amber-dk)">
@@ -110,8 +110,8 @@
         <div class="card" style="flex:1">
           <div class="card-head"><span class="card-title">LOCAL LLM</span><span class="col-meta ${ai.local_llm && ai.local_llm.connected ? 'c-green' : 'c-mut'}">${ai.local_llm && ai.local_llm.connected ? 'connected' : 'off'}</span></div>
           <div class="card-body" style="display:flex;flex-direction:column;gap:8px">
-            <div style="display:flex;justify-content:space-between;font:500 10px var(--mono)"><span class="c-mut">endpoint</span><span style="color:var(--ink-2)">${esc((ai.local_llm || {}).endpoint || '—')}</span></div>
-            <div style="display:flex;justify-content:space-between;font:500 10px var(--mono)"><span class="c-mut">model</span><span class="c-amber">${esc((ai.local_llm || {}).model || '—')}</span></div>
+            <div style="display:flex;justify-content:space-between;font:500 var(--fs-sm) var(--mono)"><span class="c-mut">endpoint</span><span style="color:var(--ink-2)">${esc((ai.local_llm || {}).endpoint || '—')}</span></div>
+            <div style="display:flex;justify-content:space-between;font:500 var(--fs-sm) var(--mono)"><span class="c-mut">model</span><span class="c-amber">${esc((ai.local_llm || {}).model || '—')}</span></div>
             <div style="display:flex;gap:6px;margin-top:4px"><button class="abtn cyan" type="button">TEST</button><button class="abtn cyan" type="button">ANALYZE RUN</button></div>
           </div>
         </div>
@@ -144,11 +144,11 @@
       </div>
       <div class="card">
         <div class="card-head"><span class="card-title">USERDATA</span></div>
-        <div class="card-body"><p class="rcard-text is-mut" style="margin:0">Userdata folder configured. Settings, presets, accounts, and Steam auth persist across version upgrades. Wire to <span class="c-cyan" style="font-family:var(--mono);font-size:11px">/api/userdata/info</span>.</p></div>
+        <div class="card-body"><p class="rcard-text is-mut" style="margin:0">Userdata folder configured. Settings, presets, accounts, and Steam auth persist across version upgrades. Wire to <span class="c-cyan" style="font-family:var(--mono);font-size:var(--fs-md)">/api/userdata/info</span>.</p></div>
       </div>`;
   }
   function diagRow(k, v, tone) {
-    return `<div style="display:flex;justify-content:space-between;font:500 11px var(--mono)"><span class="c-mut">${esc(k)}</span><span class="c-${tone}">${esc(v || '—')}</span></div>`;
+    return `<div style="display:flex;justify-content:space-between;font:500 var(--fs-md) var(--mono)"><span class="c-mut">${esc(k)}</span><span class="c-${tone}">${esc(v || '—')}</span></div>`;
   }
 
   function systemPanel() {

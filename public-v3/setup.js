@@ -79,13 +79,13 @@
   }
   function loadPanel(label) {
     return `<div style="text-align:center;padding:30px 18px">
-      <div style="font:500 11px/1.7 var(--mono);color:var(--mut);margin-bottom:14px;max-width:440px;margin-left:auto;margin-right:auto">${label}</div>
+      <div style="font:500 var(--fs-md)/1.7 var(--mono);color:var(--mut);margin-bottom:14px;max-width:440px;margin-left:auto;margin-right:auto">${label}</div>
       <button class="abtn cyan" type="button" data-load="${libTab}" style="min-width:200px">LOAD ${libTab === 'friends' ? 'FRIEND SUPPORTS' : 'GUEST PARENTS'}</button>
     </div>`;
   }
   function refreshPanel(label) {
     return `<div style="text-align:center;padding:26px 18px">
-      <div style="font:500 11px/1.7 var(--mono);color:var(--label);margin-bottom:14px">${label}</div>
+      <div style="font:500 var(--fs-md)/1.7 var(--mono);color:var(--label);margin-bottom:14px">${label}</div>
       <button class="abtn" type="button" data-load="${libTab}" data-force="1" style="min-width:160px">REFRESH</button>
     </div>`;
   }
@@ -114,22 +114,22 @@
     const { imgId, name, kicker, badge, rarity, star, selected, attrs = '', h = 84, lb, art, isSupport, favIid, favKind, isFav } = opts;
     const R = String(rarity || '').toUpperCase();
     const ribBg = R === 'SSR' ? 'linear-gradient(120deg,#7ad7f0,#b98cff,#ff9ec7)' : R === 'SR' ? 'linear-gradient(135deg,#f6d36a,#caa13a)' : 'linear-gradient(135deg,#cdd4df,#9aa3b2)';
-    const ribbon = R ? `<span style="position:absolute;top:5px;left:5px;font:800 9px var(--cond);letter-spacing:.05em;color:#1a1206;background:${ribBg};padding:2px 6px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.45)">${esc(R)}</span>` : '';
-    const check = '<span style="position:absolute;top:5px;left:5px;width:16px;height:16px;border-radius:4px;background:var(--amber);color:var(--panel);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.5)">✓</span>';
+    const ribbon = R ? `<span style="position:absolute;top:5px;left:5px;font:800 var(--fs-xs) var(--cond);letter-spacing:.05em;color:#1a1206;background:${ribBg};padding:2px 6px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.45)">${esc(R)}</span>` : '';
+    const check = '<span style="position:absolute;top:5px;left:5px;width:16px;height:16px;border-radius:4px;background:var(--amber);color:var(--panel);display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.5)">✓</span>';
     const topRight = badge
-      ? `<span style="position:absolute;top:5px;right:5px;font:700 9px var(--mono);color:var(--panel);background:var(--cyan);padding:2px 5px;border-radius:3px">${esc(badge)}</span>`
-      : (star ? '<span style="position:absolute;top:4px;right:5px;color:#f6c945;font-size:13px;text-shadow:0 1px 2px rgba(0,0,0,.5)">★</span>' : '');
+      ? `<span style="position:absolute;top:5px;right:5px;font:700 var(--fs-xs) var(--mono);color:var(--panel);background:var(--cyan);padding:2px 5px;border-radius:3px">${esc(badge)}</span>`
+      : (star ? '<span style="position:absolute;top:4px;right:5px;color:#f6c945;font-size:var(--fs-lg);text-shadow:0 1px 2px rgba(0,0,0,.5)">★</span>' : '');
     // LB level — a prominent colored badge in the lower-right, styled like the
     // rarity ribbon (top-left). Shown whenever an lb value is supplied.
     const lbStr = (lb != null && lb !== '' && String(lb) !== '?') ? String(lb) : '';
     // Support cards max out at LB4 (5 copies) — show MLB instead of "LB4".
     const lbText = (isSupport && Number(lbStr) >= 4) ? 'MLB' : 'LB' + esc(lbStr);
-    const lbBadge = lbStr ? `<span style="position:absolute;bottom:5px;right:5px;font:800 10px var(--cond);letter-spacing:.03em;color:#06121a;background:linear-gradient(135deg,#7ad7f0,#36a9d6);padding:2px 6px;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.5)">${lbText}</span>` : '';
+    const lbBadge = lbStr ? `<span style="position:absolute;bottom:5px;right:5px;font:800 var(--fs-sm) var(--cond);letter-spacing:.03em;color:#06121a;background:linear-gradient(135deg,#7ad7f0,#36a9d6);padding:2px 6px;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.5)">${lbText}</span>` : '';
     // Favorite star (bottom-left, clickable) for parents/guests; coexists with the
     // rank badge (top-right) and LB badge (bottom-right). data-fav-* is handled by
     // the global click handler (stops it from also selecting the card).
     const favBadge = (favIid != null && favIid !== '')
-      ? `<span class="fav-star" role="button" tabindex="0" title="Toggle favorite" data-fav-iid="${esc(String(favIid))}" data-fav-kind="${esc(String(favKind || 'parents'))}" style="position:absolute;bottom:4px;left:4px;font-size:15px;line-height:1;cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.7);color:${isFav ? '#f6c945' : 'rgba(255,255,255,.5)'}">${isFav ? '★' : '☆'}</span>`
+      ? `<span class="fav-star" role="button" tabindex="0" title="Toggle favorite" data-fav-iid="${esc(String(favIid))}" data-fav-kind="${esc(String(favKind || 'parents'))}" style="position:absolute;bottom:4px;left:4px;font-size:var(--fs-2xl);line-height:1;cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.7);color:${isFav ? '#f6c945' : 'rgba(255,255,255,.5)'}">${isFav ? '★' : '☆'}</span>`
       : '';
     return `<div ${attrs} style="border:1px solid ${selected ? 'var(--amber)' : 'var(--line-card)'};border-radius:5px;overflow:hidden;background:var(--card);position:relative;cursor:pointer${selected ? ';box-shadow:0 0 0 1px var(--amber)' : ''}">
       <div style="height:${h}px;background:${selected ? SEL_STRIPE : STRIPE};position:relative">${imgId !== undefined ? imgTag(imgId, h, art) : ''}
@@ -140,7 +140,7 @@
       </div>
       <div style="padding:8px">
         <div style="font:${selected ? 700 : 600} 12px var(--cond);letter-spacing:.03em;color:${selected ? 'var(--amber)' : 'var(--ink)'};line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</div>
-        ${kicker ? `<div style="font:600 9px var(--cond);letter-spacing:.08em;color:var(--label);margin-top:3px">${esc(kicker)}</div>` : ''}
+        ${kicker ? `<div style="font:600 var(--fs-xs) var(--cond);letter-spacing:.08em;color:var(--label);margin-top:3px">${esc(kicker)}</div>` : ''}
       </div>
     </div>`;
   }
@@ -214,18 +214,18 @@
   function slotCard(role, accent, inner, attrs) {
     return `<div ${attrs || ''} style="background:var(--card);border:1px solid var(--line-card);${accent ? 'border-left:2px solid var(--amber);' : ''}border-radius:5px;padding:11px${attrs ? ';cursor:pointer' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
-        <span style="font:600 9px var(--cond);letter-spacing:.16em;color:${accent ? 'var(--amber)' : 'var(--label)'}">${role}</span>
-        <span style="font:500 8px var(--cond);letter-spacing:.1em;color:var(--dim)">CLEAR</span>
+        <span style="font:600 var(--fs-xs) var(--cond);letter-spacing:.16em;color:${accent ? 'var(--amber)' : 'var(--label)'}">${role}</span>
+        <span style="font:500 var(--fs-2xs) var(--cond);letter-spacing:.1em;color:var(--dim)">CLEAR</span>
       </div>${inner}</div>`;
   }
   function filledSlot(name, meta, imgId) {
     const thumb = imgId != null && imgId !== ''
       ? `<img src="/api/images/${esc(String(imgId))}.png" alt="" style="width:34px;height:34px;border-radius:5px;object-fit:cover;border:1px solid var(--line-card);flex-shrink:0;background:${STRIPE}" onerror="this.style.visibility='hidden'">`
       : `<div style="width:34px;height:34px;border-radius:5px;background:${STRIPE};border:1px solid var(--line-card);flex-shrink:0"></div>`;
-    return `<div style="display:flex;align-items:center;gap:9px">${thumb}<div style="min-width:0"><div style="font:700 12px var(--cond);letter-spacing:.04em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</div><div style="font:500 9px var(--mono);color:var(--label)">${meta || ''}</div></div></div>`;
+    return `<div style="display:flex;align-items:center;gap:9px">${thumb}<div style="min-width:0"><div style="font:700 var(--fs-base) var(--cond);letter-spacing:.04em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</div><div style="font:500 var(--fs-xs) var(--mono);color:var(--label)">${meta || ''}</div></div></div>`;
   }
   function emptySlot(text) {
-    return `<div style="display:flex;align-items:center;gap:9px;color:var(--dim)"><div style="width:34px;height:34px;border-radius:5px;background:${STRIPE};border:1px dashed var(--line-card);flex-shrink:0"></div><div style="font:500 10px var(--mono);color:var(--dim)">${text || 'select'}</div></div>`;
+    return `<div style="display:flex;align-items:center;gap:9px;color:var(--dim)"><div style="width:34px;height:34px;border-radius:5px;background:${STRIPE};border:1px dashed var(--line-card);flex-shrink:0"></div><div style="font:500 var(--fs-sm) var(--mono);color:var(--dim)">${text || 'select'}</div></div>`;
   }
   function renderSlots() {
     const t = sel.trainee, v0 = sel.veterans[0], v1 = sel.veterans[1], d = sel.deck, f = sel.friend;
@@ -263,12 +263,12 @@
 
       <div class="card" style="padding:13px">
         <div class="card-title" style="margin-bottom:11px">SETTINGS PRESETS</div>
-        <select class="form-sel" id="setup-preset" style="width:100%;background:var(--card);border:1px solid var(--line-card);color:var(--ink-2);font:600 11px var(--mono);padding:9px 11px;border-radius:4px;margin-bottom:9px">${presetOpts}</select>
+        <select class="form-sel" id="setup-preset" style="width:100%;background:var(--card);border:1px solid var(--line-card);color:var(--ink-2);font:600 var(--fs-md) var(--mono);padding:9px 11px;border-radius:4px;margin-bottom:9px">${presetOpts}</select>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
-          <button class="abtn amber" type="button" style="padding:7px 4px;font-size:9px" id="preset-new">NEW</button>
-          <button class="abtn amber" type="button" style="padding:7px 4px;font-size:9px" id="preset-save">SAVE</button>
-          <button class="abtn amber" type="button" style="padding:7px 4px;font-size:9px" id="preset-load">LOAD</button>
-          <button class="abtn danger" type="button" style="padding:7px 4px;font-size:9px" id="preset-del">DEL</button>
+          <button class="abtn amber" type="button" style="padding:7px 4px;font-size:var(--fs-xs)" id="preset-new">NEW</button>
+          <button class="abtn amber" type="button" style="padding:7px 4px;font-size:var(--fs-xs)" id="preset-save">SAVE</button>
+          <button class="abtn amber" type="button" style="padding:7px 4px;font-size:var(--fs-xs)" id="preset-load">LOAD</button>
+          <button class="abtn danger" type="button" style="padding:7px 4px;font-size:var(--fs-xs)" id="preset-del">DEL</button>
         </div>
       </div>
 
@@ -286,25 +286,25 @@
         </div>
         <button class="abtn cyan" type="button" data-modal="solver" style="width:100%;margin-bottom:11px">SOLVER SETTINGS</button>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:11px">
-          <button class="abtn cyan" type="button" style="font-size:9px;padding:8px" id="setup-sync">SYNC DATA</button>
-          <button class="abtn cyan" type="button" style="font-size:9px;padding:8px" id="setup-solve">SOLVE SMART</button>
-          <button class="abtn cyan" type="button" style="font-size:9px;padding:8px" id="setup-apply">APPLY SMART</button>
-          <button class="abtn amber" type="button" style="font-size:9px;padding:8px" id="setup-apply-manual">APPLY MANUAL</button>
-          <button class="abtn danger" type="button" style="font-size:9px;padding:8px" id="setup-reset">RESET PLAN</button>
+          <button class="abtn cyan" type="button" style="font-size:var(--fs-xs);padding:8px" id="setup-sync">SYNC DATA</button>
+          <button class="abtn cyan" type="button" style="font-size:var(--fs-xs);padding:8px" id="setup-solve">SOLVE SMART</button>
+          <button class="abtn cyan" type="button" style="font-size:var(--fs-xs);padding:8px" id="setup-apply">APPLY SMART</button>
+          <button class="abtn amber" type="button" style="font-size:var(--fs-xs);padding:8px" id="setup-apply-manual">APPLY MANUAL</button>
+          <button class="abtn danger" type="button" style="font-size:var(--fs-xs);padding:8px" id="setup-reset">RESET PLAN</button>
         </div>
-        <div id="setup-solve-status" style="font:500 9px var(--mono);color:var(--green);background:#0b1611;border:1px solid var(--green-bd);border-radius:4px;padding:8px 10px">Ready. Pick a trainee, then Solve Smart.</div>
+        <div id="setup-solve-status" style="font:500 var(--fs-xs) var(--mono);color:var(--green);background:#0b1611;border:1px solid var(--green-bd);border-radius:4px;padding:8px 10px">Ready. Pick a trainee, then Solve Smart.</div>
         <div id="setup-plan"></div>
       </div>
 
       <div class="card" style="padding:13px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:8px">
-          <span style="font:700 11px var(--cond);letter-spacing:.16em;color:var(--ink)">RACE SCHEDULE</span>
+          <span style="font:700 var(--fs-md) var(--cond);letter-spacing:.16em;color:var(--ink)">RACE SCHEDULE</span>
           <div style="display:flex;align-items:center;gap:8px">
-            <button class="abtn${showOP ? ' amber' : ''}" type="button" id="tb-op-toggle" style="font-size:8px;padding:4px 9px" title="Show Open (OP) races in the schedule">OP RACES</button>
-            <span style="font:500 9px var(--mono);color:var(--label)" id="setup-sched-meta">${raceMode === 'manual' ? 'manual selection — click races' : 'smart race solver'}</span>
+            <button class="abtn${showOP ? ' amber' : ''}" type="button" id="tb-op-toggle" style="font-size:var(--fs-2xs);padding:4px 9px" title="Show Open (OP) races in the schedule">OP RACES</button>
+            <span style="font:500 var(--fs-xs) var(--mono);color:var(--label)" id="setup-sched-meta">${raceMode === 'manual' ? 'manual selection — click races' : 'smart race solver'}</span>
           </div>
         </div>
-        <div style="font:500 9px var(--mono);color:var(--dim);margin-bottom:12px">${raceMode === 'manual' ? 'Click a race to add/remove it (one per turn).' : 'Smart Race Solver picks the schedule. Switch to Manual to hand-pick.'}</div>
+        <div style="font:500 var(--fs-xs) var(--mono);color:var(--dim);margin-bottom:12px">${raceMode === 'manual' ? 'Click a race to add/remove it (one per turn).' : 'Smart Race Solver picks the schedule. Switch to Manual to hand-pick.'}</div>
         <div id="setup-schedule" style="max-height:520px;overflow:auto;padding-right:6px"></div>
       </div>`;
     // ---- Smart Race Solver: solve (preview) + apply (persist to active preset) ----
@@ -326,19 +326,19 @@
         ? `Epithet ledger: ${(plan.epithet_ledger || []).filter((e) => e.status && e.status !== 'untouched').slice(0, 6).map((e) => `${e.name}:${e.status}`).join(', ')}` : '';
       const notes = (plan.notes || []).length ? (plan.notes || []).slice(0, 3).join(' · ') : '';
       const tname = plan.trainee_name || (sel.trainee && sel.trainee.name) || '';
-      const dim = (t) => t ? `<div style="font:500 9px/1.5 var(--mono);color:var(--dim);margin-top:5px">${esc(t)}</div>` : '';
+      const dim = (t) => t ? `<div style="font:500 var(--fs-xs)/1.5 var(--mono);color:var(--dim);margin-top:5px">${esc(t)}</div>` : '';
       const rows = sched.map((r) => {
         const meta = [r.grade, r.distance, planFmt(r.est_fans || r.fans || 0)].filter((x) => x !== '' && x != null).join(' · ');
         return `<div style="display:flex;align-items:baseline;gap:9px;padding:6px 0;border-top:1px solid var(--line-card)">
-          <span style="font:700 10px var(--mono);color:var(--amber);flex-shrink:0;width:30px">T${esc(String(r.turn || '?'))}</span>
-          <span style="font:700 10px var(--cond);letter-spacing:.04em;color:var(--ink);flex:1;min-width:0">${esc(r.name || r.program_id || 'Race')}</span>
-          <span style="font:500 9px var(--mono);color:var(--label);flex-shrink:0">${esc(meta)}</span>
+          <span style="font:700 var(--fs-sm) var(--mono);color:var(--amber);flex-shrink:0;width:30px">T${esc(String(r.turn || '?'))}</span>
+          <span style="font:700 var(--fs-sm) var(--cond);letter-spacing:.04em;color:var(--ink);flex:1;min-width:0">${esc(r.name || r.program_id || 'Race')}</span>
+          <span style="font:500 var(--fs-xs) var(--mono);color:var(--label);flex-shrink:0">${esc(meta)}</span>
         </div>`;
       }).join('');
       host.innerHTML = `<div style="margin-top:11px;border:1px solid var(--line-card);border-radius:6px;background:var(--card);padding:12px">
-        <div style="font:700 11px var(--cond);letter-spacing:.04em;color:var(--ink-2)">${esc(plan.solver || 'Smart Race Solver')} picked <span style="color:var(--amber)">${esc(String(plan.race_count || sched.length || 0))}</span> races · est. <span style="color:var(--amber)">${esc(planFmt(plan.estimated_fans || 0))}</span> fans${plan.objective_score ? ` · score ${esc(String(plan.objective_score))}` : ''}${plan.fallback_used ? ' <span class="c-amber">(fallback)</span>' : ''}</div>
+        <div style="font:700 var(--fs-md) var(--cond);letter-spacing:.04em;color:var(--ink-2)">${esc(plan.solver || 'Smart Race Solver')} picked <span style="color:var(--amber)">${esc(String(plan.race_count || sched.length || 0))}</span> races · est. <span style="color:var(--amber)">${esc(planFmt(plan.estimated_fans || 0))}</span> fans${plan.objective_score ? ` · score ${esc(String(plan.objective_score))}` : ''}${plan.fallback_used ? ' <span class="c-amber">(fallback)</span>' : ''}</div>
         ${dim(tname ? `Trainee: ${tname}` : '')}${dim(apt ? `Aptitudes: ${apt}` : '')}${dim(pref)}${dim(epis)}${dim(ledger)}${dim(notes)}
-        ${rows ? `<div style="margin-top:9px;max-height:300px;overflow:auto">${rows}</div>` : '<div style="font:500 10px var(--mono);color:var(--dim);margin-top:9px">No race rows returned.</div>'}
+        ${rows ? `<div style="margin-top:9px;max-height:300px;overflow:auto">${rows}</div>` : '<div style="font:500 var(--fs-sm) var(--mono);color:var(--dim);margin-top:9px">No race rows returned.</div>'}
       </div>`;
     }
     const APT_RANK = { S: 8, A: 7, B: 6, C: 5, D: 4, E: 3, F: 2, G: 1 };
@@ -484,7 +484,7 @@
     renderSchedule();
   }
   function kv(k, v) {
-    return `<div style="display:flex;justify-content:space-between;font:500 10px var(--mono)"><span class="c-mut">${k}</span>${v}</div>`;
+    return `<div style="display:flex;justify-content:space-between;font:500 var(--fs-sm) var(--mono)"><span class="c-mut">${k}</span>${v}</div>`;
   }
 
   function renderLibrary() {
@@ -492,11 +492,11 @@
     const tabs = [['trainees', 'TRAINEES', L.trainees.length], ['parents', 'PARENTS', L.parents.length], ['guests', 'GUEST PARENTS', L.guests.length], ['decks', 'DECKS', L.decks.length], ['friends', 'FRIEND SUPPORTS', L.friends.length], ['cards', 'OWNED CARDS', L.cards.length]];
     $('setup-library').innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
-        <span style="font:700 12px var(--cond);letter-spacing:.18em;color:var(--ink)">LIBRARY</span>
+        <span style="font:700 var(--fs-base) var(--cond);letter-spacing:.18em;color:var(--ink)">LIBRARY</span>
         <div class="search" style="border:1px solid var(--line-card);border-radius:4px;width:200px;padding:7px 11px"><span class="ic">⌕</span><input type="text" id="lib-search" placeholder="search library"></div>
       </div>
       <div style="display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap">
-        ${tabs.map(([k, l, n]) => `<button class="setup-libtab" data-tab="${k}" type="button" style="font:600 10px var(--cond);letter-spacing:.12em;padding:8px 14px;border:none;background:${k === libTab ? 'var(--amber)' : 'none'};color:${k === libTab ? 'var(--panel)' : 'var(--label)'};cursor:pointer;border-radius:4px 4px 0 0">${l}${online ? ` · ${n}` : ''}</button>`).join('')}
+        ${tabs.map(([k, l, n]) => `<button class="setup-libtab" data-tab="${k}" type="button" style="font:600 var(--fs-sm) var(--cond);letter-spacing:.12em;padding:8px 14px;border:none;background:${k === libTab ? 'var(--amber)' : 'none'};color:${k === libTab ? 'var(--panel)' : 'var(--label)'};cursor:pointer;border-radius:4px 4px 0 0">${l}${online ? ` · ${n}` : ''}</button>`).join('')}
       </div>
       <div id="setup-libbody"></div>`;
     document.querySelectorAll('.setup-libtab').forEach((b) => b.addEventListener('click', () => { libTab = b.dataset.tab; renderLibrary(); }));
@@ -507,7 +507,7 @@
   }
 
   function emptyTab(label) {
-    return `<div style="font:600 10px var(--cond);letter-spacing:.16em;color:var(--label);padding:22px 0;text-align:center">${label}</div>`;
+    return `<div style="font:600 var(--fs-sm) var(--cond);letter-spacing:.16em;color:var(--label);padding:22px 0;text-align:center">${label}</div>`;
   }
   function grid(html, cols) {
     return `<div style="display:grid;grid-template-columns:repeat(${cols || 6},1fr);gap:10px">${html}</div>`;
@@ -527,13 +527,13 @@
     const cat = String(f.category || '').toLowerCase();
     const bg = FACTOR_BG[cat];
     const n = Math.max(0, Math.min(3, Number(f.stars || 0)));
-    const stars = n ? `<span style="color:#ffd54a;font-size:9px;letter-spacing:-1px;flex-shrink:0">${'\u2605'.repeat(n)}</span>` : '';
+    const stars = n ? `<span style="color:#ffd54a;font-size:var(--fs-xs);letter-spacing:-1px;flex-shrink:0">${'\u2605'.repeat(n)}</span>` : '';
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 7px;border-radius:4px;${bg ? `background:${bg}` : 'background:#14161c;border:1px solid var(--line-card)'}">
-      <span style="font:600 9px var(--cond);letter-spacing:.02em;color:${bg ? '#fff' : 'var(--ink-2)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name || '')}</span>${stars}</div>`;
+      <span style="font:600 var(--fs-xs) var(--cond);letter-spacing:.02em;color:${bg ? '#fff' : 'var(--ink-2)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name || '')}</span>${stars}</div>`;
   }
   function winChips(w) {
     if (!w) return '';
-    const chip = (l, v) => `<span style="font:700 7px var(--mono);color:var(--ink-3);background:#11131a;border:1px solid var(--line-card);padding:1px 5px;border-radius:8px">${l} ${v || 0}</span>`;
+    const chip = (l, v) => `<span style="font:700 var(--fs-2xs) var(--mono);color:var(--ink-3);background:#11131a;border:1px solid var(--line-card);padding:1px 5px;border-radius:8px">${l} ${v || 0}</span>`;
     return `<div style="display:flex;gap:4px;margin-top:3px">${chip('G1', w.g1)}${chip('G2', w.g2)}${chip('G3', w.g3)}</div>`;
   }
   function sparkNode(node, fallbackImg, isSelf) {
@@ -542,7 +542,7 @@
     return `<div style="border:1px solid ${isSelf ? 'var(--amber)' : 'var(--line-card)'};border-radius:7px;padding:8px;background:var(--card)">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
         <img src="/api/images/${esc(String(img || ''))}.png" alt="" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--line-card)" onerror="this.style.visibility='hidden'">
-        <div style="min-width:0"><div style="font:700 11px var(--cond);letter-spacing:.04em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(node.name || ('Card ' + (node.card_id || '?')))}</div>${winChips(node.wins)}</div>
+        <div style="min-width:0"><div style="font:700 var(--fs-md) var(--cond);letter-spacing:.04em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(node.name || ('Card ' + (node.card_id || '?')))}</div>${winChips(node.wins)}</div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">${(node.factors || []).map(factorRow).join('')}</div>
     </div>`;
@@ -552,8 +552,8 @@
     const self = sparkNode(tree.self, p.card_id, true);
     const p1 = sparkNode(tree.p1, p.card_id, false);
     const p2 = sparkNode(tree.p2, p.card_id, false);
-    const title = `<div style="font:800 10px var(--cond);letter-spacing:.2em;color:var(--amber);margin-bottom:10px">SPARKS</div>`;
-    if (!self && !p1 && !p2) return `${title}<div style="font:500 11px var(--mono);color:var(--dim);padding:6px 2px">No spark factors returned for ${esc(p.name || 'this parent')}.</div>`;
+    const title = `<div style="font:800 var(--fs-sm) var(--cond);letter-spacing:.2em;color:var(--amber);margin-bottom:10px">SPARKS</div>`;
+    if (!self && !p1 && !p2) return `${title}<div style="font:500 var(--fs-md) var(--mono);color:var(--dim);padding:6px 2px">No spark factors returned for ${esc(p.name || 'this parent')}.</div>`;
     const grand = (p1 || p2) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">${p1}${p2}</div>` : '';
     return `${title}${self}${grand}`;
   }
@@ -728,35 +728,35 @@
     const n = pfActiveCount(PF);
     const dot = n ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red)"></span>` : '';
     return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <button type="button" id="pf-display" style="display:inline-flex;align-items:center;gap:8px;font:700 10px var(--cond);letter-spacing:.12em;padding:9px 16px;border-radius:6px;border:1px solid var(--line-card);background:var(--card);color:var(--ink);cursor:pointer">DISPLAY SETTINGS ${dot}</button>
-      <span style="font:500 10px var(--mono);color:var(--label)">${pfSummary()}</span>
-      <span id="pf-count" style="font:500 10px var(--mono);color:var(--dim);margin-left:auto"></span>
+      <button type="button" id="pf-display" style="display:inline-flex;align-items:center;gap:8px;font:700 var(--fs-sm) var(--cond);letter-spacing:.12em;padding:9px 16px;border-radius:6px;border:1px solid var(--line-card);background:var(--card);color:var(--ink);cursor:pointer">DISPLAY SETTINGS ${dot}</button>
+      <span style="font:500 var(--fs-sm) var(--mono);color:var(--label)">${pfSummary()}</span>
+      <span id="pf-count" style="font:500 var(--fs-sm) var(--mono);color:var(--dim);margin-left:auto"></span>
     </div>`;
   }
   // ---- The in-game-style Display Settings modal (Sort + Filter tabs) ----
   function dsSortTab(W) {
-    return `<div style="font:800 9px var(--cond);letter-spacing:.2em;color:var(--amber);margin-bottom:12px">SORT BY</div>
+    return `<div style="font:800 var(--fs-xs) var(--cond);letter-spacing:.2em;color:var(--amber);margin-bottom:12px">SORT BY</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px 16px">${PF_SORTS.map(([v, l]) =>
-        `<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font:600 11px var(--mono);color:var(--ink-2)"><input type="radio" name="ds-sort" value="${v}"${W.sort === v ? ' checked' : ''}>${l}</label>`).join('')}</div>`;
+        `<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font:600 var(--fs-md) var(--mono);color:var(--ink-2)"><input type="radio" name="ds-sort" value="${v}"${W.sort === v ? ' checked' : ''}>${l}</label>`).join('')}</div>`;
   }
   function dsStarRadio(sect, W) {
-    const opt = (v, l) => `<label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font:600 10px var(--mono);color:var(--ink-2)"><input type="radio" name="ds-${sect}-min" value="${v}"${W[sect].min === v ? ' checked' : ''}>${l}</label>`;
+    const opt = (v, l) => `<label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font:600 var(--fs-sm) var(--mono);color:var(--ink-2)"><input type="radio" name="ds-${sect}-min" value="${v}"${W[sect].min === v ? ' checked' : ''}>${l}</label>`;
     return `<div style="display:flex;gap:16px;flex-wrap:wrap;margin:9px 0 5px">${opt(1, 'All')}${opt(2, '\u2605\u2605 or Above')}${opt(3, '\u2605\u2605\u2605 Only')}</div>`;
   }
-  const dsOrigin = (sect, W) => `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 10px var(--mono);color:var(--dim)"><input type="checkbox" data-ds-origin="${sect}"${W[sect].origin ? ' checked' : ''}>Include Sparks from Origin Legacies</label>`;
+  const dsOrigin = (sect, W) => `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 var(--fs-sm) var(--mono);color:var(--dim)"><input type="checkbox" data-ds-origin="${sect}"${W[sect].origin ? ' checked' : ''}>Include Sparks from Origin Legacies</label>`;
   const dsChecks = (sect, labels, W) => `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px 10px">${labels.map((l) =>
-    `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 10px var(--mono);color:var(--ink-2)"><input type="checkbox" data-ds-chk="${sect}" value="${esc(l)}"${W[sect].keys.includes(l) ? ' checked' : ''}>${esc(l)}</label>`).join('')}</div>`;
+    `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 var(--fs-sm) var(--mono);color:var(--ink-2)"><input type="checkbox" data-ds-chk="${sect}" value="${esc(l)}"${W[sect].keys.includes(l) ? ' checked' : ''}>${esc(l)}</label>`).join('')}</div>`;
   const dsSection = (title, inner) => `<div style="border:1px solid var(--line-card);border-radius:8px;background:var(--card);padding:12px 14px;margin-bottom:12px">
-      <div style="font:800 9px var(--cond);letter-spacing:.18em;color:var(--green);margin-bottom:9px">${title}</div>${inner}</div>`;
+      <div style="font:800 var(--fs-xs) var(--cond);letter-spacing:.18em;color:var(--green);margin-bottom:9px">${title}</div>${inner}</div>`;
   function dsFilterTab(W) {
     const cleanup = `<div style="border:1px solid var(--red-bd);border-radius:8px;padding:12px 14px;margin-top:4px">
-        <div style="font:800 9px var(--cond);letter-spacing:.18em;color:var(--red);margin-bottom:9px">CLEANUP (ICARUS)</div>
-        <select id="ds-age" style="width:100%;background:var(--bar);border:1px solid var(--line-card);color:var(--ink-2);font:600 10px var(--mono);padding:8px 10px;border-radius:5px;margin-bottom:9px">${PF_AGES.map(([v, l]) => `<option value="${v}"${Number(W.maxAgeH || 0) === Number(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
-        <div style="display:flex;align-items:center;gap:10px"><button type="button" id="ds-cleanup" class="abtn danger">PREVIEW CLEANUP</button><span id="ds-cleanup-hint" style="font:500 9px var(--mono);color:var(--label)"></span></div>
+        <div style="font:800 var(--fs-xs) var(--cond);letter-spacing:.18em;color:var(--red);margin-bottom:9px">CLEANUP (ICARUS)</div>
+        <select id="ds-age" style="width:100%;background:var(--bar);border:1px solid var(--line-card);color:var(--ink-2);font:600 var(--fs-sm) var(--mono);padding:8px 10px;border-radius:5px;margin-bottom:9px">${PF_AGES.map(([v, l]) => `<option value="${v}"${Number(W.maxAgeH || 0) === Number(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
+        <div style="display:flex;align-items:center;gap:10px"><button type="button" id="ds-cleanup" class="abtn danger">PREVIEW CLEANUP</button><span id="ds-cleanup-hint" style="font:500 var(--fs-xs) var(--mono);color:var(--label)"></span></div>
       </div>`;
     return dsSection('ATTRIBUTE SPARKS', dsChecks('attr', ATTR_KEYS, W) + dsStarRadio('attr', W) + dsOrigin('attr', W))
       + dsSection('APTITUDE SPARKS', dsChecks('apt', APT_LABELS, W) + dsStarRadio('apt', W) + dsOrigin('apt', W))
-      + dsSection('UNIQUE SPARKS', `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 10px var(--mono);color:var(--ink-2)"><input type="checkbox" data-ds-uniq-on${W.uniq.on ? ' checked' : ''}>Umamusume (has a unique spark)</label>` + dsStarRadio('uniq', W) + dsOrigin('uniq', W))
+      + dsSection('UNIQUE SPARKS', `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:600 var(--fs-sm) var(--mono);color:var(--ink-2)"><input type="checkbox" data-ds-uniq-on${W.uniq.on ? ' checked' : ''}>Umamusume (has a unique spark)</label>` + dsStarRadio('uniq', W) + dsOrigin('uniq', W))
       + cleanup;
   }
   function openDisplaySettings(all) {
@@ -764,7 +764,7 @@
     let tab = 'filter';
     const ov = document.createElement('div');
     ov.className = 'modal-overlay'; ov.style.zIndex = '80';
-    const tabBtn = (id, label) => `<button type="button" class="ds-tab" data-ds-tab="${id}" style="flex:1;padding:11px;font:800 10px var(--cond);letter-spacing:.18em;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dim);cursor:pointer">${label}</button>`;
+    const tabBtn = (id, label) => `<button type="button" class="ds-tab" data-ds-tab="${id}" style="flex:1;padding:11px;font:800 var(--fs-sm) var(--cond);letter-spacing:.18em;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dim);cursor:pointer">${label}</button>`;
     ov.innerHTML = `<div class="modal" style="width:470px;max-height:90vh;display:flex;flex-direction:column">
       <div class="modal-head"><span class="modal-mark"></span><span class="modal-title">DISPLAY SETTINGS</span><button class="modal-x" type="button" data-ds-close>\u00d7</button></div>
       <div style="display:flex;border-bottom:1px solid var(--line)">${tabBtn('sort', 'SORT')}${tabBtn('filter', 'FILTER')}</div>
@@ -855,7 +855,7 @@
   function typeChip(t) {
     const k = String(t || '').toLowerCase();
     const c = TYPE_COLOR[k] || 'var(--label)';
-    return `<span style="font:800 8px var(--cond);letter-spacing:.08em;padding:2px 6px;border-radius:3px;color:#0b0d12;background:${c}">${esc(String(t || '?').toUpperCase())}</span>`;
+    return `<span style="font:800 var(--fs-2xs) var(--cond);letter-spacing:.08em;padding:2px 6px;border-radius:3px;color:#0b0d12;background:${c}">${esc(String(t || '?').toUpperCase())}</span>`;
   }
   function scoreColor(s) { return s >= 7.5 ? '#36c98f' : s >= 5.5 ? '#7bd06b' : s >= 3.5 ? '#f2a900' : '#ff5d6c'; }
   function scoreBadge(score, big) {
@@ -871,26 +871,26 @@
     return api('/api/supports/details?' + qs.toString());
   }
   function deckTooltipHtml(deck, p) {
-    if (!p || !p.success) return `<div style="font:500 11px/1.6 var(--mono);color:var(--dim);padding:4px 2px">${esc((p && p.detail) || 'Master data not loaded \u2014 run a master data sync to see card bonuses.')}</div>`;
+    if (!p || !p.success) return `<div style="font:500 var(--fs-md)/1.6 var(--mono);color:var(--dim);padding:4px 2px">${esc((p && p.detail) || 'Master data not loaded \u2014 run a master data sync to see card bonuses.')}</div>`;
     const score = Number(p.deck_score || 0), verdict = String(p.deck_verdict || ''), bd = p.deck_breakdown || {};
     const cards = (p.cards || []).map((card) => {
-      const eff = (card.effects_ordered || []).slice(0, 4).map((e) => `<span style="font:600 8px var(--mono);color:var(--ink-2);background:#11131a;border:1px solid var(--line-card);padding:1px 5px;border-radius:7px"><b style="color:var(--ink)">${esc(e.label)}</b> ${e.value > 0 ? '+' : ''}${esc(String(e.value))}${esc(e.unit || '')}</span>`).join('');
+      const eff = (card.effects_ordered || []).slice(0, 4).map((e) => `<span style="font:600 var(--fs-2xs) var(--mono);color:var(--ink-2);background:#11131a;border:1px solid var(--line-card);padding:1px 5px;border-radius:7px"><b style="color:var(--ink)">${esc(e.label)}</b> ${e.value > 0 ? '+' : ''}${esc(String(e.value))}${esc(e.unit || '')}</span>`).join('');
       return `<div style="border:1px solid var(--line-card);border-radius:6px;padding:7px 8px;background:var(--card)">
-        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">${typeChip(card.type_label)}<span style="font:700 8px var(--mono);color:var(--label)">${esc(card.rarity_label || '?')}</span><span style="font:700 8px var(--mono);color:var(--amber);margin-left:auto">LB${Math.max(0, Number(card.lb || 0))} \u00b7 Lv${esc(String(card.level || ''))}</span></div>
-        <div style="font:700 10px var(--cond);letter-spacing:.03em;color:var(--ink);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(card.name || '?')}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:3px">${eff || '<span style="font:500 8px var(--mono);color:var(--dim)">no bonuses at this level</span>'}</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">${typeChip(card.type_label)}<span style="font:700 var(--fs-2xs) var(--mono);color:var(--label)">${esc(card.rarity_label || '?')}</span><span style="font:700 var(--fs-2xs) var(--mono);color:var(--amber);margin-left:auto">LB${Math.max(0, Number(card.lb || 0))} \u00b7 Lv${esc(String(card.level || ''))}</span></div>
+        <div style="font:700 var(--fs-sm) var(--cond);letter-spacing:.03em;color:var(--ink);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(card.name || '?')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">${eff || '<span style="font:500 var(--fs-2xs) var(--mono);color:var(--dim)">no bonuses at this level</span>'}</div>
       </div>`;
     }).join('');
-    const typeChips = Object.keys(bd.type_counts || {}).sort().map((t) => `<span style="display:inline-flex;align-items:center;gap:3px">${typeChip(t)}<span style="font:700 8px var(--mono);color:var(--label)">\u00d7${bd.type_counts[t]}</span></span>`).join('');
+    const typeChips = Object.keys(bd.type_counts || {}).sort().map((t) => `<span style="display:inline-flex;align-items:center;gap:3px">${typeChip(t)}<span style="font:700 var(--fs-2xs) var(--mono);color:var(--label)">\u00d7${bd.type_counts[t]}</span></span>`).join('');
     const tline = p.trainee_name ? `Scored against ${esc(p.trainee_name)} (${esc(bd.primary_growth_type || 'mixed')}-leaning)` : 'Select a trainee to refine the type-match score.';
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
-        <div style="font:800 12px var(--cond);letter-spacing:.1em;color:var(--ink)">${esc((deck.name || 'Deck').toUpperCase())} <span style="font:600 8px var(--mono);color:var(--label)">SLOT ${esc(String(deck.id ?? '?'))}</span></div>
-        <div style="display:flex;align-items:center;gap:8px">${scoreBadge(score)}<span style="font:700 9px var(--cond);letter-spacing:.08em;color:${scoreColor(score)}">${esc(verdict.toUpperCase())}</span></div>
+        <div style="font:800 var(--fs-base) var(--cond);letter-spacing:.1em;color:var(--ink)">${esc((deck.name || 'Deck').toUpperCase())} <span style="font:600 var(--fs-2xs) var(--mono);color:var(--label)">SLOT ${esc(String(deck.id ?? '?'))}</span></div>
+        <div style="display:flex;align-items:center;gap:8px">${scoreBadge(score)}<span style="font:700 var(--fs-xs) var(--cond);letter-spacing:.08em;color:${scoreColor(score)}">${esc(verdict.toUpperCase())}</span></div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px">${typeChips}</div>
-      <div style="font:500 9px var(--mono);color:var(--dim);margin-bottom:9px">${tline}</div>
+      <div style="font:500 var(--fs-xs) var(--mono);color:var(--dim);margin-bottom:9px">${tline}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${cards}</div>
-      <div style="font:500 8px var(--mono);color:var(--label);margin-top:9px;padding-top:8px;border-top:1px solid var(--line-card)">Total LB ${esc(String(bd.total_lb ?? '?'))} \u00b7 Type match ${(Number(bd.type_match || 0) * 100).toFixed(0)}% \u00b7 Bonus ${(Number(bd.effect_strength || 0) * 100).toFixed(0)}% \u00b7 LB density ${(Number(bd.lb_density || 0) * 100).toFixed(0)}%</div>`;
+      <div style="font:500 var(--fs-2xs) var(--mono);color:var(--label);margin-top:9px;padding-top:8px;border-top:1px solid var(--line-card)">Total LB ${esc(String(bd.total_lb ?? '?'))} \u00b7 Type match ${(Number(bd.type_match || 0) * 100).toFixed(0)}% \u00b7 Bonus ${(Number(bd.effect_strength || 0) * 100).toFixed(0)}% \u00b7 LB density ${(Number(bd.lb_density || 0) * 100).toFixed(0)}%</div>`;
   }
   let _deckTip = null, _deckReq = 0;
   const _deckCache = new Map();
@@ -915,7 +915,7 @@
     const key = String(deck.id);
     t.style.display = 'block';
     if (_deckCache.has(key)) { t.innerHTML = deckTooltipHtml(deck, _deckCache.get(key)); placeDeckTip(x, y); return; }
-    t.innerHTML = `<div style="font:600 10px var(--mono);color:var(--dim);padding:4px 2px">Scoring ${esc(deck.name || 'deck')}\u2026</div>`;
+    t.innerHTML = `<div style="font:600 var(--fs-sm) var(--mono);color:var(--dim);padding:4px 2px">Scoring ${esc(deck.name || 'deck')}\u2026</div>`;
     placeDeckTip(x, y);
     const req = ++_deckReq;
     let payload = null;
@@ -951,30 +951,30 @@
       if (e.unit) units[e.label] = e.unit;
     }));
     const entries = Object.keys(totals).map((label) => ({ label, value: totals[label], unit: units[label] || '' })).filter((x) => x.value).sort((a, b) => b.value - a.value);
-    const rows = entries.length ? entries.map((x) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-radius:5px;background:var(--card);border:1px solid var(--line-card)"><span style="font:600 9px var(--cond);letter-spacing:.04em;color:var(--ink-2)">${esc(x.label)}</span><span style="font:800 11px var(--mono);color:var(--amber)">${x.value > 0 ? '+' : ''}${esc(String(x.value))}${esc(x.unit)}</span></div>`).join('') : '<div style="font:500 10px var(--mono);color:var(--dim)">No combined bonuses at the current card levels.</div>';
+    const rows = entries.length ? entries.map((x) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-radius:5px;background:var(--card);border:1px solid var(--line-card)"><span style="font:600 var(--fs-xs) var(--cond);letter-spacing:.04em;color:var(--ink-2)">${esc(x.label)}</span><span style="font:800 var(--fs-md) var(--mono);color:var(--amber)">${x.value > 0 ? '+' : ''}${esc(String(x.value))}${esc(x.unit)}</span></div>`).join('') : '<div style="font:500 var(--fs-sm) var(--mono);color:var(--dim)">No combined bonuses at the current card levels.</div>';
     const bd = p.deck_breakdown || {};
-    const typeChips = Object.keys(bd.type_counts || {}).sort().map((t) => `<span style="display:inline-flex;align-items:center;gap:3px">${typeChip(t)}<span style="font:700 8px var(--mono);color:var(--label)">\u00d7${bd.type_counts[t]}</span></span>`).join('');
+    const typeChips = Object.keys(bd.type_counts || {}).sort().map((t) => `<span style="display:inline-flex;align-items:center;gap:3px">${typeChip(t)}<span style="font:700 var(--fs-2xs) var(--mono);color:var(--label)">\u00d7${bd.type_counts[t]}</span></span>`).join('');
     const score = Number(p.deck_score || 0), verdict = String(p.deck_verdict || '');
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px">
-        <div style="display:flex;align-items:center;gap:9px">${scoreBadge(score, true)}<span style="font:700 10px var(--cond);letter-spacing:.06em;color:${scoreColor(score)}">${esc(verdict.toUpperCase())}</span></div>
+        <div style="display:flex;align-items:center;gap:9px">${scoreBadge(score, true)}<span style="font:700 var(--fs-sm) var(--cond);letter-spacing:.06em;color:${scoreColor(score)}">${esc(verdict.toUpperCase())}</span></div>
         <div style="display:flex;flex-wrap:wrap;gap:7px">${typeChips}</div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:7px">${rows}</div>
-      ${p.trainee_name ? `<div style="font:500 9px var(--mono);color:var(--dim);margin-top:9px">Scored vs ${esc(p.trainee_name)} \u00b7 combined effect values across the deck at each card's current limit-break.</div>` : '<div style="font:500 9px var(--mono);color:var(--dim);margin-top:9px">Combined effect values across the deck at each card\'s current limit-break.</div>'}`;
+      ${p.trainee_name ? `<div style="font:500 var(--fs-xs) var(--mono);color:var(--dim);margin-top:9px">Scored vs ${esc(p.trainee_name)} \u00b7 combined effect values across the deck at each card's current limit-break.</div>` : '<div style="font:500 var(--fs-xs) var(--mono);color:var(--dim);margin-top:9px">Combined effect values across the deck at each card\'s current limit-break.</div>'}`;
   }
   async function renderDeckBonusesPanel() {
     const el = $('deck-bonuses-body');
     if (!el) return;
     const deck = sel.deck;
-    if (!deck || !Array.isArray(deck.cards) || !deck.cards.length) { el.innerHTML = '<div style="font:500 10px var(--mono);color:var(--dim)">Select a deck below to see its combined bonuses.</div>'; return; }
-    el.innerHTML = '<div style="font:600 10px var(--mono);color:var(--dim)">Computing combined bonuses\u2026</div>';
+    if (!deck || !Array.isArray(deck.cards) || !deck.cards.length) { el.innerHTML = '<div style="font:500 var(--fs-sm) var(--mono);color:var(--dim)">Select a deck below to see its combined bonuses.</div>'; return; }
+    el.innerHTML = '<div style="font:600 var(--fs-sm) var(--mono);color:var(--dim)">Computing combined bonuses\u2026</div>';
     const reqDeck = deck;
     try {
       const payload = _deckCache.get(String(deck.id)) || await fetchDeckInfo(deck);
       _deckCache.set(String(deck.id), payload);
       if (sel.deck !== reqDeck) return;
-      el.innerHTML = (payload && payload.success) ? deckBonusesHtml(payload) : `<div style="font:500 10px var(--mono);color:var(--dim)">${esc((payload && payload.detail) || 'Master data not loaded \u2014 run a master data sync.')}</div>`;
-    } catch (e) { if (sel.deck === reqDeck) el.innerHTML = '<div style="font:500 10px var(--mono);color:var(--dim)">Could not load deck bonuses.</div>'; }
+      el.innerHTML = (payload && payload.success) ? deckBonusesHtml(payload) : `<div style="font:500 var(--fs-sm) var(--mono);color:var(--dim)">${esc((payload && payload.detail) || 'Master data not loaded \u2014 run a master data sync.')}</div>`;
+    } catch (e) { if (sel.deck === reqDeck) el.innerHTML = '<div style="font:500 var(--fs-sm) var(--mono);color:var(--dim)">Could not load deck bonuses.</div>'; }
   }
 
   function renderLibBody(q) {
@@ -986,8 +986,8 @@
     // server up but no session yet → user hasn't logged into the game
     if (!online && serverUp) {
       host.innerHTML = `<div style="border:1px solid var(--line-card);border-radius:6px;background:var(--card);padding:26px 22px;text-align:center">
-        <div style="font:700 13px var(--cond);letter-spacing:.14em;color:var(--amber);margin-bottom:8px">NOT LOGGED IN</div>
-        <div style="font:500 11px/1.7 var(--mono);color:var(--mut);max-width:440px;margin:0 auto">No account session yet. Complete the in-game login (the bot console is waiting for you to enter the game menu). Once you're in, your trainees, parents, decks, and cards load here automatically.</div>
+        <div style="font:700 var(--fs-lg) var(--cond);letter-spacing:.14em;color:var(--amber);margin-bottom:8px">NOT LOGGED IN</div>
+        <div style="font:500 var(--fs-md)/1.7 var(--mono);color:var(--mut);max-width:440px;margin:0 auto">No account session yet. Complete the in-game login (the bot console is waiting for you to enter the game menu). Once you're in, your trainees, parents, decks, and cards load here automatically.</div>
       </div>`;
       return;
     }
@@ -995,8 +995,8 @@
     // backend unreachable → offline state (no simulated catalog)
     if (!online) {
       host.innerHTML = `<div style="border:1px solid var(--line-card);border-radius:6px;background:var(--card);padding:26px 22px;text-align:center">
-        <div style="font:700 13px var(--cond);letter-spacing:.14em;color:var(--amber);margin-bottom:8px">OFFLINE</div>
-        <div style="font:500 11px/1.7 var(--mono);color:var(--mut);max-width:440px;margin:0 auto">Backend not reached. Run <code>python main.py</code> and reload — your ${esc(libTab)} load here from your account once the server is up and you're in the game.</div>
+        <div style="font:700 var(--fs-lg) var(--cond);letter-spacing:.14em;color:var(--amber);margin-bottom:8px">OFFLINE</div>
+        <div style="font:500 var(--fs-md)/1.7 var(--mono);color:var(--mut);max-width:440px;margin:0 auto">Backend not reached. Run <code>python main.py</code> and reload — your ${esc(libTab)} load here from your account once the server is up and you're in the game.</div>
       </div>`;
       return;
     }
@@ -1027,10 +1027,10 @@
       const items = L.decks;
       const panel = `<div style="border:1px solid var(--line);border-radius:9px;background:var(--bar);padding:14px 15px;margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <span style="font:800 10px var(--cond);letter-spacing:.2em;color:var(--amber)">DECK BONUSES</span>
+          <span style="font:800 var(--fs-sm) var(--cond);letter-spacing:.2em;color:var(--amber)">DECK BONUSES</span>
           <div style="display:flex;gap:7px">
-            <button class="abtn" type="button" data-modal="recSupports" style="font-size:9px;padding:6px 11px">RECOMMENDED</button>
-            <button class="abtn" type="button" data-modal="customDeck" style="font-size:9px;padding:6px 11px">BUILD DECK</button>
+            <button class="abtn" type="button" data-modal="recSupports" style="font-size:var(--fs-xs);padding:6px 11px">RECOMMENDED</button>
+            <button class="abtn" type="button" data-modal="customDeck" style="font-size:var(--fs-xs);padding:6px 11px">BUILD DECK</button>
           </div>
         </div>
         <div id="deck-bonuses-body"></div>
@@ -1039,7 +1039,7 @@
         const on = sel.deck && Number(sel.deck.id) === Number(d.id);
         const cards = (d.cards || []).map((c) => gridCard({ imgId: c.id, name: c.name, kicker: `${c.type || '?'} | ${c.rarity || '?'}`, rarity: c.rarity, h: 64 })).join('');
         return `<div data-pick="deck" data-id="${esc(String(d.id))}" data-deck-hover="${esc(String(d.id))}" style="border:1px solid ${on ? 'var(--amber)' : 'var(--line-card)'};border-radius:6px;padding:11px;margin-bottom:12px;cursor:pointer;background:${on ? '#15120a' : 'var(--card)'}">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><span style="font:700 11px var(--cond);letter-spacing:.12em;color:${on ? 'var(--amber)' : 'var(--ink)'}">${esc((d.name || 'Deck').toUpperCase())}</span><span style="font:500 9px var(--mono);color:var(--label)">SLOT ${esc(String(d.id))}${on ? ' · SELECTED' : ''}</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><span style="font:700 var(--fs-md) var(--cond);letter-spacing:.12em;color:${on ? 'var(--amber)' : 'var(--ink)'}">${esc((d.name || 'Deck').toUpperCase())}</span><span style="font:500 var(--fs-xs) var(--mono);color:var(--label)">SLOT ${esc(String(d.id))}${on ? ' · SELECTED' : ''}</span></div>
           ${grid(cards, 6)}</div>`;
       }).join('')) : emptyTab('No decks loaded from your account.');
       if (items.length) { renderDeckBonusesPanel(); wireDeckHover(); }
@@ -1182,21 +1182,21 @@
         const meta = [r.distance, r.fans ? (fmt(r.fans) + ' fans') : ''].filter(Boolean).join(' · ');
         const badge = !on ? ''
           : (idx === 0
-            ? '<span style="flex-shrink:0;font:800 8px var(--cond);letter-spacing:.1em;color:#06121a;background:var(--amber);padding:2px 6px;border-radius:3px">MAIN</span>'
-            : `<span style="flex-shrink:0;font:800 8px var(--cond);letter-spacing:.08em;color:var(--amber);background:rgba(242,169,0,.16);border:1px solid var(--amber-bd);padding:1px 5px;border-radius:3px">RIVAL OVERWRITE ${idx}</span>`);
+            ? '<span style="flex-shrink:0;font:800 var(--fs-2xs) var(--cond);letter-spacing:.1em;color:#06121a;background:var(--amber);padding:2px 6px;border-radius:3px">MAIN</span>'
+            : `<span style="flex-shrink:0;font:800 var(--fs-2xs) var(--cond);letter-spacing:.08em;color:var(--amber);background:rgba(242,169,0,.16);border:1px solid var(--amber-bd);padding:1px 5px;border-radius:3px">RIVAL OVERWRITE ${idx}</span>`);
         return `<button type="button" class="race-pick-row" data-pick-occ="${r.occ}" data-pick-key="${esc(key)}"
           style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 12px;border:1px solid ${on ? 'var(--amber)' : 'var(--line-card)'};background:${on ? 'rgba(242,169,0,.14)' : 'var(--card)'};border-radius:6px;margin-bottom:7px;cursor:pointer">
           <img src="/races/${encodeURIComponent(r.name)}.png" alt="" style="flex-shrink:0;width:84px;height:30px;object-fit:cover;border-radius:4px;border:1px solid var(--line-card)" onerror="this.style.display='none'">
-          <span style="flex-shrink:0;font:800 9px var(--mono);color:#fff;background:var(--${col});padding:2px 6px;border-radius:4px">${esc(r.grade)}</span>
-          <span style="flex:1;min-width:0;font:700 12px var(--cond);letter-spacing:.02em;color:${on ? 'var(--amber)' : 'var(--ink)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span>
-          <span style="flex-shrink:0;font:500 10px var(--mono);color:var(--label)">${esc(meta)}</span>
+          <span style="flex-shrink:0;font:800 var(--fs-xs) var(--mono);color:#fff;background:var(--${col});padding:2px 6px;border-radius:4px">${esc(r.grade)}</span>
+          <span style="flex:1;min-width:0;font:700 var(--fs-base) var(--cond);letter-spacing:.02em;color:${on ? 'var(--amber)' : 'var(--ink)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</span>
+          <span style="flex-shrink:0;font:500 var(--fs-sm) var(--mono);color:var(--label)">${esc(meta)}</span>
           ${badge}
         </button>`;
       }).join('');
     }
-    const body = `<div style="font:500 10px/1.5 var(--mono);color:var(--dim);margin-bottom:12px">First pick = <b style="color:var(--amber)">MAIN</b> race. Add more as <b style="color:var(--amber)">RIVAL OVERWRITES</b> — the bot runs a rival-overwrite race when that rival challenges you this turn, otherwise the main. Click again to remove.</div>
+    const body = `<div style="font:500 var(--fs-sm)/1.5 var(--mono);color:var(--dim);margin-bottom:12px">First pick = <b style="color:var(--amber)">MAIN</b> race. Add more as <b style="color:var(--amber)">RIVAL OVERWRITES</b> — the bot runs a rival-overwrite race when that rival challenges you this turn, otherwise the main. Click again to remove.</div>
       <div id="rp-rows">${rowsHtml()}</div>
-      <button type="button" id="rp-clear" style="display:flex;align-items:center;justify-content:center;width:100%;padding:9px;border:1px dashed var(--line-card);background:none;border-radius:6px;margin-top:4px;cursor:pointer;font:600 10px var(--cond);letter-spacing:.14em;color:var(--label)">CLEAR THIS TURN</button>`;
+      <button type="button" id="rp-clear" style="display:flex;align-items:center;justify-content:center;width:100%;padding:9px;border:1px dashed var(--line-card);background:none;border-radius:6px;margin-top:4px;cursor:pointer;font:600 var(--fs-sm) var(--cond);letter-spacing:.14em;color:var(--label)">CLEAR THIS TURN</button>`;
     I.modal({
       title: 'PICK RACES', sub: `${monthLbl} · ${yr}`, body,
       onMount: (ov) => {
@@ -1223,7 +1223,7 @@
         const all = (raceByCell[yr] && raceByCell[yr][i]) || [];
         const races = all.filter((r) => showOP || r.grade !== 'OP' || selectedRaceIds.has(r.occ) || selectedRaceIds.has(r.id));
         const key = yr + '|' + i;
-        const monthLbl = `<span style="font:700 9px var(--cond);letter-spacing:.08em;color:var(--mut)">${esc(m)}</span>`;
+        const monthLbl = `<span style="font:700 var(--fs-xs) var(--cond);letter-spacing:.08em;color:var(--mut)">${esc(m)}</span>`;
         const sel = cellSelected(yr, i);   // [main, ...rival overwrites]
         const selected = sel[0];
         const overwrites = sel.length - 1;
@@ -1239,21 +1239,21 @@
             style="position:relative;min-height:46px;border-radius:8px;border:1px solid var(--amber);overflow:hidden;cursor:${cur}">
             <img src="/races/${encodeURIComponent(selected.name)}.png" alt="" style="width:100%;height:46px;object-fit:cover;display:block"
               onerror="this.style.display='none';this.parentElement.style.background='rgba(242,169,0,.13)';this.nextElementSibling.style.display='block'">
-            <span style="display:none;position:absolute;top:5px;left:5px;font:800 7px var(--mono);color:#fff;background:var(--${col});padding:1px 4px;border-radius:3px">${esc(selected.grade)}</span>
-            ${overwrites > 0 ? `<span title="${overwrites} rival overwrite${overwrites === 1 ? '' : 's'}" style="position:absolute;top:4px;right:4px;font:800 7px var(--cond);letter-spacing:.06em;color:#06121a;background:var(--amber);padding:1px 5px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.5)">RIVAL +${overwrites}</span>` : ''}
-            <span style="position:absolute;left:0;right:0;bottom:0;text-align:center;font:800 7px var(--cond);letter-spacing:.12em;color:#06121a;background:var(--amber);padding:1px 0">SCHEDULED</span>
+            <span style="display:none;position:absolute;top:5px;left:5px;font:800 var(--fs-2xs) var(--mono);color:#fff;background:var(--${col});padding:1px 4px;border-radius:3px">${esc(selected.grade)}</span>
+            ${overwrites > 0 ? `<span title="${overwrites} rival overwrite${overwrites === 1 ? '' : 's'}" style="position:absolute;top:4px;right:4px;font:800 var(--fs-2xs) var(--cond);letter-spacing:.06em;color:#06121a;background:var(--amber);padding:1px 5px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.5)">RIVAL +${overwrites}</span>` : ''}
+            <span style="position:absolute;left:0;right:0;bottom:0;text-align:center;font:800 var(--fs-2xs) var(--cond);letter-spacing:.12em;color:#06121a;background:var(--amber);padding:1px 0">SCHEDULED</span>
           </div>`;
         } else if (clickable) {
           box = `<div ${attrs} title="${races.length} race${races.length === 1 ? '' : 's'} available — click to pick"
             style="min-height:46px;border-radius:8px;border:1px dashed var(--line-card);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:${cur}">
-            <span style="color:var(--green);font:700 20px var(--sans);line-height:1">+</span>
+            <span style="color:var(--green);font:700 var(--fs-5xl) var(--sans);line-height:1">+</span>
           </div>`;
         } else {
-          box = `<div style="min-height:46px;border-radius:8px;border:1px dashed var(--line-card);background:#0f1217;display:flex;align-items:center;justify-content:center;opacity:.45"><span style="color:#43506a;font:700 15px var(--sans);line-height:1">·</span></div>`;
+          box = `<div style="min-height:46px;border-radius:8px;border:1px dashed var(--line-card);background:#0f1217;display:flex;align-items:center;justify-content:center;opacity:.45"><span style="color:#43506a;font:700 var(--fs-2xl) var(--sans);line-height:1">·</span></div>`;
         }
         return `<div style="display:flex;flex-direction:column;gap:5px">${box}${monthLbl}</div>`;
       }).join('');
-      return `<div style="text-align:center;font:700 10px var(--cond);letter-spacing:.22em;color:var(--amber);background:linear-gradient(#15120a,#0e0c08);border:1px solid var(--amber-dk);border-radius:4px;padding:8px;margin:0 0 10px">${yr}</div>
+      return `<div style="text-align:center;font:700 var(--fs-sm) var(--cond);letter-spacing:.22em;color:var(--amber);background:linear-gradient(#15120a,#0e0c08);border:1px solid var(--amber-dk);border-radius:4px;padding:8px;margin:0 0 10px">${yr}</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">${cells}</div>`;
     }).join('');
   }

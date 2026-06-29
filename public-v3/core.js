@@ -464,7 +464,7 @@ window.Icarus = (() => {
       <div class="modal" style="width:380px" role="dialog" aria-modal="true">
         <div class="modal-head"><span class="modal-mark"></span><span class="modal-title">${ongoing ? 'DELETE CAREER?' : 'NO ACTIVE CAREER'}</span></div>
         <div class="modal-body" style="padding:18px">
-          <p id="career-modal-copy" style="font:500 12px/1.7 var(--mono);color:${ongoing ? 'var(--ink-2)' : 'var(--dim)'};margin:0">${ongoing ? 'This will force-delete the ongoing career. This cannot be undone.' : 'There is no career in progress to delete.'}</p>
+          <p id="career-modal-copy" style="font:500 var(--fs-base)/1.7 var(--mono);color:${ongoing ? 'var(--ink-2)' : 'var(--dim)'};margin:0">${ongoing ? 'This will force-delete the ongoing career. This cannot be undone.' : 'There is no career in progress to delete.'}</p>
         </div>
         <div class="modal-foot">
           <button type="button" class="abtn" id="career-cancel-btn">${ongoing ? 'CANCEL' : 'CLOSE'}</button>
@@ -749,6 +749,162 @@ window.Icarus = (() => {
   }
 
   // ============================================================
+  //  DISPLAY SETTINGS  — font size + selectable fonts
+  //  The type scale lives in styles.css (:root --fs-* rungs); this layer just
+  //  drives the global --fs-scale multiplier and overrides the three family
+  //  vars (--sans/--cond/--mono). Both persist to localStorage and re-apply on
+  //  every page in mountChrome(). Non-default fonts come from Google Fonts: a
+  //  <link> is injected lazily only when picked. Offline, the system fallback
+  //  baked into each var's stack is used instead.
+  // ============================================================
+  const FS_SCALES = { small: 0.9, normal: 1, large: 1.1, xlarge: 1.2 };
+  const FS_LABELS = [['small', 'Small'], ['normal', 'Normal'], ['large', 'Large'], ['xlarge', 'X-Large']];
+  // role -> [cssVar, [ [label, css font stack, google css2 family spec | ''] ... ]]
+  // The FIRST entry in each list is the default (already loaded by the page <link>).
+  const FONT_ROLES = {
+    body: ['--sans', [
+      ['IBM Plex Sans', "'IBM Plex Sans', system-ui, sans-serif", ''],
+      ['Inter', "'Inter', system-ui, sans-serif", 'Inter:wght@400;500;600;700'],
+      ['Roboto', "'Roboto', system-ui, sans-serif", 'Roboto:wght@400;500;700'],
+      ['Open Sans', "'Open Sans', system-ui, sans-serif", 'Open+Sans:wght@400;500;600;700'],
+      ['Lato', "'Lato', system-ui, sans-serif", 'Lato:wght@400;700'],
+      ['Nunito Sans', "'Nunito Sans', system-ui, sans-serif", 'Nunito+Sans:wght@400;600;700'],
+      ['Source Sans 3', "'Source Sans 3', system-ui, sans-serif", 'Source+Sans+3:wght@400;500;600;700'],
+      ['Work Sans', "'Work Sans', system-ui, sans-serif", 'Work+Sans:wght@400;500;600;700'],
+      ['Atkinson Hyperlegible', "'Atkinson Hyperlegible', system-ui, sans-serif", 'Atkinson+Hyperlegible:wght@400;700'],
+      ['Merriweather', "'Merriweather', Georgia, serif", 'Merriweather:wght@400;700'],
+      ['Lora', "'Lora', Georgia, serif", 'Lora:wght@400;500;600;700'],
+      ['System UI', "system-ui, -apple-system, 'Segoe UI', sans-serif", ''],
+    ]],
+    head: ['--cond', [
+      ['Barlow Condensed', "'Barlow Condensed', sans-serif", ''],
+      ['Oswald', "'Oswald', sans-serif", 'Oswald:wght@400;500;600;700'],
+      ['Roboto Condensed', "'Roboto Condensed', sans-serif", 'Roboto+Condensed:wght@400;500;700'],
+      ['Archivo Narrow', "'Archivo Narrow', sans-serif", 'Archivo+Narrow:wght@400;500;600;700'],
+      ['Saira Condensed', "'Saira Condensed', sans-serif", 'Saira+Condensed:wght@400;500;600;700'],
+      ['Teko', "'Teko', sans-serif", 'Teko:wght@400;500;600;700'],
+      ['Montserrat', "'Montserrat', sans-serif", 'Montserrat:wght@400;500;600;700'],
+      ['Archivo', "'Archivo', sans-serif", 'Archivo:wght@400;500;600;700'],
+    ]],
+    num: ['--mono', [
+      ['JetBrains Mono', "'JetBrains Mono', ui-monospace, monospace", ''],
+      ['Roboto Mono', "'Roboto Mono', ui-monospace, monospace", 'Roboto+Mono:wght@400;500;700'],
+      ['IBM Plex Mono', "'IBM Plex Mono', ui-monospace, monospace", 'IBM+Plex+Mono:wght@400;500;600;700'],
+      ['Source Code Pro', "'Source Code Pro', ui-monospace, monospace", 'Source+Code+Pro:wght@400;500;600;700'],
+      ['Space Mono', "'Space Mono', ui-monospace, monospace", 'Space+Mono:wght@400;700'],
+      ['Inconsolata', "'Inconsolata', ui-monospace, monospace", 'Inconsolata:wght@400;500;600;700'],
+      ['DM Mono', "'DM Mono', ui-monospace, monospace", 'DM+Mono:wght@400;500'],
+      ['Fira Code', "'Fira Code', ui-monospace, monospace", 'Fira+Code:wght@400;500;700'],
+    ]],
+  };
+  const APP_KEYS = { size: 'icarus_fs_scale', body: 'icarus_font_body', head: 'icarus_font_head', num: 'icarus_font_num' };
+
+  function appPref(k, fallback) {
+    try { return localStorage.getItem(APP_KEYS[k]) || fallback; } catch (e) { return fallback; }
+  }
+  function ensureFontLink(spec) {
+    if (!spec) return;
+    const id = 'gf-' + spec.replace(/[^a-z0-9]/gi, '');
+    if (document.getElementById(id)) return;
+    const l = document.createElement('link');
+    l.id = id; l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=' + spec + '&display=swap';
+    (document.head || document.documentElement).appendChild(l);
+  }
+  function applyFontScale(key) {
+    document.documentElement.style.setProperty('--fs-scale', String(FS_SCALES[key] != null ? FS_SCALES[key] : 1));
+  }
+  function applyFont(role, label) {
+    const def = FONT_ROLES[role];
+    if (!def) return;
+    const list = def[1];
+    const entry = list.find((e) => e[0] === label) || list[0];
+    document.documentElement.style.setProperty(def[0], entry[1]);
+    if (entry !== list[0]) ensureFontLink(entry[2]);   // default is already in the page <link>
+  }
+  // Read every saved pref and apply it. Called at load (FOUC-min) and in mountChrome.
+  function applyAppearance() {
+    const size = appPref('size', 'normal');
+    applyFontScale(FS_SCALES[size] != null ? size : 'normal');
+    ['body', 'head', 'num'].forEach((role) => applyFont(role, appPref(role, FONT_ROLES[role][1][0][0])));
+  }
+
+  function openAppearanceModal() {
+    const curSize = appPref('size', 'normal');
+    const sizeLabel = (k) => (FS_LABELS.find((x) => x[0] === k) || FS_LABELS[1])[1];
+    const sizeBtns = FS_LABELS.map(([k, t]) =>
+      `<button class="segbtn${k === curSize ? ' on' : ''}" type="button" data-fs="${k}">${t}</button>`).join('');
+    const fontField = (role, title, help) => {
+      const list = FONT_ROLES[role][1];
+      const cur = appPref(role, list[0][0]);
+      const opts = list.map((e) => `<option value="${esc(e[0])}"${e[0] === cur ? ' selected' : ''}>${esc(e[0])}${e === list[0] ? ' (default)' : ''}</option>`).join('');
+      return `<div class="field">
+          <div class="field-label">${title}</div>
+          <select class="self" data-font-role="${role}">${opts}</select>
+          <div class="field-help">${help}</div>
+        </div>`;
+    };
+    const curTheme = localStorage.getItem('icarus_theme') || 'amber';
+    const themeBtns = THEMES.map((t) =>
+      `<button class="segbtn${t === curTheme ? ' on' : ''}" type="button" data-theme-pick="${t}" style="text-transform:capitalize">${t}</button>`).join('');
+    const body = `
+      <div class="fsec">
+        <div class="fsec-title">TEXT SIZE</div>
+        <div class="field">
+          <div class="field-label">Font size <span class="val" id="ap-size-val">${esc(sizeLabel(curSize))}</span></div>
+          <div class="segrow" id="ap-size">${sizeBtns}</div>
+          <div class="field-help">Scales every font in the interface at once. Applies instantly and is remembered on this device.</div>
+        </div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-title">FONTS</div>
+        ${fontField('body', 'Body font', 'Paragraphs, descriptions and help text.')}
+        ${fontField('head', 'Heading font', 'Labels, titles and the navbar.')}
+        ${fontField('num', 'Numeric font', 'Monospace for stats, IDs and data columns.')}
+        <div class="field-help" style="margin-top:-4px">Fonts load from Google Fonts (needs internet). Offline, a system font is used instead.</div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-title">ACCENT THEME</div>
+        <div class="field">
+          <div class="segrow" id="ap-theme">${themeBtns}</div>
+          <div class="field-help">Highlight colour (also cycles by clicking the ICARUS logo).</div>
+        </div>
+      </div>`;
+    const o = modal({ title: 'DISPLAY', sub: 'appearance', body });
+    o.querySelectorAll('#ap-size .segbtn').forEach((b) => b.addEventListener('click', () => {
+      const k = b.dataset.fs;
+      try { localStorage.setItem(APP_KEYS.size, k); } catch (e) { /* ignore */ }
+      applyFontScale(k);
+      const v = o.querySelector('#ap-size-val'); if (v) v.textContent = sizeLabel(k);
+    }));
+    o.querySelectorAll('select[data-font-role]').forEach((s) => s.addEventListener('change', () => {
+      const role = s.dataset.fontRole;
+      try { localStorage.setItem(APP_KEYS[role], s.value); } catch (e) { /* ignore */ }
+      applyFont(role, s.value);
+    }));
+    o.querySelectorAll('#ap-theme .segbtn').forEach((b) => b.addEventListener('click', () => applyTheme(b.dataset.themePick)));
+  }
+
+  // Inject the DISPLAY button into the (every-page) .rail-toggles, left of LOGOUT.
+  function mountAppearance() {
+    applyAppearance();
+    const host = document.querySelector('.rail-toggles');
+    if (host && !document.getElementById('appearance-btn')) {
+      const b = document.createElement('button');
+      b.id = 'appearance-btn'; b.type = 'button'; b.className = 'tog tog-cog';
+      b.title = 'Display settings — font size & fonts';
+      b.innerHTML = 'DISPLAY' + COG;
+      host.insertBefore(b, host.firstChild);
+      b.addEventListener('click', openAppearanceModal);
+    }
+  }
+  // Mount the DISPLAY button + apply saved size/fonts as early as core.js runs, on
+  // EVERY page. The dashboard's app.js never calls mountChrome(), so relying on it
+  // alone left the button missing there; doing it at module load fixes all pages.
+  // Idempotent + guarded against a double-mount when a page also calls mountChrome().
+  mountAppearance();
+
+  // ============================================================
   //  STEAM LOGIN GATE
   //  Shown when the backend is reachable but no account session
   //  exists yet. Uses a RAW fetch (never the mock-fallback api())
@@ -808,15 +964,15 @@ window.Icarus = (() => {
   }
   function showLoginOverlay() {
     if (document.getElementById('login-overlay')) return;
-    const fld = 'width:100%;background:var(--card);border:1px solid var(--line-card);border-radius:5px;color:var(--ink);font:500 13px var(--mono);padding:11px 13px;margin-bottom:13px;outline:none';
-    const lbl = 'display:block;font:600 9px var(--cond);letter-spacing:.16em;color:var(--label);margin-bottom:6px';
+    const fld = 'width:100%;background:var(--card);border:1px solid var(--line-card);border-radius:5px;color:var(--ink);font:500 var(--fs-lg) var(--mono);padding:11px 13px;margin-bottom:13px;outline:none';
+    const lbl = 'display:block;font:600 var(--fs-xs) var(--cond);letter-spacing:.16em;color:var(--label);margin-bottom:6px';
     const ov = document.createElement('div');
     ov.id = 'login-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at 50% 28%,#0c0f15,#050608 70%);display:flex;align-items:center;justify-content:center;padding:20px';
     ov.innerHTML = `
       <div style="width:380px;max-width:92vw;background:var(--bar);border:1px solid var(--line-card);border-radius:8px;padding:30px 28px;box-shadow:0 30px 90px rgba(0,0,0,.7)">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px"><span style="width:11px;height:11px;background:var(--amber);transform:rotate(45deg)"></span><span style="font:700 18px var(--cond);letter-spacing:.22em;color:#fff">ICARUS</span></div>
-        <div style="font:500 10px var(--mono);color:var(--label);letter-spacing:.14em;margin-bottom:24px">STEAM LOGIN</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px"><span style="width:11px;height:11px;background:var(--amber);transform:rotate(45deg)"></span><span style="font:700 var(--fs-4xl) var(--cond);letter-spacing:.22em;color:#fff">ICARUS</span></div>
+        <div style="font:500 var(--fs-sm) var(--mono);color:var(--label);letter-spacing:.14em;margin-bottom:24px">STEAM LOGIN</div>
         <div id="lg-std">
           <label style="${lbl}">USERNAME</label>
           <input id="lg-user" type="text" autocomplete="username" style="${fld}">
@@ -827,9 +983,9 @@ window.Icarus = (() => {
           <label style="${lbl}">STEAM GUARD CODE</label>
           <input id="lg-code" type="text" inputmode="text" autocomplete="one-time-code" maxlength="7" style="${fld};letter-spacing:.3em;text-transform:uppercase">
         </div>
-        <div id="lg-err" style="display:none;font:500 10px/1.5 var(--mono);color:var(--red);background:#1a0c0c;border:1px solid var(--red-bd);border-radius:4px;padding:9px 11px;margin-bottom:13px"></div>
-        <button id="lg-btn" type="button" style="width:100%;background:var(--amber);border:none;border-radius:5px;color:var(--panel);font:700 12px var(--cond);letter-spacing:.16em;padding:13px;cursor:pointer">LOGIN</button>
-        <div style="font:500 9px/1.6 var(--mono);color:var(--dim);margin-top:16px;text-align:center">Drives the real Steam client. Credentials are sent only to your local bot, never elsewhere.</div>
+        <div id="lg-err" style="display:none;font:500 var(--fs-sm)/1.5 var(--mono);color:var(--red);background:#1a0c0c;border:1px solid var(--red-bd);border-radius:4px;padding:9px 11px;margin-bottom:13px"></div>
+        <button id="lg-btn" type="button" style="width:100%;background:var(--amber);border:none;border-radius:5px;color:var(--panel);font:700 var(--fs-base) var(--cond);letter-spacing:.16em;padding:13px;cursor:pointer">LOGIN</button>
+        <div style="font:500 var(--fs-xs)/1.6 var(--mono);color:var(--dim);margin-top:16px;text-align:center">Drives the real Steam client. Credentials are sent only to your local bot, never elsewhere.</div>
       </div>`;
     document.body.appendChild(ov);
     const user = document.getElementById('lg-user');
@@ -865,6 +1021,7 @@ window.Icarus = (() => {
 
   function mountChrome() {
     bindTheme();
+    mountAppearance();
     bindDevToggles();
     mountMonitor();
     wireLogout();
@@ -968,6 +1125,7 @@ window.Icarus = (() => {
     get isMock() { return mockMode; },
     onPoll: (fn) => listeners.push(fn),
     mountChrome, mountMonitor, modal, closeModal, wireControls, bindDevExtras, bindTheme,
+    openAppearanceModal, mountAppearance, applyAppearance,
     ensureAuth, wireLogout,
     getRecoveryMode, setRecoveryMode, recoveryPill, careerPillHtml,
     devConfig,   // exposed so the dashboard run payload can read the RETRIES popover config

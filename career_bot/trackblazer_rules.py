@@ -271,29 +271,3 @@ EVENT_MOOD_BONUS_BY_MOTIVATION = {
     4: 60,
     5: 0,
 }
-
-
-# FORK: (nirio) fork-only tuning constants
-# Each key maps to a mant_config field prefixed "nirio_". All are user-tunable
-# via the (nirio) section in Scenario Override Settings and saved per-preset.
-# Mega/anklet/cashout dump constants removed — superseded by upstream's v3.2.2
-# dump-mode floor-drop (more aggressive, simpler).
-
-DEFAULT_NIRIO_SKILL_FORCE_TURN = 60
-DEFAULT_NIRIO_SKILL_SP_FLOOR = 500
-DEFAULT_NIRIO_SKILL_HOARD_THRESHOLD = 1000
-
-DEFAULT_NIRIO_MOOD_FLOOR = 2
-DEFAULT_NIRIO_MOOD_REPAIR_TURN = 50
-DEFAULT_NIRIO_MOOD_CRITICAL_TURN = 68
-
-DEFAULT_NIRIO_CHARM_DUMP_TURN = 60
-DEFAULT_NIRIO_CHARM_DUMP_MIN_GAIN = 8
-DEFAULT_NIRIO_CHARM_DUMP_FAILURE_RATE = 10
-
-DEFAULT_NIRIO_WHISTLE_DUMP_TURN = 60
-DEFAULT_NIRIO_WHISTLE_DUMP_SCORE = 20
-
-DEFAULT_NIRIO_MCH_RESERVE = 3
-
-DEFAULT_NIRIO_CHAIN_MOOD_FLOOR = 2
