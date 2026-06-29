@@ -166,6 +166,19 @@ Quick-reference table for each upstream update. Detailed context is in the entri
 | Upstream cupcake kale-release | THEIRS | New feature, complementary with our mood floor |
 | Upstream Discord toggles | THEIRS | New feature, accepted wholesale |
 
+### v3.2.3 (2026-06-30)
+
+Same collisions as v3.2.2 — no new fork changes superseded. One new upstream fix accepted.
+
+| Fork change | Winner | Integration |
+|---|---|---|
+| All data contracts | OURS | Same as v3.2.2 |
+| All nirio behavior (10 knobs) | OURS/MERGED | Same as v3.2.2 |
+| MCH reserve, G1, skill, mood, charm | Same | Same integrations |
+| **NEW: Whistle dump-late fix** | **THEIRS** | Whistle no longer blocks other item dumps in late game |
+| Upstream CSS type-scale | THEIRS | UI-only, no fork conflict |
+| Upstream Display panel | THEIRS | New feature, accepted |
+
 ### 2026-06-29 — Fix headless bypass ticket consumed before pre-load
 **Commit:** `86aecd3` **File(s):** `main.py`
 **Context:** `check_saved_auth()` creates a UmaClient and calls `c.login()` to test the headless bypass. This consumes the Steam session ticket. But `saved_cfg` (returned to the caller) still holds the old ticket. The startup pre-load then creates a second UmaClient with the stale ticket, causing 394 errors on `load/index`. Fixed by syncing the client's (possibly refreshed) ticket back into `saved_cfg` before returning it.
@@ -220,4 +233,15 @@ Quick-reference table for each upstream update. Detailed context is in the entri
 **Commit:** (pending) **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`
 **Context:** v3.2.2 reverted all fork changes AND improved item dump logic. Anti-bias evaluation: upstream's new charm/mega/anklet dump (drops score floor in dump mode) is more aggressive than our nirio mega/anklet intermediates → those 3 nirio knobs SUPERSEDED. Nirio charm intermediate (60-64) still fills a gap upstream doesn't cover. Cashout already superseded in v3.2.1. Remaining 10 nirio knobs, data contracts, MCH reserve, skill forcing, mood gating, ticket sync, auto_buy all restored with proper integration.
 **Winner:** MERGED — upstream's dump improvements accepted, nirio trimmed to 10 constants (from 16), non-redundant fixes re-applied.
+**Status:** ACTIVE
+
+### 2026-06-30 — v3.2.3 upstream update applied
+**Commit:** `471e0c0`
+**Context:** Applied upstream v3.2.3. Key additions: Display/Appearance panel (font size, body/heading/numeric fonts, accent theme), centralized CSS type-scale (all font sizes via variables), whistle dump-late short-circuit fix (whistle no longer blocks other item dumps in late game). All active fork changes silently reverted again.
+**Status:** N/A (upstream snapshot)
+
+### 2026-06-30 — Integrate fork fixes after v3.2.3
+**Commit:** (pending) **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`
+**Context:** v3.2.3 is primarily a UI/display overhaul (CSS type-scale). One new upstream behavior fix: whistle dump-late short-circuit (accepted). All fork changes identical to v3.2.2 integration re-applied. No new superseded knobs.
+**Winner:** MERGED — upstream's whistle dump-late fix accepted, all 10 nirio knobs + data contracts + integrations re-applied.
 **Status:** ACTIVE
