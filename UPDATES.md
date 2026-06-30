@@ -179,6 +179,29 @@ Same collisions as v3.2.2 — no new fork changes superseded. One new upstream f
 | Upstream CSS type-scale | THEIRS | UI-only, no fork conflict |
 | Upstream Display panel | THEIRS | New feature, accepted |
 
+### v3.2.4 + v3.2.5 (2026-06-30)
+
+| Fork change | Winner | Integration |
+|---|---|---|
+| `_skip_buy()` granular reasons | OURS | Data contract — upstream reverted to `True`/`False` again |
+| `_skip_buy()` caller pass-through | OURS | Data contract — upstream collapsed to `"skip_buy"` again |
+| Pre-race logging FORK block (career report JSON) | OURS | Data contract — log_viewer.html reads `bot_pre_race_use_selected` from JSON |
+| **NEW: `_patch_last_race_items` (live UI fix)** | **THEIRS** | Supersedes live-UI part of our FORK block; fixes lag-by-one on first Climax hammer |
+| Runtime settings snapshot | OURS | log_viewer.html Active Settings section depends on it |
+| Nirio skill forcing (skills.py) | MERGED | Nirio force before gate, pre_finals after gate |
+| Nirio mood floor / cupcake | OURS | Evidence: Climax Awful without it |
+| Nirio charm dump (60-64) | OURS | Upstream still has no 60-64 intermediate window |
+| Nirio whistle dump turn | MERGED | `min(upstream_65, nirio_60)` — cooperative |
+| Dynamic MCH reserve + G1 Artisan-first | MERGED | `protected_mch = min(nirio_reserve, remaining_climax)`; integrated with upstream total check |
+| Nirio race chain mood gating | OURS | Upstream still has no mood-aware chain gating |
+| Headless ticket sync (main.py) | OURS | Upstream still consumes ticket; pre-load uses stale one |
+| `_item_cap()` auto_buy priority | OURS | auto_buy_items caps still ignored by upstream |
+| **NEW: win-prob calibration** | **THEIRS** | Wholesale — read-only analytics, never affects play |
+| **NEW: `public-v3/logview.html`** | **THEIRS** | Upstream's log viewer; coexists with our `log_viewer.html` |
+| **NEW: career log API** | **THEIRS** | `/api/career/logs` + `/api/career/log`; complements our log viewer |
+| All nirio UI sliders (modals.js) | OURS | Restored nirio section in Scenario Overrides |
+| All nirio constants (trackblazer_rules.py) | OURS | Restored 13 DEFAULT_NIRIO_* constants |
+
 ### 2026-06-29 — Fix headless bypass ticket consumed before pre-load
 **Commit:** `86aecd3` **File(s):** `main.py`
 **Context:** `check_saved_auth()` creates a UmaClient and calls `c.login()` to test the headless bypass. This consumes the Steam session ticket. But `saved_cfg` (returned to the caller) still holds the old ticket. The startup pre-load then creates a second UmaClient with the stale ticket, causing 394 errors on `load/index`. Fixed by syncing the client's (possibly refreshed) ticket back into `saved_cfg` before returning it.
@@ -251,7 +274,18 @@ Same collisions as v3.2.2 — no new fork changes superseded. One new upstream f
 **Status:** ACTIVE
 
 ### 2026-06-30 — Integrate fork fixes after v3.2.3
-**Commit:** (pending) **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`
+**Commit:** `91f7650` **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`
 **Context:** v3.2.3 is primarily a UI/display overhaul (CSS type-scale). One new upstream behavior fix: whistle dump-late short-circuit (accepted). All fork changes identical to v3.2.2 integration re-applied. No new superseded knobs.
 **Winner:** MERGED — upstream's whistle dump-late fix accepted, all 10 nirio knobs + data contracts + integrations re-applied.
+**Status:** ACTIVE
+
+### 2026-06-30 — v3.2.4 + v3.2.5 upstream update applied
+**Commit:** `3195b8c`
+**Context:** Applied upstream v3.2.4/v3.2.5 (shipped as one commit). Key behavioral additions: `_patch_last_race_items()` — live UI fix that patches the pre-race items on the action_history row (fixes the lag-by-one issue where first climax hammer was invisible in the live UI); opponent-aware win-probability self-calibration (`win_prob_calibration.py`); race field capture (`race_scenario.py`) for calibration. Career log serving API (`/api/career/logs`, `/api/career/log`). Key visual additions: `public-v3/logview.html` (upstream's own log viewer), dashboard stat charts, 78-turn career heatmap, race replay, attribute radar, head-to-head compare, cockpit touches. All active fork changes silently reverted again.
+**Status:** N/A (upstream snapshot)
+
+### 2026-06-30 — Integrate fork fixes after v3.2.5
+**Commit:** (pending) **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`, `CLAUDE.md`, `UPDATING.md`
+**Context:** v3.2.5 reverted all fork changes AND added `_patch_last_race_items()` which supersedes the live-UI portion of our pre-race logging FORK block. Upstream's new career log API also complements (but does not replace) our log_viewer.html. CHANGELOG.md added to the audit process per updated CLAUDE.md. Anti-bias evaluation: `_patch_last_race_items` is BETTER than our FORK block for live UI → accept theirs AND keep ours (they serve different outputs: live action_history vs career report JSON). All 10 nirio knobs, data contracts, MCH reserve + G1 Artisan-first, skill forcing, mood gating, ticket sync, auto_buy cap priority all restored with proper integration.
+**Winner:** MERGED — upstream's live UI fix + win-prob calibration + logview.html accepted wholesale. Fork data contracts, nirio tuning, and integrations re-applied.
 **Status:** ACTIVE

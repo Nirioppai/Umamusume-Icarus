@@ -8169,6 +8169,12 @@ def check_saved_auth():
                 c = UmaClient(saved_cfg, trace_enabled=False)
                 res = c.login()
                 if res and res.get("data"):
+                    # FORK: sync the (possibly refreshed) ticket back so the
+                    # pre-load step doesn't reuse a consumed ticket (→ 394).
+                    if getattr(c, "steam_ticket", None):
+                        saved_cfg["steam_session_ticket"] = c.steam_ticket
+                    if getattr(c, "steam_id", None):
+                        saved_cfg["steam_id"] = str(c.steam_id)
                     print("[+] Headless bypass successful!", flush=True)
                     return saved_cfg
                 else:
