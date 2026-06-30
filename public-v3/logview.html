@@ -1,0 +1,2603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Icarus — Career Log Viewer</title>
+<style>
+:root {
+  --bg: #0b0c10;
+  --surface: #121419;
+  --surface2: #181b22;
+  --surface3: #20242c;
+  --border: #23272f;
+  --border2: #343a44;
+  --accent: #f2a900;
+  --accent2: #ffc23d;
+  --accent-dim: rgba(242,169,0,0.15);
+  --green: #4ade80;
+  --green-dim: rgba(74,222,128,0.12);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,0.12);
+  --yellow: #fbbf24;
+  --yellow-dim: rgba(251,191,36,0.12);
+  --blue: #60a5fa;
+  --blue-dim: rgba(96,165,250,0.12);
+  --pink: #f472b6;
+  --pink-dim: rgba(244,114,182,0.12);
+  --cyan: #22d3ee;
+  --cyan-dim: rgba(34,211,238,0.12);
+  --orange: #fb923c;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --text4: #475569;
+  --speed-c: #60a5fa;
+  --stamina-c: #f472b6;
+  --power-c: #fb923c;
+  --guts-c: #4ade80;
+  --wit-c: #fbbf24;
+  --sp-c: #a78bfa;
+  --hp-c: #34d399;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
+
+/* ── Header ── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:16px;font-weight:700;color:var(--accent2);white-space:nowrap}
+.open-btn{background:var(--accent);border:none;color:#1a1407;font-size:12px;font-weight:700;padding:5px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.open-btn:hover{background:var(--accent2)}
+.back-link{color:var(--text2);text-decoration:none;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:6px;padding:4px 11px;white-space:nowrap}
+.back-link:hover{color:var(--accent2);border-color:var(--border2)}
+.copy-ai-btn{background:var(--green);border:none;color:#000;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .2s}
+.copy-ai-btn:hover{background:var(--accent2);color:#fff}
+.copy-ai-btn.copied{background:var(--accent);color:#fff}
+.header-hint{font-size:11px;color:var(--text3);margin-left:auto}
+
+/* ── File pills ── */
+.file-list{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.file-pill{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px;cursor:pointer}
+.file-pill .fp-x{color:var(--text3);cursor:pointer;font-size:13px;line-height:1}
+.file-pill .fp-x:hover{color:var(--red)}
+.file-pill.active{border-color:var(--accent);color:var(--accent2);background:var(--accent-dim)}
+.fp-ordinal{font-weight:700}
+.fp-date{color:var(--text3);font-size:10px}
+
+/* ── Drop zone ── */
+#dropZone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 50px);gap:14px;padding:40px;text-align:center}
+#dropZone.drag-over{background:var(--accent-dim)}
+.drop-icon{font-size:48px;opacity:0.25}
+.drop-title{font-size:17px;font-weight:600;color:var(--text2)}
+.drop-sub{font-size:12px;color:var(--text3)}
+
+/* ── Summary bar ── */
+#summaryBar{display:none;background:var(--surface);border-bottom:1px solid var(--border);padding:6px 20px;gap:8px;flex-wrap:wrap;align-items:center}
+.s-badge{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 9px;font-size:11px;white-space:nowrap}
+.s-badge b{color:var(--text)}
+.s-badge span{color:var(--text3);margin-right:3px}
+.st-ok{color:var(--green)!important}
+.st-stopped{color:var(--yellow)!important}
+.st-error{color:var(--red)!important}
+
+/* ── Tabs ── */
+#tabBar{display:none;background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px}
+.tab{display:inline-block;padding:9px 16px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent)}
+
+/* ── Panels ── */
+.panel{display:none;padding:14px 20px}
+.panel.active{display:block}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.toolbar h2{font-size:13px;color:var(--text2);font-weight:600;flex:1;min-width:80px}
+.filter-btn{padding:3px 10px;border-radius:16px;font-size:11px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer}
+.filter-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.search-box{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:12px;width:150px}
+.search-box::placeholder{color:var(--text3)}
+
+/* ── Turn rows ── */
+#turnsList{display:flex;flex-direction:column;gap:3px}
+.turn-row{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.turn-row:hover{border-color:var(--border2)}
+.turn-row.has-items{border-left:3px solid var(--yellow)}
+.turn-row.is-race{border-left:3px solid var(--pink)}
+.turn-row.is-rest{border-left:3px solid var(--green)}
+.turn-row.bootcamp{border-left:3px solid var(--cyan)!important}
+.turn-row.bootcamp .turn-hdr{background:var(--cyan-dim)}
+.turn-hdr{display:grid;grid-template-columns:42px 80px 1fr auto auto;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;user-select:none}
+.t-num{font-size:16px;font-weight:800;color:var(--text3);text-align:center}
+.t-time{font-size:10px;color:var(--text3);font-family:monospace}
+.t-action{display:flex;flex-direction:column;gap:2px}
+.t-label{font-weight:600;font-size:12px}
+.a-train{color:var(--blue)}
+.a-rest{color:var(--green)}
+.a-race{color:var(--pink)}
+.a-other{color:var(--text2)}
+.t-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:1px}
+.chip{border-radius:4px;padding:1px 6px;font-size:10px;white-space:nowrap}
+.chip.buy{background:var(--yellow-dim);border:1px solid rgba(251,191,36,0.3);color:var(--yellow)}
+.chip.use{background:var(--blue-dim);border:1px solid rgba(96,165,250,0.3);color:var(--blue)}
+.chip.skill{background:var(--accent-dim);border:1px solid rgba(155,138,251,0.3);color:var(--accent2)}
+.bootcamp-chip{background:var(--cyan-dim);border:1px solid rgba(34,211,238,0.3);color:var(--cyan);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;white-space:nowrap}
+.t-stats{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sm{font-size:11px;font-weight:600}
+.sm.hp{color:var(--hp-c)}
+.sm.spd{color:var(--speed-c)}
+.sm.sta{color:var(--stamina-c)}
+.sm.pow{color:var(--power-c)}
+.sm.gut{color:var(--guts-c)}
+.sm.wit{color:var(--wit-c)}
+.sm.sp{color:var(--sp-c)}
+.dp{font-size:9px}
+.dp.pos{color:var(--green)}
+.dp.neg{color:var(--red)}
+.t-arrow{color:var(--text3);font-size:13px;transition:transform .18s}
+.turn-row.open .t-arrow{transform:rotate(180deg)}
+.t-details{display:none;border-top:1px solid var(--border);background:var(--surface2);padding:10px 14px}
+.turn-row.open .t-details{display:block}
+
+/* ── Detail grid ── */
+.dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.ds h4{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;margin-bottom:6px}
+.sb-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.sb-lbl{width:52px;font-size:11px;color:var(--text2);text-align:right}
+.sb-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.sb-fill{height:100%;border-radius:2px}
+.sb-fill.hp{background:var(--hp-c)}.sb-fill.spd{background:var(--speed-c)}.sb-fill.sta{background:var(--stamina-c)}.sb-fill.pow{background:var(--power-c)}.sb-fill.gut{background:var(--guts-c)}.sb-fill.wit{background:var(--wit-c)}.sb-fill.sp{background:var(--sp-c)}
+.sb-val{width:65px;font-size:11px;font-weight:600}
+.ir{display:flex;gap:6px;font-size:12px;margin-bottom:4px}
+.ir-lbl{color:var(--text3);width:75px;flex-shrink:0}
+.ir-val{color:var(--text)}
+.il-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-bottom:1px solid var(--border)}
+.il-row:last-child{border:none}
+.il-cost{color:var(--yellow);font-weight:600}
+.il-uses{color:var(--blue);font-weight:600}
+.inv-wrap{display:flex;flex-wrap:wrap;gap:4px}
+.inv-chip{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:11px;color:var(--text2)}
+.api-row{font-size:10px;font-family:monospace;color:var(--text3);display:flex;gap:6px;margin-bottom:2px}
+.d-req{color:var(--accent2)}.d-res{color:var(--green)}
+
+/* ── Shop History ── */
+.shop-summary-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.shop-stat{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 12px}
+.shop-stat .ss-num{font-size:20px;font-weight:800;color:var(--text)}
+.shop-stat .ss-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+.shop-stat.good .ss-num{color:var(--green)}
+.shop-stat.warn .ss-num{color:var(--yellow)}
+.shop-stat.info .ss-num{color:var(--blue)}
+
+/* ── Collapsible sections ── */
+.section{background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:10px;overflow:hidden}
+.section-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;user-select:none}
+.section-hdr:hover{background:var(--surface2)}
+.section-hdr h3{font-size:12px;font-weight:700;color:var(--text2);flex:1}
+.section-hdr .s-arrow{color:var(--text3);font-size:12px;transition:transform .18s}
+.section.open .s-arrow{transform:rotate(180deg)}
+.section-body{display:none;border-top:1px solid var(--border)}
+.section.open .section-body{display:block}
+
+/* ── Tables ── */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);font-weight:600;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface2)}
+.tbl td{padding:6px 10px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.tbl th.r,.tbl td.r{text-align:right}
+th.sortable{cursor:pointer;white-space:nowrap}
+th.sortable:hover{color:var(--text2)}
+th.sortable::after{content:' ⇅';opacity:.3;font-size:9px}
+th.sortable[data-sort-dir="asc"]::after{content:' ▲';opacity:.8}
+th.sortable[data-sort-dir="desc"]::after{content:' ▼';opacity:.8}
+
+/* ── Badges ── */
+.status-badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;border-radius:4px;padding:2px 7px}
+.sb-bought{background:var(--yellow-dim);color:var(--yellow)}
+.sb-skipped{background:rgba(160,160,96,.1);color:#a0a060}
+.sb-missed{background:var(--red-dim);color:#c07070}
+.sb-expired{background:rgba(100,116,139,.1);color:var(--text3)}
+.sb-limit{background:var(--green-dim);color:var(--green);opacity:.7}
+.cost-cell{color:var(--yellow);font-weight:600}
+.sale-cost{color:var(--green);font-weight:600}
+.original-cost{text-decoration:line-through;color:var(--text3);font-size:10px;margin-left:3px}
+.reason-tags{display:flex;gap:3px;flex-wrap:wrap}
+.reason-tag{font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text3);white-space:nowrap}
+
+/* ── Restock cards ── */
+.restock-list{display:flex;flex-direction:column;gap:5px}
+.restock-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.restock-hdr{display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer;user-select:none}
+.restock-hdr:hover{background:var(--surface2)}
+.r-num{font-size:14px;font-weight:800;color:var(--text3);width:26px;text-align:center}
+.r-turns{font-size:12px;color:var(--text2)}
+.r-turns b{color:var(--text)}
+.r-pills{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.r-pill{font-size:10px;font-weight:600;border-radius:10px;padding:2px 7px;border:1px solid;white-space:nowrap}
+.r-pill.bought{background:var(--yellow-dim);border-color:rgba(251,191,36,.3);color:var(--yellow)}
+.r-pill.skipped{background:rgba(160,160,96,.1);border-color:rgba(160,160,96,.2);color:#a0a060}
+.r-pill.missed{background:var(--red-dim);border-color:rgba(248,113,113,.2);color:#c07070}
+.r-arrow{color:var(--text3);font-size:12px;transition:transform .18s}
+.restock-card.open .r-arrow{transform:rotate(180deg)}
+.restock-body{display:none;border-top:1px solid var(--border)}
+.restock-card.open .restock-body{display:block}
+
+/* ── Overview cards ── */
+.overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:14px}
+.ov-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.ov-card h3{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;margin-bottom:8px}
+.ov-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)}
+.ov-row:last-child{border:none}
+.ov-lbl{font-size:12px;color:var(--text2)}
+.ov-val{font-size:12px;font-weight:600;color:var(--text)}
+.ov-big{font-size:28px;font-weight:800;color:var(--accent2);line-height:1;margin-bottom:4px}
+.ov-sub{font-size:10px;color:var(--text3)}
+
+/* ── Stat chart area ── */
+.stat-chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px}
+.stat-chart-wrap h3{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;margin-bottom:8px}
+.chart-canvas{width:100%;height:260px;position:relative;overflow:hidden}
+.chart-canvas svg{width:100%;height:100%}
+.chart-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.chart-legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer}
+.chart-legend-item.off{opacity:.25}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── Metrics section ── */
+.metric-cards{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.metric-card{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;min-width:120px}
+.mc-val{font-size:24px;font-weight:800;line-height:1;margin-bottom:3px}
+.mc-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)}
+.mc-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.mc-pass{color:var(--green)}.mc-fail{color:var(--red)}.mc-warn{color:var(--yellow)}
+.pass-cell{color:var(--green);font-weight:600}
+.fail-cell{color:var(--red);font-weight:600}
+.gbar{display:flex;align-items:center;gap:6px}
+.gbar-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;max-width:90px}
+.gbar-fill{height:100%;border-radius:2px;background:var(--accent)}
+.no-data{color:var(--text3);font-size:13px;text-align:center;padding:24px}
+
+/* ── Skills table ── */
+.skill-owned{color:var(--green);font-size:11px}
+.skill-available{color:var(--text2);font-size:11px}
+.skill-cost{color:var(--sp-c);font-weight:600}
+
+/* ── Timeline sparkline ── */
+.spark-row{display:flex;align-items:center;gap:3px;height:14px}
+.spark-bar{height:100%;min-width:2px;border-radius:1px}
+.spark-bar.train{background:var(--blue)}
+.spark-bar.race{background:var(--pink)}
+.spark-bar.rest{background:var(--green)}
+.spark-bar.other{background:var(--text4)}
+
+/* ── Race log ── */
+.race-result{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px}
+.race-1st{background:rgba(251,191,36,.15);color:var(--yellow)}
+.race-2nd{background:rgba(192,192,192,.12);color:#c0c0c0}
+.race-3rd{background:rgba(205,127,50,.12);color:#cd7f32}
+.race-other{background:rgba(100,116,139,.1);color:var(--text3)}
+.race-clock{background:rgba(34,211,238,.12);color:var(--cyan);font-size:10px;border-radius:3px;padding:1px 5px;margin-left:3px}
+
+/* ── Career Heatmap (GitHub-contribution-style full 78-turn map) ── */
+.heatmap-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.heatmap-wrap h3{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;margin-bottom:10px}
+.hm-grid{display:grid;grid-template-columns:auto repeat(26,1fr);gap:3px;align-items:center;min-width:560px}
+.hm-scroll{overflow-x:auto;padding-bottom:4px}
+.hm-rowlbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;text-align:right;padding-right:6px;white-space:nowrap}
+.hm-colhdr{font-size:8px;color:var(--text4);text-align:center;font-variant-numeric:tabular-nums;line-height:1}
+.hm-cell{
+  position:relative;aspect-ratio:1/1;min-height:16px;border-radius:3px;
+  background:var(--surface3);border:1px solid var(--border);cursor:default;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;line-height:1;color:var(--text);
+}
+.hm-cell.empty{background:transparent;border:1px solid transparent;cursor:default}
+/* training intensity ramp (amber-tinted by stat-gain magnitude) */
+.hm-cell.hm-train{border-color:var(--accent-dim)}
+.hm-cell.hm-i0{background:rgba(242,169,0,0.10)}
+.hm-cell.hm-i1{background:rgba(242,169,0,0.26)}
+.hm-cell.hm-i2{background:rgba(242,169,0,0.46)}
+.hm-cell.hm-i3{background:rgba(242,169,0,0.68)}
+.hm-cell.hm-i4{background:rgba(242,169,0,0.92);color:#1a1407}
+/* rest / recreation — calm muted tone */
+.hm-cell.hm-rest{background:var(--green-dim);border-color:rgba(74,222,128,0.25)}
+.hm-cell.hm-other{background:var(--surface2);border-color:var(--border)}
+/* race result inset rings */
+.hm-cell.hm-race-win{background:var(--green-dim);border-color:var(--green);box-shadow:inset 0 0 0 2px var(--green)}
+.hm-cell.hm-race-place{background:var(--yellow-dim);border-color:var(--yellow);box-shadow:inset 0 0 0 2px var(--yellow)}
+.hm-cell.hm-race-loss{background:var(--red-dim);border-color:var(--red);box-shadow:inset 0 0 0 2px var(--red)}
+/* HP-critical pulse outline (red glow) */
+.hm-cell.hm-hpcrit{outline:2px solid var(--red);outline-offset:1px;animation:hmPulse 1.4s ease-in-out infinite}
+@keyframes hmPulse{0%,100%{outline-color:var(--red)}50%{outline-color:rgba(248,113,113,0.3)}}
+/* skill-buy star glyph */
+.hm-cell .hm-star{position:absolute;top:-1px;right:0px;font-size:8px;line-height:1;color:var(--accent2);text-shadow:0 0 2px rgba(0,0,0,.8);pointer-events:none}
+.hm-cell .hm-glyph{font-size:8px;opacity:.9;pointer-events:none}
+/* legend */
+.hm-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:10px;color:var(--text2);align-items:center}
+.hm-leg{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.hm-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;display:inline-block;border:1px solid var(--border)}
+.hm-swatch.s-train{background:rgba(242,169,0,0.55)}
+.hm-swatch.s-rest{background:var(--green-dim);border-color:rgba(74,222,128,0.25)}
+.hm-swatch.s-win{background:var(--green-dim);box-shadow:inset 0 0 0 2px var(--green)}
+.hm-swatch.s-place{background:var(--yellow-dim);box-shadow:inset 0 0 0 2px var(--yellow)}
+.hm-swatch.s-loss{background:var(--red-dim);box-shadow:inset 0 0 0 2px var(--red)}
+.hm-swatch.s-hp{background:var(--surface3);outline:2px solid var(--red);outline-offset:-3px}
+.hm-ramp{display:inline-flex;gap:2px;align-items:center;margin:0 2px}
+.hm-ramp i{width:11px;height:11px;border-radius:2px;display:inline-block}
+/* custom tooltip */
+.hm-cell[data-tip]:hover::after{
+  content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:6px 9px;
+  font-size:11px;color:var(--text);white-space:pre;z-index:50;pointer-events:none;
+  box-shadow:0 6px 20px rgba(0,0,0,.55);text-align:left;line-height:1.5;min-width:120px;font-weight:400;
+}
+.hm-cell[data-tip]:hover::before{
+  content:'';position:absolute;bottom:calc(100% + 1px);left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:var(--border2);z-index:51;pointer-events:none;
+}
+@media (prefers-reduced-motion: reduce){
+  .hm-cell.hm-hpcrit{animation:none;outline:2px solid var(--red)}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back-link" href="history.html">← History</a>
+  <h1>Icarus — Career Log Viewer</h1>
+  <button class="open-btn" onclick="loadServerLogs()">📂 Server Logs</button>
+  <button class="open-btn" onclick="document.getElementById('fi').click()">Open File</button>
+  <input id="fi" type="file" accept=".json" multiple style="display:none" onchange="loadFile(this)">
+  <div id="fileList" class="file-list"></div>
+  <span class="header-hint">Drop career_log_*.json (multi OK)</span>
+</header>
+
+<div id="summaryBar"></div>
+<div id="tabBar">
+  <span class="tab active" data-tab="all" onclick="showTab('all',this)">All</span>
+  <span class="tab" data-tab="overview" onclick="showTab('overview',this)">Overview</span>
+  <span class="tab" data-tab="turns" onclick="showTab('turns',this)">Turns</span>
+  <span class="tab" data-tab="shop" onclick="showTab('shop',this)">Shop</span>
+  <span class="tab" data-tab="items" onclick="showTab('items',this)">Items &amp; Usage</span>
+  <span class="tab" data-tab="skills" onclick="showTab('skills',this)">Skills</span>
+  <span class="tab" data-tab="races" onclick="showTab('races',this)">Races</span>
+  <span class="tab" data-tab="metrics" onclick="showTab('metrics',this)">Metrics</span>
+</div>
+
+<div id="dropZone">
+  <div class="drop-icon">📋</div>
+  <div class="drop-title">Drop a career log here</div>
+  <div class="drop-sub">uma_runtime/default/bot_logs/career_log_*.json</div>
+  <div style="font-size:12px;color:var(--text3);margin-top:4px">— or —</div>
+  <button class="open-btn" onclick="document.getElementById('fi').click()">Browse</button>
+</div>
+
+<div id="panelAll" class="panel"></div>
+<div id="panelOverview" class="panel"></div>
+<div id="panelTurns" class="panel">
+  <div class="toolbar">
+    <h2 id="turnsTitle"></h2>
+    <input class="search-box" type="text" placeholder="Search turns…" oninput="applyFilters()">
+    <button class="filter-btn on" data-f="all" onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn" data-f="training" onclick="setFilter('training',this)">Training</button>
+    <button class="filter-btn" data-f="race" onclick="setFilter('race',this)">Race</button>
+    <button class="filter-btn" data-f="rest" onclick="setFilter('rest',this)">Rest</button>
+    <button class="filter-btn" data-f="items" onclick="setFilter('items',this)">Has Items</button>
+    <button class="filter-btn" data-f="skills" onclick="setFilter('skills',this)">Has Skills</button>
+  </div>
+  <div id="turnsList"></div>
+</div>
+<div id="panelShop" class="panel"></div>
+<div id="panelItems" class="panel"></div>
+<div id="panelSkills" class="panel"></div>
+<div id="panelRaces" class="panel"></div>
+<div id="panelMetrics" class="panel"></div>
+
+<!-- Race flight-recorder replay overlay (lazy-built; styled by logview-replay.css) -->
+<div id="replayOverlay" onclick="if(event.target===this)closeRaceReplay()">
+  <div class="replay-modal" id="replayModal"></div>
+</div>
+
+<script>
+/* ── Constants ── */
+const ITEM={1001:"Speed Notepad",1002:"Stamina Notepad",1003:"Power Notepad",1004:"Guts Notepad",1005:"Wit Notepad",1101:"Speed Manual",1102:"Stamina Manual",1103:"Power Manual",1104:"Guts Manual",1105:"Wit Manual",1201:"Speed Scroll",1202:"Stamina Scroll",1203:"Power Scroll",1204:"Guts Scroll",1205:"Wit Scroll",2001:"Vita 20",2002:"Vita 40",2003:"Vita 65",2101:"Royal Kale Juice",2201:"Energy Drink MAX",2202:"Energy Drink MAX EX",2301:"Plain Cupcake",2302:"Berry Sweet Cupcake",3001:"Yummy Cat Food",3101:"Grilled Carrots",4001:"Pretty Mirror",4002:"Reporter's Binoculars",4003:"Master Practice Guide",4004:"Scholar's Hat",4101:"Fluffy Pillow",4102:"Pocket Planner",4103:"Rich Hand Cream",4104:"Smart Scale",4105:"Aroma Diffuser",4106:"Practice Drills DVD",4201:"Miracle Cure",5001:"Speed Training App",5002:"Stamina Training App",5003:"Power Training App",5004:"Guts Training App",5005:"Wit Training App",7001:"Reset Whistle",8001:"Coaching Megaphone",8002:"Motivating Megaphone",8003:"Empowering Megaphone",9001:"Speed Ankle Weights",9002:"Stamina Ankle Weights",9003:"Power Ankle Weights",9004:"Guts Ankle Weights",10001:"Good-Luck Charm",11001:"Artisan Cleat Hammer",11002:"Master Cleat Hammer",11003:"Glow Sticks"};
+const SCENARIO={1:"URA Finals",2:"Aoharu Cup",3:"Grand Live",4:"Make a New Track",5:"Grand Masters",6:"Mecha Umamusume"};
+const MOTIV_ICON=["","😞","😕","😐","😊","🌟"];
+const BOOTCAMP_RANGES=[[37,40],[61,64]];
+const STAT_KEYS=[{k:'speed',l:'Speed',c:'spd',cv:'var(--speed-c)'},{k:'stamina',l:'Stamina',c:'sta',cv:'var(--stamina-c)'},{k:'power',l:'Power',c:'pow',cv:'var(--power-c)'},{k:'guts',l:'Guts',c:'gut',cv:'var(--guts-c)'},{k:'wit',l:'Wit',c:'wit',cv:'var(--wit-c)'}];
+
+let logData=null, activeFilter='all', activeTab='all';
+let allLogs=[], activeLogIndex=0;
+
+/* ── File loading ── */
+function loadFile(input){for(const f of input.files)readBlob(f);input.value=''}
+function readBlob(file){
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      const idx=allLogs.findIndex(l=>l.filename===file.name);
+      if(idx>=0)allLogs[idx]={filename:file.name,data};
+      else allLogs.push({filename:file.name,data});
+      allLogs.sort((a,b)=>b.filename.localeCompare(a.filename));
+      activeLogIndex=allLogs.findIndex(l=>l.filename===file.name);
+      if(activeLogIndex<0)activeLogIndex=0;
+      renderAll();
+    }catch(err){alert('Parse error: '+err.message)}
+  };
+  r.readAsText(file);
+}
+function renderAll(){
+  renderFileList();
+  if(!allLogs.length)return;
+  render(allLogs[activeLogIndex].data);
+}
+function ordinalLabel(i){
+  if(i===0)return'Latest';
+  const n=i+1,s=(n%10===1&&n!==11)?'st':(n%10===2&&n!==12)?'nd':(n%10===3&&n!==13)?'rd':'th';
+  return n+s+' Run';
+}
+function renderFileList(){
+  const el=document.getElementById('fileList');
+  el.innerHTML=allLogs.map((l,i)=>{
+    const short=l.filename.replace(/career_log_?/,'').replace(/\.json$/,'')||l.filename;
+    const m=short.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})/);
+    const ds=m?`${m[2]}/${m[3]} ${m[4]}:${m[5]}`:short;
+    return`<div class="file-pill${i===activeLogIndex?' active':''}" onclick="selectLog(${i})" title="${esc(l.filename)}"><span class="fp-ordinal">${esc(ordinalLabel(i))}</span><span class="fp-date">${esc(ds)}</span><span class="fp-x" onclick="event.stopPropagation();removeLog(${i})">✕</span></div>`;
+  }).join('');
+}
+function selectLog(i){activeLogIndex=i;renderAll();renderFileList()}
+function removeLog(i){
+  allLogs.splice(i,1);
+  if(!allLogs.length){activeLogIndex=0;logData=null;document.getElementById('dropZone').style.display='flex';['summaryBar','tabBar'].forEach(id=>document.getElementById(id).style.display='none');document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));renderFileList();return}
+  activeLogIndex=Math.min(activeLogIndex,allLogs.length-1);renderAll();
+}
+
+/* ── Drag & drop ── */
+const dz=document.getElementById('dropZone');
+document.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over')});
+document.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+document.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');for(const f of e.dataTransfer.files)if(f.name.endsWith('.json'))readBlob(f)});
+
+/* ── Tabs ── */
+function showTab(name,btn){
+  activeTab=name;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const panel=document.getElementById('panel'+name.charAt(0).toUpperCase()+name.slice(1));
+  if(panel)panel.classList.add('active');
+  if(name==='all')renderAllTab();
+  if(name==='overview')renderOverview();
+  if(name==='turns')applyFilters();
+  if(name==='shop')renderShopTab();
+  if(name==='items')renderItemsTab();
+  if(name==='skills')renderSkillsTab();
+  if(name==='races')renderRacesTab();
+  if(name==='metrics')renderMetrics();
+}
+
+/* ── Main render ── */
+function render(data){
+  logData=data;
+  renderSummary(data);
+  document.getElementById('dropZone').style.display='none';
+  document.getElementById('tabBar').style.display='flex';
+  showTab(activeTab,document.querySelector(`.tab[data-tab="${activeTab}"]`));
+}
+
+function renderSummary(d){
+  const bar=document.getElementById('summaryBar');
+  bar.style.display='flex';
+  const sc=SCENARIO[d.scenario_id]||('Scenario '+d.scenario_id);
+  const st=d.started_at?new Date(d.started_at).toLocaleString():'—';
+  const dur=d.started_at&&d.ended_at?fmtDur(new Date(d.ended_at)-new Date(d.started_at)):'—';
+  const stCls=d.status==='finished'?'st-ok':d.status==='stopped'?'st-stopped':'st-error';
+  const rs=d.runner_status||{};
+  bar.innerHTML=[
+    badge('Preset',d.preset_name||'—'),
+    badge('Scenario',sc),
+    `<div class="s-badge"><span>Status</span><b class="${stCls}">${esc(d.status||'—')}</b></div>`,
+    badge('Turns',(d.turns||[]).length+'/'+d.final_turn),
+    badge('Duration',dur),
+    rs.fans_gained?badge('Fans',fmtNum(rs.fans_gained)):'',
+    rs.clocks_used?badge('Clocks',rs.clocks_used):'',
+    rs.skills_bought?badge('Skills',rs.skills_bought):'',
+    rs.items_bought!=null?badge('Items Bought',rs.items_bought):'',
+    '<button id="copyAIBtn" class="copy-ai-btn" onclick="copyAISummary()">📋 Copy AI Summary</button>',
+  ].filter(Boolean).join('');
+}
+function badge(l,v){return`<div class="s-badge"><span>${l}</span><b>${esc(String(v))}</b></div>`}
+
+/* ═══════════════════════════════════════
+   ALL TAB (cross-log aggregate)
+   ═══════════════════════════════════════ */
+function renderAllTab(){
+  const el=document.getElementById('panelAll');
+  if(!allLogs.length){el.innerHTML='<p class="no-data">No log files loaded.</p>';return}
+
+  const allRuns=allLogs.map(({filename,data},i)=>{
+    const turns=data.turns||[];
+    const rs=data.runner_status||{};
+    const last=turns.length?turns[turns.length-1]:{};
+    const ls=last.stats||{};
+    const totalStat=(ls.speed||0)+(ls.stamina||0)+(ls.power||0)+(ls.guts||0)+(ls.wit||0);
+    const raceResults=buildRaceResults(data);
+    const wins=raceResults.filter(r=>r.finalRank===1).length;
+    let trainC=0,raceC=0,restC=0,otherC=0;
+    for(const t of turns){const c=categorize(t);if(c==='training')trainC++;else if(c==='race')raceC++;else if(c==='rest')restC++;else otherC++}
+    let itemsB=0,itemsU=0,skillsB=0,spent=0;
+    const shopMap={},useMap={};
+    for(const t of turns){
+      for(const b of(t.bot_shop_selected||[])){itemsB++;spent+=(b.cost||0);const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;shopMap[nm]=(shopMap[nm]||0)+1}
+      const _prn1=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+      for(const u of(t.bot_item_use_selected||[]).filter(i=>!_prn1.has(i.name))){itemsU++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;useMap[nm]=(useMap[nm]||0)+(u.use_num||1)}
+      for(const u of(t.bot_pre_race_use_selected||[])){itemsU++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;useMap[nm]=(useMap[nm]||0)+(u.use_num||1)}
+      skillsB+=(t.bot_skill_selected||[]).length;
+    }
+    const raw=filename.replace(/career_log_?/,'').replace(/\.json$/,'')||filename;
+    const m=raw.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})/);
+    const dateLabel=m?`${m[2]}/${m[3]} ${m[4]}:${m[5]}`:raw;
+    const shortName=`${ordinalLabel(i)} (${dateLabel})`;
+    const dur=data.started_at&&data.ended_at?fmtDur(new Date(data.ended_at)-new Date(data.started_at)):'—';
+    return{shortName,filename,data,turns,ls,totalStat,raceResults,wins,trainC,raceC,restC,otherC,itemsB,itemsU,skillsB,spent,shopMap,useMap,dur,rs};
+  });
+
+  const n=allRuns.length;
+  const statAgg={};
+  for(const s of STAT_KEYS){const v=allRuns.map(r=>r.ls[s.k]||0);statAgg[s.k]={avg:Math.round(v.reduce((a,b)=>a+b,0)/n),min:Math.min(...v),max:Math.max(...v)}}
+  const totals=allRuns.map(r=>r.totalStat);
+  const avgTotal=Math.round(totals.reduce((a,b)=>a+b,0)/n);
+
+  const allRaces=allRuns.flatMap(r=>r.raceResults.map(rc=>({...rc,runLabel:r.shortName})));
+  const totalWins=allRuns.reduce((s,r)=>s+r.wins,0);
+
+  const combShop={};
+  for(const r of allRuns)for(const[nm,c]of Object.entries(r.shopMap))combShop[nm]=(combShop[nm]||0)+c;
+  const combUsed={};
+  for(const r of allRuns)for(const[nm,c]of Object.entries(r.useMap||{}))combUsed[nm]=(combUsed[nm]||0)+c;
+
+  const combSkills={};
+  for(const r of allRuns)for(const t of r.turns)for(const sk of(t.bot_skill_selected||[])){
+    const nm=sk.name||'id:'+sk.skill_id;
+    if(!combSkills[nm])combSkills[nm]={count:0,cost:0,runs:new Set()};
+    combSkills[nm].count++;combSkills[nm].cost+=(sk.cost||0);combSkills[nm].runs.add(r.shortName);
+  }
+
+  const tTrain=allRuns.reduce((s,r)=>s+r.trainC,0);
+  const tRace=allRuns.reduce((s,r)=>s+r.raceC,0);
+  const tRest=allRuns.reduce((s,r)=>s+r.restC,0);
+  const tOther=allRuns.reduce((s,r)=>s+r.otherC,0);
+  const tItemsB=allRuns.reduce((s,r)=>s+r.itemsB,0);
+  const tItemsU=allRuns.reduce((s,r)=>s+r.itemsU,0);
+  const tSkillsB=allRuns.reduce((s,r)=>s+r.skillsB,0);
+  const tSpent=allRuns.reduce((s,r)=>s+r.spent,0);
+
+  let html=`<div style="margin-bottom:14px"><span style="font-size:15px;font-weight:700;color:var(--accent2)">${n} Run${n!==1?'s':''} Loaded</span></div>`;
+
+  html+=`<div class="overview-grid">`;
+
+  html+=`<div class="ov-card"><h3>Final Stats ${n>1?'(Average)':''}</h3>
+    <div class="ov-big">${avgTotal}</div><div class="ov-sub">${n>1?`Avg total · range ${Math.min(...totals)}–${Math.max(...totals)}`:'Total stat points'}</div>
+    <div style="margin-top:8px">
+    ${STAT_KEYS.map(s=>{const a=statAgg[s.k];return`<div class="ov-row"><span class="ov-lbl">${s.l}</span><span class="ov-val sm ${s.c}">${a.avg}${n>1?` <span style="font-size:10px;color:var(--text3);font-weight:400">(${a.min}–${a.max})</span>`:''}</span></div>`}).join('')}
+    </div></div>`;
+
+  html+=`<div class="ov-card"><h3>Race Performance${n>1?' (Combined)':''}</h3>
+    <div class="ov-big">${totalWins}/${allRaces.length}</div><div class="ov-sub">Wins (${allRaces.length?Math.round(totalWins/allRaces.length*100):0}%)</div>
+    <div style="margin-top:8px">
+    ${n>1?`<div class="ov-row"><span class="ov-lbl">Avg Win Rate</span><span class="ov-val">${Math.round(allRuns.reduce((s,r)=>s+(r.raceResults.length?r.wins/r.raceResults.length*100:0),0)/n)}%</span></div>`:''}
+    <div class="ov-row"><span class="ov-lbl">Clock Retries</span><span class="ov-val" style="color:var(--cyan)">${allRaces.filter(r=>r.usedClock).length}</span></div>
+    </div></div>`;
+
+  html+=`<div class="ov-card"><h3>Turn Breakdown${n>1?' (All Runs)':''}</h3>
+    <div class="ov-row"><span class="ov-lbl">Training</span><span class="ov-val" style="color:var(--blue)">${tTrain}${n>1?` <span style="font-size:10px;color:var(--text3)">(avg ${Math.round(tTrain/n)})</span>`:''}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Races</span><span class="ov-val" style="color:var(--pink)">${tRace}${n>1?` <span style="font-size:10px;color:var(--text3)">(avg ${Math.round(tRace/n)})</span>`:''}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Rest</span><span class="ov-val" style="color:var(--green)">${tRest}${n>1?` <span style="font-size:10px;color:var(--text3)">(avg ${Math.round(tRest/n)})</span>`:''}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Other</span><span class="ov-val" style="color:var(--text3)">${tOther}</span></div>
+    </div>`;
+
+  html+=`<div class="ov-card"><h3>Items &amp; Economy${n>1?' (All Runs)':''}</h3>
+    <div class="ov-row"><span class="ov-lbl">Items Bought</span><span class="ov-val" style="color:var(--yellow)">${tItemsB}${n>1?` <span style="font-size:10px;color:var(--text3)">(avg ${Math.round(tItemsB/n)})</span>`:''}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Items Used</span><span class="ov-val" style="color:var(--blue)">${tItemsU}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Skills Bought</span><span class="ov-val" style="color:var(--accent2)">${tSkillsB}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Coins Spent</span><span class="ov-val" style="color:var(--yellow)">🪙${tSpent}</span></div>
+    </div>`;
+
+  const topItems=Object.entries(combShop).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  html+=`<div class="ov-card"><h3>Top Items — Bought / Used</h3>`;
+  if(topItems.length)html+=topItems.map(([nm,c])=>{const u=combUsed[nm]||0;const leftover=c-u;const leftC=leftover>0?'var(--orange)':'var(--green)';return`<div class="ov-row"><span class="ov-lbl">${esc(fmtItem(nm))}</span><span class="ov-val" style="font-size:11px"><span style="color:var(--yellow)">${c}×</span> <span style="color:var(--text3)">/</span> <span style="color:var(--blue)">${u}×</span>${leftover>0?` <span style="color:${leftC};font-size:10px">(${leftover} left)</span>`:''}</span></div>`}).join('');
+  else html+=`<div class="ov-sub">No items purchased</div>`;
+  html+=`</div>`;
+
+  const topSkills=Object.entries(combSkills).sort((a,b)=>b[1].count-a[1].count).slice(0,10);
+  html+=`<div class="ov-card"><h3>Most Acquired Skills</h3>`;
+  if(topSkills.length)html+=topSkills.map(([nm,d])=>`<div class="ov-row"><span class="ov-lbl">${esc(nm)}</span><span class="ov-val" style="color:var(--accent2)">${d.count}×${n>1?` <span style="font-size:10px;color:var(--text3)">(${d.runs.size} run${d.runs.size!==1?'s':''})</span>`:''}</span></div>`).join('');
+  else html+=`<div class="ov-sub">No skills acquired</div>`;
+  html+=`</div>`;
+
+  html+=`</div>`;
+
+  // Per-run comparison table
+  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Per-Run Comparison</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr>
+    <th class="sortable" onclick="sortTable(this)">Run</th>
+    <th class="r sortable" onclick="sortTable(this)">Total</th>
+    ${STAT_KEYS.map(s=>`<th class="r sortable" onclick="sortTable(this)">${s.l}</th>`).join('')}
+    <th class="r sortable" onclick="sortTable(this)">Races</th>
+    <th class="r sortable" onclick="sortTable(this)">Wins</th>
+    <th class="r sortable" onclick="sortTable(this)">Items</th>
+    <th class="r sortable" onclick="sortTable(this)">Skills</th>
+    <th class="r sortable" onclick="sortTable(this)">Duration</th>
+    </tr></thead><tbody>`;
+  for(const r of allRuns){
+    html+=`<tr><td title="${esc(r.filename)}">${esc(r.shortName)}</td>
+    <td class="r" style="font-weight:700;color:var(--accent2)">${r.totalStat}</td>
+    ${STAT_KEYS.map(s=>`<td class="r sm ${s.c}">${r.ls[s.k]||0}</td>`).join('')}
+    <td class="r">${r.raceResults.length}</td>
+    <td class="r" style="color:var(--green);font-weight:600">${r.wins}</td>
+    <td class="r" style="color:var(--yellow)">${r.itemsB}</td>
+    <td class="r" style="color:var(--accent2)">${r.skillsB}</td>
+    <td class="r" style="color:var(--text3)">${r.dur}</td></tr>`;
+  }
+  html+=`</tbody></table></div></div>`;
+
+  // Combined race log
+  if(allRaces.length){
+    html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>All Races (${allRaces.length})</h3><div class="s-arrow">▾</div></div><div class="section-body">
+      <table class="tbl"><thead><tr>
+      ${n>1?'<th>Run</th>':''}
+      <th class="sortable" onclick="sortTable(this)">Turn</th>
+      <th class="sortable" onclick="sortTable(this)">Race</th>
+      <th>Grade</th>
+      <th>Distance</th>
+      <th>Result</th>
+      </tr></thead><tbody>
+      ${allRaces.map(r=>{
+        const rankCls=r.finalRank===1?'race-1st':r.finalRank===2?'race-2nd':r.finalRank===3?'race-3rd':'race-other';
+        const clockBadge=r.usedClock?`<span class="race-clock">🕐</span>`:'';
+        return`<tr>${n>1?`<td style="color:var(--text3);font-size:11px">${esc(r.runLabel)}</td>`:''}<td style="font-weight:700;color:var(--text3)">${r.turn}</td><td>${esc(r.name)}</td><td style="font-weight:600">${esc(r.grade)}</td><td style="color:var(--text3)">${esc(r.distance)}</td><td><span class="race-result ${rankCls}">#${r.finalRank||'?'}</span>${clockBadge}</td></tr>`;
+      }).join('')}
+      </tbody></table></div></div>`;
+  }
+
+  // Combined shop analysis
+  const allShopItems={};
+  for(const r of allRuns)for(const t of r.turns)for(const row of(t.shop_rows_enriched||[])){
+    const nm=row.name||ITEM[row.item_id]||'id:'+row.item_id;
+    if(!allShopItems[nm])allShopItems[nm]={offered:0,bought:0,skipped:0,reasons:{}};
+    allShopItems[nm].offered++;
+    if(row.selected)allShopItems[nm].bought++;
+    else if(row.skip_reason){allShopItems[nm].skipped++;allShopItems[nm].reasons[row.skip_reason]=(allShopItems[nm].reasons[row.skip_reason]||0)+1}
+  }
+  const shopEntries=Object.entries(allShopItems).sort((a,b)=>b[1].offered-a[1].offered);
+  if(shopEntries.length){
+    html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Shop Analysis (${shopEntries.length} items across all runs)</h3><div class="s-arrow">▾</div></div><div class="section-body">
+      <table class="tbl"><thead><tr>
+      <th class="sortable" onclick="sortTable(this)">Item</th>
+      <th class="r sortable" onclick="sortTable(this)">Offered</th>
+      <th class="r sortable" onclick="sortTable(this)">Bought</th>
+      <th class="r sortable" onclick="sortTable(this)">Skipped</th>
+      <th>Skip Reasons</th>
+      </tr></thead><tbody>
+      ${shopEntries.map(([nm,d])=>{
+        const tags=Object.entries(d.reasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
+        return`<tr><td>${esc(fmtItem(nm))}</td><td class="r" style="color:var(--text2);font-weight:600">${d.offered}</td><td class="r" style="color:var(--green);font-weight:600">${d.bought||'—'}</td><td class="r" style="color:#a0a060;font-weight:600">${d.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
+      }).join('')}
+      </tbody></table></div></div>`;
+  }
+
+  // Combined skills table
+  const allSkillEntries=Object.entries(combSkills).sort((a,b)=>b[1].count-a[1].count);
+  if(allSkillEntries.length){
+    html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>All Skills Acquired (${allSkillEntries.length})</h3><div class="s-arrow">▾</div></div><div class="section-body">
+      <table class="tbl"><thead><tr>
+      <th class="sortable" onclick="sortTable(this)">Skill</th>
+      <th class="r sortable" onclick="sortTable(this)">Times Bought</th>
+      <th class="r sortable" onclick="sortTable(this)">Total SP</th>
+      ${n>1?'<th class="r sortable" onclick="sortTable(this)">Runs</th>':''}
+      </tr></thead><tbody>
+      ${allSkillEntries.map(([nm,d])=>`<tr><td style="color:var(--accent2)">${esc(nm)}</td><td class="r" style="font-weight:600">${d.count}×</td><td class="r skill-cost">${d.cost}SP</td>${n>1?`<td class="r" style="color:var(--text3)">${d.runs.size}/${n}</td>`:''}</tr>`).join('')}
+      </tbody></table></div></div>`;
+  }
+
+  // Per-run turn details (sparklines + key events)
+  html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Per-Run Turn Details</h3><div class="s-arrow">▾</div></div><div class="section-body" style="padding:10px">`;
+  for(const r of allRuns){
+    html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>${esc(r.shortName)} — ${r.turns.length} turns</h3><div class="s-arrow">▾</div></div><div class="section-body">`;
+    html+=`<div style="padding:10px">${buildSparkline(r.turns)}</div>`;
+    html+=`<div style="padding:0 10px 10px">${buildCareerMap(r.data)}</div>`;
+    const keyEv=[];
+    for(const t of r.turns){
+      const ev=[];
+      for(const b of(t.bot_shop_selected||[]))ev.push(`🛒 ${fmtItem(b.name||ITEM[b.item_id]||'?')}`);
+      const _prn6=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+      for(const u of(t.bot_item_use_selected||[]).filter(i=>!_prn6.has(i.name)))ev.push(`✨ ${fmtItem(u.name||ITEM[u.item_id]||'?')}`);
+      for(const u of(t.bot_pre_race_use_selected||[]))ev.push(`⚔ ${fmtItem(u.name||ITEM[u.item_id]||'?')}`);
+      for(const sk of(t.bot_skill_selected||[]))ev.push(`📘 ${sk.name||'?'}`);
+      if(categorize(t)==='race'){const p=(t.decision_reason||'').split(' · ');ev.push(`🏁 ${p[0]||'Race'}`)}
+      if(ev.length)keyEv.push({turn:t.turn,ev});
+    }
+    if(keyEv.length){
+      html+=`<table class="tbl"><thead><tr><th>Turn</th><th>Events</th></tr></thead><tbody>`;
+      html+=keyEv.map(e=>`<tr><td style="font-weight:700;color:var(--text3);width:50px">${e.turn}</td><td>${e.ev.map(v=>`<span style="margin-right:8px;font-size:11px">${esc(v)}</span>`).join('')}</td></tr>`).join('');
+      html+=`</tbody></table>`;
+    }else html+=`<div class="no-data">No key events</div>`;
+    html+=`</div></div>`;
+  }
+  html+=`</div></div>`;
+
+  el.innerHTML=html;
+}
+
+/* ═══════════════════════════════════════
+   OVERVIEW TAB
+   ═══════════════════════════════════════ */
+function renderOverview(){
+  if(!logData)return;
+  const el=document.getElementById('panelOverview');
+  const d=logData, turns=d.turns||[], rs=d.runner_status||{};
+  let last=turns.length?turns[turns.length-1]:{};
+  if(!last.stats||!last.stats.speed){for(let i=turns.length-1;i>=0;i--){if(turns[i].stats&&turns[i].stats.speed){last=turns[i];break}}}
+  const lastStats=last.stats||{};
+  const totalStats=lastStats.speed+lastStats.stamina+lastStats.power+lastStats.guts+lastStats.wit;
+
+  // Action breakdown
+  let trainCount=0,raceCount=0,restCount=0,otherCount=0;
+  for(const t of turns){
+    const cat=categorize(t);
+    if(cat==='training')trainCount++;
+    else if(cat==='race')raceCount++;
+    else if(cat==='rest')restCount++;
+    else otherCount++;
+  }
+
+  // Item counts
+  let itemsBought=0,itemsUsed=0,skillsBought=0;
+  const shopItems={};
+  const usedItems={};
+  const moodCounts={1:0,2:0,3:0,4:0,5:0};
+  let moodTotal=0,moodTurns=0;
+  for(const t of turns){
+    for(const b of(t.bot_shop_selected||[])){
+      itemsBought++;
+      const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;
+      shopItems[nm]=(shopItems[nm]||0)+1;
+    }
+    const _prn2=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const u of(t.bot_item_use_selected||[]).filter(i=>!_prn2.has(i.name))){
+      itemsUsed++;
+      const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
+      usedItems[nm]=(usedItems[nm]||0)+(u.use_num||1);
+    }
+    for(const u of(t.bot_pre_race_use_selected||[])){
+      itemsUsed++;
+      const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
+      usedItems[nm]=(usedItems[nm]||0)+(u.use_num||1);
+    }
+    skillsBought+=(t.bot_skill_selected||[]).length;
+    const m=t.motivation||(t.stats||{}).motivation||0;
+    if(m>=1&&m<=5){moodCounts[m]++;moodTotal+=m;moodTurns++;}
+  }
+  const avgMood=moodTurns?moodTotal/moodTurns:0;
+
+  // Race results from runner_status.log
+  const raceResults=buildRaceResults(d);
+  const wins=raceResults.filter(r=>r.finalRank===1).length;
+  const clocksUsed=raceResults.filter(r=>r.usedClock).length;
+
+  let html=`<div class="overview-grid">`;
+
+  // Final stats card
+  html+=`<div class="ov-card"><h3>Final Stats</h3>
+    <div class="ov-big">${totalStats||'—'}</div><div class="ov-sub">Total stat points</div>
+    <div style="margin-top:8px">
+    ${STAT_KEYS.map(s=>`<div class="ov-row"><span class="ov-lbl">${s.l}</span><span class="ov-val sm ${s.c}">${lastStats[s.k]||0}</span></div>`).join('')}
+    <div class="ov-row"><span class="ov-lbl">Skill Pt</span><span class="ov-val sm sp">${lastStats.skill_point||0}</span></div>
+    </div></div>`;
+
+  // Career summary card
+  html+=`<div class="ov-card"><h3>Career Summary</h3>
+    <div class="ov-row"><span class="ov-lbl">Preset</span><span class="ov-val">${esc(d.preset_name||'—')}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Scenario</span><span class="ov-val">${esc(SCENARIO[d.scenario_id]||'—')}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Duration</span><span class="ov-val">${d.started_at&&d.ended_at?fmtDur(new Date(d.ended_at)-new Date(d.started_at)):'—'}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Fans Gained</span><span class="ov-val">${rs.fans_gained?fmtNum(rs.fans_gained):'—'}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Decision Mode</span><span class="ov-val">${esc((d.runtime_settings||{}).decision_mode||'—')}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Run</span><span class="ov-val">${rs.loop_index||'—'} / ${rs.loop_target||'—'}</span></div>
+    </div>`;
+
+  // Turn breakdown card
+  html+=`<div class="ov-card"><h3>Turn Breakdown</h3>
+    <div style="margin-bottom:8px">${buildSparkline(turns)}</div>
+    <div class="ov-row"><span class="ov-lbl">Training</span><span class="ov-val" style="color:var(--blue)">${trainCount}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Races</span><span class="ov-val" style="color:var(--pink)">${raceCount}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Rest</span><span class="ov-val" style="color:var(--green)">${restCount}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Other</span><span class="ov-val" style="color:var(--text3)">${otherCount}</span></div>
+    </div>`;
+
+  // Race performance card — with per-grade breakdown
+  const gradeBreakdown={};
+  for(const r of raceResults){
+    const g=r.grade&&r.grade!=='—'?r.grade:'Other';
+    if(!gradeBreakdown[g])gradeBreakdown[g]={total:0,wins:0};
+    gradeBreakdown[g].total++;
+    if(r.finalRank===1)gradeBreakdown[g].wins++;
+  }
+  const gradeOrder=['G1','G2','G3','OP','Pre-OP','Maiden','Debut','Other'];
+  const sortedGrades=gradeOrder.filter(g=>gradeBreakdown[g]);
+
+  html+=`<div class="ov-card"><h3>Race Performance</h3>
+    <div class="ov-big">${wins}/${raceResults.length}</div><div class="ov-sub">Wins (${raceResults.length?Math.round(wins/raceResults.length*100):0}% win rate)</div>
+    <div style="margin-top:8px">
+    <div class="ov-row"><span class="ov-lbl">Clocks Used</span><span class="ov-val" style="color:var(--cyan)">${clocksUsed}</span></div>
+    </div>
+    ${sortedGrades.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)"><div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600">By Grade</div>`+sortedGrades.map(g=>{const b=gradeBreakdown[g];const pct=b.total?Math.round(b.wins/b.total*100):0;const pctColor=pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';return`<div class="ov-row"><span class="ov-lbl">${esc(g)}</span><span class="ov-val" style="font-size:11px"><span style="color:var(--text)">${b.wins}/${b.total}</span> <span style="color:${pctColor};font-size:10px">(${pct}%)</span></span></div>`}).join('')+`</div>`:''}
+    </div>`;
+
+  // Items & economy card
+  const leftoverItems=Object.entries(shopItems).reduce((s,[n,c])=>s+Math.max(0,c-(usedItems[n]||0)),0);
+  const finalCoin=last.mant_coin!=null?last.mant_coin:null;
+  const coinColor=finalCoin!=null&&finalCoin>50?'var(--orange)':'var(--green)';
+  html+=`<div class="ov-card"><h3>Items &amp; Economy</h3>
+    <div class="ov-row"><span class="ov-lbl">Items Bought</span><span class="ov-val" style="color:var(--yellow)">${itemsBought}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Items Used</span><span class="ov-val" style="color:var(--blue)">${itemsUsed}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Items Left Over</span><span class="ov-val" style="color:${leftoverItems>0?'var(--orange)':'var(--green)'}">${leftoverItems}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Skills Bought</span><span class="ov-val" style="color:var(--accent2)">${skillsBought}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Final Coin</span><span class="ov-val" style="color:${coinColor}">${finalCoin!=null?'🪙'+finalCoin:'—'}</span></div>
+    </div>`;
+
+  // Top bought items card (bought vs used)
+  const topItems=Object.entries(shopItems).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  html+=`<div class="ov-card"><h3>Top Items — Bought / Used</h3>`;
+  if(topItems.length){
+    html+=topItems.map(([n,c])=>{const u=usedItems[n]||0;const leftover=c-u;const leftC=leftover>0?'var(--orange)':'var(--green)';return`<div class="ov-row"><span class="ov-lbl">${esc(fmtItem(n))}</span><span class="ov-val" style="font-size:11px"><span style="color:var(--yellow)">${c}×</span> <span style="color:var(--text3)">/</span> <span style="color:var(--blue)">${u}×</span>${leftover>0?` <span style="color:${leftC};font-size:10px">(${leftover} left)</span>`:''}</span></div>`}).join('');
+  }else html+=`<div class="ov-sub">No items purchased</div>`;
+  html+=`</div>`;
+
+  // Mood summary card
+  const MOOD_LABELS={1:'😰 Worst',2:'😟 Bad',3:'😐 Normal',4:'😊 Good',5:'🔥 Best'};
+  const MOOD_COLORS={1:'var(--red)',2:'var(--orange)',3:'var(--text2)',4:'var(--green)',5:'var(--yellow)'};
+  html+=`<div class="ov-card"><h3>Mood Summary</h3>`;
+  html+=`<div class="ov-big">${avgMood?avgMood.toFixed(1):'—'}</div><div class="ov-sub">Average mood across ${moodTurns} turns</div>`;
+  html+=`<div style="margin-top:8px">`;
+  for(let m=5;m>=1;m--){const c=moodCounts[m];const pct=moodTurns?Math.round(c/moodTurns*100):0;html+=`<div class="ov-row"><span class="ov-lbl">${MOOD_LABELS[m]}</span><span class="ov-val" style="color:${MOOD_COLORS[m]}">${c} <span style="font-size:10px;color:var(--text3)">(${pct}%)</span></span></div>`;}
+  html+=`</div></div>`;
+
+  html+=`</div>`;
+
+  // Career heatmap — full per-turn map of the whole career
+  html+=buildCareerMap(d);
+
+  // Stat progression chart
+  html+=buildStatChart(turns);
+
+  // Remaining inventory
+  const inv=last.inventory||[];
+  if(inv.length){
+    html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Final Inventory (${inv.length} items)</h3><div class="s-arrow">▾</div></div><div class="section-body" style="padding:10px"><div class="inv-wrap">`;
+    html+=inv.map(it=>{
+      const nm=it.name||ITEM[it.item_id]||'id:'+it.item_id;
+      return`<span class="inv-chip">${esc(fmtItem(nm))} ×${it.current_num||it.num||1}</span>`;
+    }).join('');
+    html+=`</div></div></div>`;
+  }
+
+  el.innerHTML=html;
+  initStatChart(turns);
+}
+
+/* ── Stat Chart (SVG line chart) ── */
+function buildStatChart(turns){
+  return`<div class="stat-chart-wrap"><h3>Stat Progression</h3><div class="chart-canvas" id="statChart"></div><div class="chart-legend" id="statLegend"></div></div>`;
+}
+let chartVisible={speed:true,stamina:true,power:true,guts:true,wit:true};
+function initStatChart(turns){
+  const container=document.getElementById('statChart');
+  const legend=document.getElementById('statLegend');
+  if(!container||!turns.length)return;
+
+  const W=container.clientWidth, H=container.clientHeight;
+  const pad={t:10,r:10,b:25,l:40};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+
+  let maxVal=0;
+  for(const t of turns)for(const s of STAT_KEYS)maxVal=Math.max(maxVal,(t.stats||{})[s.k]||0);
+  maxVal=Math.max(maxVal,200);
+
+  function draw(){
+    let svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    // Grid lines
+    for(let i=0;i<=4;i++){
+      const y=pad.t+ch*(1-i/4);
+      const v=Math.round(maxVal*i/4);
+      svg+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+      svg+=`<text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="var(--text4)" font-size="9">${v}</text>`;
+    }
+    // Turn labels
+    const step=Math.max(1,Math.floor(turns.length/8));
+    for(let i=0;i<turns.length;i+=step){
+      const x=pad.l+(i/(turns.length-1||1))*cw;
+      svg+=`<text x="${x}" y="${H-4}" text-anchor="middle" fill="var(--text4)" font-size="9">T${turns[i].turn}</text>`;
+    }
+    // Lines
+    for(const s of STAT_KEYS){
+      if(!chartVisible[s.k])continue;
+      const pts=turns.map((t,i)=>{
+        const v=(t.stats||{})[s.k]||0;
+        const x=pad.l+(i/(turns.length-1||1))*cw;
+        const y=pad.t+ch*(1-v/maxVal);
+        return`${x},${y}`;
+      }).join(' ');
+      svg+=`<polyline points="${pts}" fill="none" stroke="${s.cv}" stroke-width="1.5" stroke-linejoin="round"/>`;
+    }
+    svg+=`</svg>`;
+    container.innerHTML=svg;
+  }
+
+  legend.innerHTML=STAT_KEYS.map(s=>`<div class="chart-legend-item${chartVisible[s.k]?'':' off'}" data-k="${s.k}" onclick="toggleChartLine('${s.k}')"><div class="legend-dot" style="background:${s.cv}"></div>${s.l}</div>`).join('');
+  draw();
+  window._drawStatChart=draw;
+}
+function toggleChartLine(k){
+  chartVisible[k]=!chartVisible[k];
+  const item=document.querySelector(`.chart-legend-item[data-k="${k}"]`);
+  if(item)item.classList.toggle('off');
+  if(window._drawStatChart)window._drawStatChart();
+}
+
+/* ── Sparkline ── */
+function buildSparkline(turns){
+  const bars=turns.map(t=>{
+    const c=categorize(t);
+    return`<div class="spark-bar ${c}" style="flex:1" title="T${t.turn}: ${c}"></div>`;
+  }).join('');
+  return`<div class="spark-row">${bars}</div>`;
+}
+
+/* ── Career Heatmap (full 78-turn GitHub-contribution-style map) ──
+   3 rows (Junior / Classic / Senior) × 26 turn-columns = 78 cells, the whole
+   career. Each cell is colored by what that turn actually did, joining the
+   per-turn stat snapshots, race_results, HP, mood and skill/item activity:
+     • training  → amber intensity ramp by Σ(stat deltas vs prev snapshot)
+     • race      → green ring (win) / amber ring (placed) / red ring (loss)
+     • HP-crit   → red pulse outline when hp/max_hp ≤ 25%
+     • skill-buy → ★ glyph (bot_skill_selected non-empty)
+     • rest/rec  → calm muted green/grey
+   Pure CSS grid, themed off --accent, reduced-motion safe (static outline). */
+const HM_ROWS=[{label:'Junior',lo:1,hi:26},{label:'Classic',lo:27,hi:52},{label:'Senior',lo:53,hi:78}];
+function buildCareerMap(data){
+  const turns=(data&&data.turns)||[];
+  if(!turns.length)return'';
+
+  // index turns by turn number + previous-turn stat snapshot for deltas
+  const byTurn={};
+  for(const t of turns)byTurn[t.turn]=t;
+  const prevStats={};
+  const sorted=[...turns].sort((a,b)=>a.turn-b.turn);
+  let lastSeen=null;
+  for(const t of sorted){if(lastSeen)prevStats[t.turn]=lastSeen.stats||{};lastSeen=t}
+
+  // race results joined by turn (rank / clock)
+  const rr=buildRaceResults(data);
+  const raceByTurn={};
+  for(const r of rr)raceByTurn[r.turn]=r;
+
+  // pre-scan training gains to set an adaptive intensity scale (top quintile = darkest)
+  const gains=[];
+  for(const t of turns){
+    if(categorize(t)!=='training')continue;
+    const s=t.stats||{},p=prevStats[t.turn]||{};
+    if(!p.speed&&!p.stamina)continue;
+    let g=0;for(const k of STAT_KEYS){const d=(s[k.k]||0)-(p[k.k]||0);if(d>0)g+=d}
+    if(g>0)gains.push(g);
+  }
+  gains.sort((a,b)=>a-b);
+  const q=f=>gains.length?gains[Math.min(gains.length-1,Math.floor(f*gains.length))]:0;
+  // thresholds for the 5-step ramp (i0..i4)
+  const thr=[q(0.2),q(0.4),q(0.6),q(0.8)];
+  function intensityClass(g){
+    if(g<=0)return'hm-i0';
+    if(g<=thr[0])return'hm-i0';
+    if(g<=thr[1])return'hm-i1';
+    if(g<=thr[2])return'hm-i2';
+    if(g<=thr[3])return'hm-i3';
+    return'hm-i4';
+  }
+
+  function cellFor(turn){
+    const t=byTurn[turn];
+    if(!t)return`<div class="hm-cell empty"></div>`;
+    const s=t.stats||{},p=prevStats[turn]||{};
+    const cat=categorize(t);
+    const race=raceByTurn[turn];
+    const motiv=t.motivation||s.motivation||0;
+    const{label:actLabel}=parseAction(t);
+    const hp=s.hp,maxHp=s.max_hp||100;
+    const hpPct=(hp!=null&&maxHp)?hp/maxHp:null;
+    const hpCrit=hpPct!=null&&hpPct<=0.25;
+    const skills=(t.bot_skill_selected||[]);
+
+    // stat gain (sum of positive deltas of the 5 trained stats)
+    let gain=0,gainParts=[];
+    if(p.speed||p.stamina){
+      for(const k of STAT_KEYS){const d=(s[k.k]||0)-(p[k.k]||0);if(d>0){gain+=d;gainParts.push(k.l[0]+'+'+d)}}
+    }
+
+    // base class by category / race outcome
+    let cls='hm-cell',glyph='';
+    if(race){
+      const rank=race.finalRank;
+      if(rank===1)cls+=' hm-race-win';
+      else if(rank===2||rank===3)cls+=' hm-race-place';
+      else cls+=' hm-race-loss';
+      glyph=`<span class="hm-glyph">🏁</span>`;
+    }else if(cat==='training'){
+      cls+=' hm-train '+intensityClass(gain);
+    }else if(cat==='rest'){
+      cls+=' hm-rest';glyph=`<span class="hm-glyph">💤</span>`;
+    }else{
+      cls+=' hm-other';
+    }
+    if(hpCrit)cls+=' hm-hpcrit';
+
+    const star=skills.length?`<span class="hm-star" title="${skills.length} skill${skills.length>1?'s':''} bought">★</span>`:'';
+
+    // tooltip (newline-separated, rendered via white-space:pre)
+    const tipLines=[`T${turn} · ${actLabel}`];
+    if(gain>0)tipLines.push(`Stat gain: +${gain}  (${gainParts.join(' ')})`);
+    if(race)tipLines.push(`Race: ${race.name||'?'} → #${race.finalRank||'?'}${race.usedClock?' 🕐':''}`);
+    if(hp!=null)tipLines.push(`HP: ${hp}/${maxHp}${hpCrit?'  ⚠ critical':''}`);
+    if(motiv>=1&&motiv<=5)tipLines.push(`Mood: ${MOTIV_ICON[motiv]} ${motiv}/5`);
+    if(skills.length)tipLines.push(`★ ${skills.map(sk=>sk.name||('id:'+sk.skill_id)).join(', ')}`);
+    const tip=esc(tipLines.join('\n'));
+
+    return`<div class="${cls}" data-tip="${tip}">${star}${glyph}</div>`;
+  }
+
+  // build the grid: header row of turn numbers, then 3 season rows
+  let head=`<div class="hm-rowlbl"></div>`;
+  for(let c=0;c<26;c++)head+=`<div class="hm-colhdr">${c%2===0?(c+1):''}</div>`;
+
+  let rowsHtml='';
+  for(const row of HM_ROWS){
+    rowsHtml+=`<div class="hm-rowlbl" title="Turns ${row.lo}–${row.hi}">${row.label}</div>`;
+    for(let turn=row.lo;turn<=row.hi;turn++)rowsHtml+=cellFor(turn);
+  }
+
+  const legend=`<div class="hm-legend">
+    <span class="hm-leg"><span class="hm-swatch s-train"></span>Training</span>
+    <span class="hm-leg">gain <span class="hm-ramp"><i class="hm-i0"></i><i class="hm-i1"></i><i class="hm-i2"></i><i class="hm-i3"></i><i class="hm-i4"></i></span> more</span>
+    <span class="hm-leg"><span class="hm-swatch s-win"></span>Win 🏁</span>
+    <span class="hm-leg"><span class="hm-swatch s-place"></span>Placed</span>
+    <span class="hm-leg"><span class="hm-swatch s-loss"></span>Loss</span>
+    <span class="hm-leg"><span class="hm-swatch s-rest"></span>Rest 💤</span>
+    <span class="hm-leg"><span class="hm-swatch s-hp"></span>HP ≤25%</span>
+    <span class="hm-leg"><span style="color:var(--accent2)">★</span> Skill bought</span>
+  </div>`;
+
+  return`<div class="heatmap-wrap"><h3>Career Map — full ${turns.length}-turn timeline</h3>
+    <div class="hm-scroll"><div class="hm-grid">${head}${rowsHtml}</div></div>
+    ${legend}</div>`;
+}
+
+/* ═══════════════════════════════════════
+   TURNS TAB
+   ═══════════════════════════════════════ */
+function setFilter(f,btn){
+  activeFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  applyFilters();
+}
+function applyFilters(){
+  const q=document.querySelector('.search-box').value.trim().toLowerCase();
+  let turns=(logData&&logData.turns)||[];
+  if(activeFilter==='training')turns=turns.filter(t=>categorize(t)==='training');
+  else if(activeFilter==='race')turns=turns.filter(t=>categorize(t)==='race');
+  else if(activeFilter==='rest')turns=turns.filter(t=>categorize(t)==='rest');
+  else if(activeFilter==='items')turns=turns.filter(t=>(t.bot_shop_selected||[]).length||(t.bot_item_use_selected||[]).length||(t.bot_pre_race_use_selected||[]).length);
+  else if(activeFilter==='skills')turns=turns.filter(t=>(t.bot_skill_selected||[]).length);
+  if(q){
+    turns=turns.filter(t=>{
+      const r=(t.decision_reason||'').toLowerCase();
+      const b=(t.bot_shop_selected||[]).map(i=>fmtItem(i.name)).join(' ').toLowerCase();
+      const u=[...(t.bot_item_use_selected||[]),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name)).join(' ').toLowerCase();
+      const sk=(t.bot_skill_selected||[]).map(i=>i.name).join(' ').toLowerCase();
+      return r.includes(q)||b.includes(q)||u.includes(q)||sk.includes(q)||String(t.turn).includes(q);
+    });
+  }
+  document.getElementById('turnsTitle').textContent=turns.length+' turn'+(turns.length!==1?'s':'')+(activeFilter!=='all'||q?' (filtered)':'');
+  const prevMap={};
+  const all=(logData&&logData.turns)||[];
+  for(let i=1;i<all.length;i++)prevMap[all[i].turn]=all[i-1].stats;
+  const list=document.getElementById('turnsList');
+  list.innerHTML='';
+  turns.forEach(t=>list.appendChild(buildRow(t,prevMap[t.turn]||null)));
+}
+
+function buildRow(t,prev){
+  const bought=t.bot_shop_selected||[];
+  const preRaceUsed=t.bot_pre_race_use_selected||[];
+  const preRaceNames=new Set(preRaceUsed.map(i=>i.name));
+  const used=(t.bot_item_use_selected||[]).filter(i=>!preRaceNames.has(i.name));
+  const skills=t.bot_skill_selected||[];
+  const cat=categorize(t);
+  const isBootcamp=BOOTCAMP_RANGES.some(([a,b])=>t.turn>=a&&t.turn<=b);
+  const firstReq=(t.api_calls||[]).find(c=>c.direction==='REQ');
+  const ts=firstReq?new Date(firstReq.ts*1000):null;
+  const timeStr=ts?ts.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
+  const{label,cls}=parseAction(t);
+  const s=t.stats||{}, p=prev||{};
+  const motiv=t.motivation||s.motivation||3;
+
+  const chipsHtml=[
+    ...bought.map(i=>`<span class="chip buy">Bought: ${esc(fmtItem(i.name))}</span>`),
+    ...used.map(i=>`<span class="chip use">Used: ${esc(fmtItem(i.name))}${i.use_num>1?' ×'+i.use_num:''}</span>`),
+    ...preRaceUsed.map(i=>`<span class="chip use" style="border-color:var(--cyan)">Used: ${esc(fmtItem(i.name))}${i.use_num>1?' ×'+i.use_num:''} (pre-race)</span>`),
+    ...skills.map(i=>`<span class="chip skill">📘 ${esc(i.name)}</span>`),
+  ].join('');
+  const bootcampChip=isBootcamp?`<span class="bootcamp-chip">☀️ Bootcamp</span>`:'';
+
+  const row=document.createElement('div');
+  row.className='turn-row'+(bought.length||used.length?' has-items':'')+(cat==='race'?' is-race':'')+(cat==='rest'?' is-rest':'')+(isBootcamp?' bootcamp':'');
+  row.innerHTML=`
+    <div class="turn-hdr">
+      <div class="t-num">${t.turn}</div>
+      <div class="t-time">${esc(timeStr)}</div>
+      <div class="t-action">
+        <span class="t-label ${cls}">${esc(label)}</span>
+        ${(bootcampChip||chipsHtml)?`<div class="t-chips">${bootcampChip}${chipsHtml}</div>`:''}
+      </div>
+      <div class="t-stats">
+        ${smTag('hp',s.hp,p.hp,'HP')}
+        ${smTag('spd',s.speed,p.speed,'SPD')}
+        ${smTag('sta',s.stamina,p.stamina,'STA')}
+        ${smTag('pow',s.power,p.power,'POW')}
+        ${smTag('gut',s.guts,p.guts,'GUT')}
+        ${smTag('wit',s.wit,p.wit,'WIT')}
+        ${smTag('sp',s.skill_point,p.skill_point,'SP')}
+        ${t.mant_coin!=null?`<span style="font-size:11px;color:var(--yellow);font-weight:600">🪙${t.mant_coin}</span>`:''}
+        <span style="font-size:12px">${MOTIV_ICON[Math.min(5,Math.max(1,motiv))]}</span>
+      </div>
+      <div class="t-arrow">▾</div>
+    </div>
+    <div class="t-details">${buildDetails(t,prev)}</div>`;
+  row.querySelector('.turn-hdr').addEventListener('click',()=>row.classList.toggle('open'));
+  return row;
+}
+
+function buildDetails(t,prev){
+  const s=t.stats||{}, p=prev||{};
+  const bought=t.bot_shop_selected||[];
+  const preRaceUsed=t.bot_pre_race_use_selected||[];
+  const preRaceNames=new Set(preRaceUsed.map(i=>i.name));
+  const used=(t.bot_item_use_selected||[]).filter(i=>!preRaceNames.has(i.name));
+  const skills=t.bot_skill_selected||[];
+  const shopOpts=t.shop_rows_enriched||[];
+  const skillOpts=t.skill_rows_enriched||[];
+  const inv=t.inventory||[];
+  const calls=t.api_calls||[];
+  const buyRes=t.bot_shop_result||{};
+  const useRes=t.bot_item_use_result||{};
+  const{label,cls}=parseAction(t);
+  const motiv=t.motivation||s.motivation||3;
+
+  let html='<div class="dg">';
+
+  // Stats bars
+  html+=`<div class="ds"><h4>Stats</h4>
+    ${sbar('HP',s.hp,s.max_hp||100,p.hp,'hp')}
+    ${sbar('Speed',s.speed,1200,p.speed,'spd')}
+    ${sbar('Stamina',s.stamina,1200,p.stamina,'sta')}
+    ${sbar('Power',s.power,1200,p.power,'pow')}
+    ${sbar('Guts',s.guts,1200,p.guts,'gut')}
+    ${sbar('Wit',s.wit,1200,p.wit,'wit')}
+    ${sbar('Skill Pt',s.skill_point,999,p.skill_point,'sp')}
+  </div>`;
+
+  // Turn info
+  html+=`<div class="ds"><h4>Turn Info</h4>
+    ${ir('Action',`<span class="${cls}">${esc(label)}</span>`)}
+    ${ir('Motivation',MOTIV_ICON[Math.min(5,Math.max(1,motiv))]+' '+motiv+'/5')}
+    ${ir('Coin',t.mant_coin!=null?`<span style="color:var(--yellow)">🪙${t.mant_coin}</span>`:'—')}
+    ${ir('Event',esc(t.event||'—'))}
+  </div>`;
+
+  // Shop this turn
+  if(shopOpts.length){
+    html+=`<div class="ds"><h4>Shop ${fmtRes(buyRes)}</h4>`;
+    html+=shopOpts.map(o=>{
+      const picked=o.selected||bought.some(b=>(b.name||'')===(o.name||ITEM[o.item_id]));
+      const cost=o.cost??o.coin_num??0;
+      const orig=o.original_cost??cost;
+      const sale=orig>cost;
+      const costS=sale?`<span style="color:var(--green)">🪙${cost}</span><span style="text-decoration:line-through;color:var(--text3);font-size:10px;margin-left:2px">🪙${orig}</span>`:`<span style="color:var(--yellow)">🪙${cost}</span>`;
+      const reason=o.skip_reason?`<span style="color:var(--text3);font-size:10px" title="${esc(o.skip_reason)}"> ⊘ ${esc(friendlySkipReason(o.skip_reason))}</span>`:(picked?`<span style="color:var(--green);font-size:10px"> ✓</span>`:'');
+      return`<div class="il-row" style="${picked?'':'opacity:0.5'}"><span>${esc(o.name||ITEM[o.item_id]||'id:'+o.item_id)}</span><span>${costS}${reason}</span></div>`;
+    }).join('');
+    html+=`</div>`;
+  }else if(bought.length){
+    html+=`<div class="ds"><h4>Bought ${fmtRes(buyRes)}</h4>`;
+    html+=bought.map(i=>`<div class="il-row"><span>${esc(fmtItem(i.name))}</span><span class="il-cost">🪙${i.cost}</span></div>`).join('');
+    html+=`</div>`;
+  }
+
+  // Items used
+  if(used.length||preRaceUsed.length){
+    html+=`<div class="ds"><h4>Used ${fmtRes(useRes)}</h4>`;
+    html+=used.map(i=>`<div class="il-row"><span>${esc(fmtItem(i.name))}</span><span class="il-uses">×${i.use_num}</span></div>`).join('');
+    html+=preRaceUsed.map(i=>`<div class="il-row"><span style="color:var(--cyan)">⚔ ${esc(fmtItem(i.name))}</span><span class="il-uses">×${i.use_num}</span></div>`).join('');
+    html+=`</div>`;
+  }
+
+  // Skills bought this turn
+  if(skills.length){
+    html+=`<div class="ds"><h4>Skills Acquired</h4>`;
+    html+=skills.map(sk=>`<div class="il-row"><span>${esc(sk.name||'id:'+sk.skill_id)}</span><span class="skill-cost">${sk.cost!=null?sk.cost+'SP':''}</span></div>`).join('');
+    html+=`</div>`;
+  }
+
+  // Inventory
+  if(inv.length){
+    html+=`<div class="ds"><h4>Inventory</h4><div class="inv-wrap">`;
+    html+=inv.map(it=>{
+      const nm=it.name||ITEM[it.item_id]||'id:'+it.item_id;
+      return`<span class="inv-chip">${esc(fmtItem(nm))} ×${it.current_num||it.num||1}</span>`;
+    }).join('');
+    html+=`</div></div>`;
+  }
+
+  // API calls
+  if(calls.length){
+    html+=`<div class="ds" style="grid-column:1/-1"><h4>API Calls (${calls.length})</h4>`;
+    html+=calls.slice(0,10).map(c=>{
+      const t2=c.ts?new Date(c.ts*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
+      return`<div class="api-row"><span class="${c.direction==='REQ'?'d-req':'d-res'}">${c.direction}</span><span>${esc(c.endpoint||'')}</span><span style="color:var(--text3)">${esc(t2)}</span></div>`;
+    }).join('');
+    if(calls.length>10)html+=`<div style="font-size:10px;color:var(--text3)">… +${calls.length-10} more</div>`;
+    html+=`</div>`;
+  }
+
+  html+=`</div>`;
+  return html;
+}
+
+/* ═══════════════════════════════════════
+   SHOP TAB
+   ═══════════════════════════════════════ */
+function renderShopTab(){
+  if(!logData)return;
+  const el=document.getElementById('panelShop');
+  const turns=logData.turns||[];
+  const batches=buildRestocks(turns);
+
+  let totalOffered=0,totalBought=0,totalSkipped=0,totalMissed=0;
+  const perItem={};
+
+  for(const b of batches){
+    for(const row of b.snapshot){
+      const st=b.itemStatus[row.shop_item_id]||{};
+      const key=row.item_id;
+      if(!perItem[key])perItem[key]={name:row.name||ITEM[row.item_id]||'id:'+row.item_id,itemId:row.item_id,offered:0,bought:0,missed:0,skippedReasons:{}};
+      const pi=perItem[key];
+      pi.offered++;totalOffered++;
+      if(st.bought){pi.bought++;totalBought++}
+      else if(st.expired||st.limit_reached){}
+      else{
+        const reason=st.skip_reason||'not_bought';
+        if(reason&&reason!=='not_bought'){pi.skippedReasons[reason]=(pi.skippedReasons[reason]||0)+1;totalSkipped++}
+        else{pi.missed++;totalMissed++}
+      }
+    }
+  }
+
+  let html=`<div class="shop-summary-bar">
+    <div class="shop-stat info"><div class="ss-num">${batches.length}</div><div class="ss-lbl">Restocks</div></div>
+    <div class="shop-stat info"><div class="ss-num">${totalOffered}</div><div class="ss-lbl">Slots</div></div>
+    <div class="shop-stat good"><div class="ss-num">${totalBought}</div><div class="ss-lbl">Bought</div></div>
+    <div class="shop-stat warn"><div class="ss-num">${totalSkipped}</div><div class="ss-lbl">Skipped</div></div>
+    <div class="shop-stat"><div class="ss-num" style="color:var(--red)">${totalMissed}</div><div class="ss-lbl">Missed</div></div>
+  </div>`;
+
+  // Per-item totals
+  const items=Object.values(perItem).sort((a,b)=>{
+    const ga=itemGroup(a.itemId),gb=itemGroup(b.itemId);
+    return ga!==gb?ga-gb:b.offered-a.offered||a.name.localeCompare(b.name);
+  });
+  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Per-Item Totals (${items.length} items)</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr>
+    <th class="sortable" onclick="sortTable(this)">Item</th>
+    <th class="r sortable" onclick="sortTable(this)">Offered</th>
+    <th class="r sortable" onclick="sortTable(this)">Bought</th>
+    <th class="r sortable" onclick="sortTable(this)">Skipped</th>
+    <th class="r sortable" onclick="sortTable(this)">Missed</th>
+    <th>Reasons</th>
+    </tr></thead><tbody>${items.map(it=>{
+      const ts=Object.values(it.skippedReasons).reduce((a,b)=>a+b,0);
+      const tags=Object.entries(it.skippedReasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag" title="${esc(r)}">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
+      return`<tr><td>${esc(fmtItem(it.name))}</td><td class="r" style="color:var(--text2);font-weight:600">${it.offered}</td><td class="r" style="color:var(--green);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:#a0a060;font-weight:600">${ts||'—'}</td><td class="r" style="color:#c07070;font-weight:600">${it.missed||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
+    }).join('')}</tbody></table></div></div>`;
+
+  // Restock cards
+  html+=`<div class="restock-list">`;
+  batches.forEach((b,idx)=>{
+    const rows=b.snapshot;
+    let bc=0,sc=0,mc=0;
+    for(const row of rows){
+      const st=b.itemStatus[row.shop_item_id]||{};
+      if(st.bought)bc++;
+      else if(st.skip_reason&&st.skip_reason!=='unaffordable')sc++;
+      else mc++;
+    }
+    const turnSpan=b.startTurn===b.endTurn?`Turn <b>${b.startTurn}</b>`:`Turns <b>${b.startTurn}–${b.endTurn}</b>`;
+    html+=`<div class="restock-card"><div class="restock-hdr" onclick="this.closest('.restock-card').classList.toggle('open')">
+      <div class="r-num">#${idx+1}</div>
+      <div class="r-turns">${turnSpan} <span style="color:var(--text3);font-size:11px">(${b.turns.length}t)</span></div>
+      <div class="r-pills">
+        ${bc?`<span class="r-pill bought">${bc} bought</span>`:''}
+        ${sc?`<span class="r-pill skipped">${sc} skip</span>`:''}
+        ${mc?`<span class="r-pill missed">${mc} miss</span>`:''}
+      </div>
+      <div class="r-arrow">▾</div>
+    </div><div class="restock-body">
+      <table class="tbl"><thead><tr><th>Item</th><th>Cost</th><th>Limit</th><th>Expires</th><th>Status</th></tr></thead>
+      <tbody>${rows.map(row=>buildShopRow(row,b.itemStatus[row.shop_item_id]||{})).join('')}</tbody></table>
+    </div></div>`;
+  });
+  html+=`</div>`;
+
+  el.innerHTML=html;
+}
+
+function buildRestocks(turns){
+  const batches=[];let prevKey=null,current=null;
+  for(const turn of turns){
+    const rows=turn.shop_rows_enriched||[];
+    if(!rows.length)continue;
+    const key=JSON.stringify(rows.map(r=>[r.shop_item_id,r.item_id]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]));
+    if(key!==prevKey){
+      if(current)batches.push(current);
+      current={startTurn:turn.turn,endTurn:turn.turn,turns:[turn.turn],snapshot:rows.map(r=>Object.assign({},r)),itemStatus:{}};
+      prevKey=key;
+    }else{current.endTurn=turn.turn;current.turns.push(turn.turn)}
+    for(const row of rows){
+      const sid=row.shop_item_id;
+      const prev2=current.itemStatus[sid];
+      if(!prev2)current.itemStatus[sid]={bought:row.selected||false,skip_reason:row.skip_reason||null,affordable:row.affordable!==false,limit_reached:row.limit_reached||false,expired:row.expired||false};
+      else{if(row.selected)prev2.bought=true;if(row.limit_reached)prev2.limit_reached=true;if(row.affordable!==false)prev2.affordable=true;if(!prev2.skip_reason&&row.skip_reason)prev2.skip_reason=row.skip_reason}
+    }
+  }
+  if(current)batches.push(current);
+  return batches;
+}
+
+function buildShopRow(row,st){
+  const name=row.name||ITEM[row.item_id]||'id:'+row.item_id;
+  const cost=row.cost??row.coin_num??0;
+  const orig=row.original_cost??cost;
+  const sale=orig>cost;
+  const limit=row.limit??1;
+  const limitTurn=row.absolute_limit_turn??row.limit_turn??0;
+  const costH=sale?`<span class="sale-cost">🪙${cost}</span><span class="original-cost">🪙${orig}</span>`:`<span class="cost-cell">🪙${cost}</span>`;
+  const ltH=limitTurn>0?`<span style="color:var(--text3);font-size:11px">by T${limitTurn}</span>`:`<span style="color:var(--text3)">—</span>`;
+  let statusH;
+  if(st.bought)statusH=`<span class="status-badge sb-bought">✓ Bought</span>`;
+  else if(st.limit_reached)statusH=`<span class="status-badge sb-limit">✓ Owned</span>`;
+  else if(st.expired)statusH=`<span class="status-badge sb-expired">⊘ Expired</span>`;
+  else if(st.skip_reason==='unaffordable')statusH=`<span class="status-badge sb-missed">💸 Not enough coins</span>`;
+  else if(st.skip_reason)statusH=`<span class="status-badge sb-skipped" title="${esc(st.skip_reason)}">⊘ ${esc(friendlySkipReason(st.skip_reason))}</span>`;
+  else statusH=`<span class="status-badge sb-missed">✗ Not bought</span>`;
+  return`<tr><td>${esc(fmtItem(name))}</td><td>${costH}</td><td style="color:var(--text3)">${limit}×</td><td>${ltH}</td><td>${statusH}</td></tr>`;
+}
+
+/* ═══════════════════════════════════════
+   ITEMS & USAGE TAB
+   ═══════════════════════════════════════ */
+function renderItemsTab(){
+  if(!logData)return;
+  const el=document.getElementById('panelItems');
+  const turns=logData.turns||[];
+
+  // Build purchase timeline and usage timeline
+  const purchaseLog=[], useLog=[];
+  const itemBuyTotals={}, itemUseTotals={};
+  let totalSpent=0;
+
+  for(const t of turns){
+    for(const b of(t.bot_shop_selected||[])){
+      const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;
+      purchaseLog.push({turn:t.turn,name:nm,itemId:b.item_id,cost:b.cost||0});
+      if(!itemBuyTotals[nm])itemBuyTotals[nm]={count:0,cost:0,turns:[],itemId:b.item_id};
+      itemBuyTotals[nm].count++;
+      itemBuyTotals[nm].cost+=(b.cost||0);
+      itemBuyTotals[nm].turns.push(t.turn);
+      totalSpent+=(b.cost||0);
+    }
+    const _prn3=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const u of(t.bot_item_use_selected||[]).filter(i=>!_prn3.has(i.name))){
+      const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
+      useLog.push({turn:t.turn,name:nm,itemId:u.item_id,useNum:u.use_num||1});
+      if(!itemUseTotals[nm])itemUseTotals[nm]={count:0,turns:[],itemId:u.item_id};
+      itemUseTotals[nm].count+=(u.use_num||1);
+      itemUseTotals[nm].turns.push(t.turn);
+    }
+    for(const u of(t.bot_pre_race_use_selected||[])){
+      const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;
+      useLog.push({turn:t.turn,name:nm,itemId:u.item_id,useNum:u.use_num||1,preRace:true});
+      if(!itemUseTotals[nm])itemUseTotals[nm]={count:0,turns:[],itemId:u.item_id};
+      itemUseTotals[nm].count+=(u.use_num||1);
+      itemUseTotals[nm].turns.push(t.turn);
+    }
+  }
+
+  // Build skip data
+  const skipByReason={};
+  const skipByItem={};
+  for(const t of turns){
+    for(const row of(t.shop_rows_enriched||[])){
+      if(row.skip_reason){
+        const nm=row.name||ITEM[row.item_id]||'id:'+row.item_id;
+        const r=row.skip_reason;
+        skipByReason[r]=(skipByReason[r]||0)+1;
+        if(!skipByItem[nm])skipByItem[nm]={reasons:{},total:0};
+        skipByItem[nm].total++;
+        skipByItem[nm].reasons[r]=(skipByItem[nm].reasons[r]||0)+1;
+      }
+    }
+  }
+  const totalSkips=Object.values(skipByReason).reduce((a,b)=>a+b,0);
+
+  // Build unified per-item data
+  const allItemNames=new Set([...Object.keys(itemBuyTotals),...Object.keys(itemUseTotals),...Object.keys(skipByItem)]);
+  const unified=[];
+  for(const nm of allItemNames){
+    const buy=itemBuyTotals[nm]||{count:0,cost:0,turns:[]};
+    const use=itemUseTotals[nm]||{count:0,turns:[]};
+    const skip=skipByItem[nm]||{total:0,reasons:{}};
+    const remaining=buy.count-use.count;
+    unified.push({name:nm,bought:buy.count,cost:buy.cost,buyTurns:buy.turns,used:use.count,useTurns:use.turns,remaining,skipped:skip.total,reasons:skip.reasons});
+  }
+  unified.sort((a,b)=>b.bought-a.bought||b.used-a.used||b.skipped-a.skipped||a.name.localeCompare(b.name));
+
+  // Summary cards
+  const totalUsed=useLog.reduce((s,u)=>s+u.useNum,0);
+  const totalRemaining=unified.reduce((s,it)=>s+Math.max(0,it.remaining),0);
+  let html=`<div class="metric-cards">
+    <div class="metric-card"><div class="mc-val" style="color:var(--yellow)">${purchaseLog.length}</div><div class="mc-lbl">Items Purchased</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--blue)">${totalUsed}</div><div class="mc-lbl">Items Used</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--text3)">${totalRemaining}</div><div class="mc-lbl">Left Over</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--yellow)">🪙${totalSpent}</div><div class="mc-lbl">Total Spent</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--text2)">${allItemNames.size}</div><div class="mc-lbl">Unique Items</div></div>
+  </div>`;
+
+  // Skip reason breakdown cards
+  if(totalSkips){
+    html+=`<div class="metric-cards" style="margin-top:4px">`;
+    for(const [reason,count] of Object.entries(skipByReason).sort((a,b)=>b[1]-a[1])){
+      const pct=Math.round(count/totalSkips*100);
+      const color=reason==='limit_reached'?'var(--green)':reason==='skip_buy'?'var(--yellow)':reason==='rule_rejected'?'var(--orange)':'var(--red)';
+      html+=`<div class="metric-card"><div class="mc-val" style="color:${color}">${count}</div><div class="mc-lbl">${esc(friendlySkipReason(reason))}</div><div class="mc-sub">${pct}% of skips</div></div>`;
+    }
+    html+=`</div>`;
+  }
+
+  // Unified item table
+  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>All Items — Bought, Used, Skipped (${unified.length} items)</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr>
+    <th class="sortable" onclick="sortTable(this)">Item</th>
+    <th class="r sortable" onclick="sortTable(this)">Bought</th>
+    <th class="r sortable" onclick="sortTable(this)">Used</th>
+    <th class="r sortable" onclick="sortTable(this)">Left</th>
+    <th class="r sortable" onclick="sortTable(this)">Cost</th>
+    <th class="r sortable" onclick="sortTable(this)">Skipped</th>
+    <th>Skip Reasons</th>
+    </tr></thead><tbody>
+    ${unified.map(it=>{
+      const leftColor=it.remaining>0?'var(--orange)':'var(--green)';
+      const tags=Object.entries(it.reasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag" title="${esc(r)}">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
+      return`<tr><td>${esc(fmtItem(it.name))}</td><td class="r" style="color:var(--yellow);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:var(--blue);font-weight:600">${it.used||'—'}</td><td class="r" style="color:${leftColor};font-weight:600">${it.remaining>0?it.remaining:'—'}</td><td class="r cost-cell">${it.cost?'🪙'+it.cost:'—'}</td><td class="r" style="font-weight:600;color:var(--text2)">${it.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
+    }).join('')}
+    </tbody></table></div></div>`;
+
+  // Full chronological timeline
+  const timeline=[...purchaseLog.map(p=>({...p,type:'buy'})),...useLog.map(u=>({...u,type:'use'}))].sort((a,b)=>a.turn-b.turn);
+  html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Full Timeline (${timeline.length} events)</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr><th class="sortable" onclick="sortTable(this)">Turn</th><th>Type</th><th class="sortable" onclick="sortTable(this)">Item</th><th class="r">Detail</th></tr></thead><tbody>
+    ${timeline.map(e=>`<tr><td style="font-weight:700;color:var(--text3)">${e.turn}</td><td>${e.type==='buy'?'<span style="color:var(--yellow)">🛒 Buy</span>':e.preRace?'<span style="color:var(--cyan)">⚔ Pre-Race</span>':'<span style="color:var(--blue)">✨ Use</span>'}</td><td>${esc(fmtItem(e.name))}</td><td class="r">${e.type==='buy'?`<span class="cost-cell">🪙${e.cost}</span>`:`<span class="il-uses">×${e.useNum||1}</span>`}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+
+  el.innerHTML=html;
+}
+
+/* ═══════════════════════════════════════
+   SKILLS TAB
+   ═══════════════════════════════════════ */
+function renderSkillsTab(){
+  if(!logData)return;
+  const el=document.getElementById('panelSkills');
+  const turns=logData.turns||[];
+  const last=turns.length?turns[turns.length-1]:{};
+  const ownedSkills=last.owned_skills||[];
+
+  // Build skill acquisition timeline
+  const skillLog=[];
+  const ownedSet=new Set();
+  for(const t of turns){
+    for(const sk of(t.bot_skill_selected||[])){
+      const nm=sk.name||'id:'+sk.skill_id;
+      skillLog.push({turn:t.turn,name:nm,skillId:sk.skill_id,cost:sk.cost,resolution:sk.resolution_reason||''});
+      ownedSet.add(sk.skill_id);
+    }
+  }
+
+  // Skill point tracking
+  let totalSpent=skillLog.reduce((s,sk)=>s+(sk.cost||0),0);
+  const spHistory=turns.map(t=>({turn:t.turn,sp:(t.stats||{}).skill_point||0}));
+
+  const noSkillsBought=ownedSkills.length<=1&&totalSpent===0&&skillLog.length===0;
+  let html=`<div class="metric-cards">
+    <div class="metric-card"><div class="mc-val" style="color:${noSkillsBought?'var(--red)':'var(--accent2)'}">${ownedSkills.length}</div><div class="mc-lbl">Skills Owned${noSkillsBought?' (innate only)':''}</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--sp-c)">${totalSpent}</div><div class="mc-lbl">SP Spent</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--text2)">${skillLog.length}</div><div class="mc-lbl">Purchase Events</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--sp-c)">${(last.stats||{}).skill_point||0}</div><div class="mc-lbl">SP Remaining</div></div>
+  </div>`;
+  if(noSkillsBought){html+=`<div style="background:var(--red-dim);border:1px solid var(--red);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--red)">⚠ No skills were purchased this career. The ${ownedSkills.length===1?'1 skill shown is the trainee\'s innate skill':'skills shown are innate'}, not bot-purchased. All SP (${(last.stats||{}).skill_point||0}) remains unspent.</div>`}
+
+  // Owned skills
+  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Owned Skills (${ownedSkills.length})</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr><th class="sortable" onclick="sortTable(this)">Skill</th><th class="sortable" onclick="sortTable(this)">ID</th><th>Acquired Turn</th></tr></thead><tbody>
+    ${ownedSkills.map(sk=>{
+      const acq=skillLog.find(s=>s.skillId===sk.skill_id);
+      return`<tr><td style="color:var(--green)">${esc(sk.name||'id:'+sk.skill_id)}</td><td style="color:var(--text3);font-size:11px">${sk.skill_id}</td><td>${acq?`T${acq.turn}`:'<span style="color:var(--text3)">innate</span>'}</td></tr>`;
+    }).join('')}
+    </tbody></table></div></div>`;
+
+  // Acquisition timeline
+  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Acquisition Timeline</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr>
+    <th class="sortable" onclick="sortTable(this)">Turn</th>
+    <th class="sortable" onclick="sortTable(this)">Skill</th>
+    <th class="r sortable" onclick="sortTable(this)">Cost</th>
+    <th>Note</th>
+    </tr></thead><tbody>
+    ${skillLog.map(sk=>`<tr><td style="font-weight:700;color:var(--text3)">${sk.turn}</td><td style="color:var(--accent2)">${esc(sk.name)}</td><td class="r skill-cost">${sk.cost!=null?sk.cost+'SP':'—'}</td><td style="font-size:11px;color:var(--text3)">${esc(sk.resolution)}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+
+  el.innerHTML=html;
+}
+
+/* ═══════════════════════════════════════
+   RACES TAB
+   ═══════════════════════════════════════ */
+function renderRacesTab(){
+  if(!logData)return;
+  const el=document.getElementById('panelRaces');
+  const turns=logData.turns||[];
+  const raceResults=buildRaceResults(logData);
+
+  // Categorize by grade
+  const byGrade={};
+  for(const r of raceResults){
+    if(!byGrade[r.grade])byGrade[r.grade]={wins:0,total:0,clocks:0};
+    byGrade[r.grade].total++;
+    if(r.finalRank===1)byGrade[r.grade].wins++;
+    if(r.usedClock)byGrade[r.grade].clocks++;
+  }
+
+  const wins=raceResults.filter(r=>r.finalRank===1).length;
+  const clocks=raceResults.filter(r=>r.usedClock).length;
+
+  let html=`<div class="metric-cards">
+    <div class="metric-card"><div class="mc-val" style="color:var(--pink)">${raceResults.length}</div><div class="mc-lbl">Total Races</div></div>
+    <div class="metric-card"><div class="mc-val mc-pass">${wins}</div><div class="mc-lbl">1st Place</div><div class="mc-sub">${raceResults.length?Math.round(wins/raceResults.length*100):0}%</div></div>
+    <div class="metric-card"><div class="mc-val" style="color:var(--cyan)">${clocks}</div><div class="mc-lbl">Clock Retries</div></div>
+  </div>`;
+
+  // Grade breakdown
+  const grades=Object.entries(byGrade).sort((a,b)=>{
+    const order=['G1','G2','G3','900','OP','Pre-OP'];
+    return(order.indexOf(a[0])===-1?99:order.indexOf(a[0]))-(order.indexOf(b[0])===-1?99:order.indexOf(b[0]));
+  });
+  if(grades.length){
+    html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>By Grade</h3><div class="s-arrow">▾</div></div><div class="section-body">
+      <table class="tbl"><thead><tr><th>Grade</th><th class="r">Races</th><th class="r">Wins</th><th class="r">Win %</th><th class="r">Clocks</th></tr></thead><tbody>
+      ${grades.map(([g,d])=>`<tr><td style="font-weight:700">${esc(g)}</td><td class="r">${d.total}</td><td class="r" style="color:var(--green);font-weight:600">${d.wins}</td><td class="r">${Math.round(d.wins/d.total*100)}%</td><td class="r" style="color:var(--cyan)">${d.clocks||'—'}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+  }
+
+  // Full race log — rows are clickable to open the bar-chart REPLAY
+  ensureReplayCSS();
+  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Race Log <span style="font-size:10px;color:var(--text3);font-weight:400">— click a row or ▶ to replay</span></h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr>
+    <th class="sortable" onclick="sortTable(this)">Turn</th>
+    <th class="sortable" onclick="sortTable(this)">Race</th>
+    <th>Grade</th>
+    <th>Distance</th>
+    <th>Result</th>
+    <th>Items Used</th>
+    <th>Replay</th>
+    </tr></thead><tbody>
+    ${raceResults.map(r=>{
+      const rankCls=r.finalRank===1?'race-1st':r.finalRank===2?'race-2nd':r.finalRank===3?'race-3rd':r.finalRank?'race-other':'';
+      const rankLabel=r.finalRank?`#${r.finalRank}`:'<span style="color:var(--text3)">#?</span>';
+      const clockBadge=r.usedClock?`<span class="race-clock">🕐 clock</span>`:'';
+      const itemsUsed=(r.itemsUsed||[]).map(i=>`<span class="chip use" style="font-size:9px">✨${esc(i)}</span>`).join(' ');
+      const hasField=raceHasField(r.turn);
+      const rowCls=hasField?' class="race-replayable"':'';
+      const rowClick=hasField?` onclick="openRaceReplay(${r.turn})"`:'';
+      const replayBtn=hasField
+        ?`<button class="replay-btn" onclick="event.stopPropagation();openRaceReplay(${r.turn})">▶ Replay</button>`
+        :`<button class="replay-btn" disabled title="No field data saved for this race">▶</button>`;
+      return`<tr${rowCls}${rowClick}><td style="font-weight:700;color:var(--text3)">${r.turn}</td><td>${esc(r.name)}</td><td style="font-weight:600">${esc(r.grade)}</td><td style="color:var(--text3)">${esc(r.distance)}</td><td><span class="race-result ${rankCls}">${rankLabel}</span>${clockBadge}</td><td>${itemsUsed||'<span style="color:var(--text3)">—</span>'}</td><td>${replayBtn}</td></tr>`;
+    }).join('')}
+    </tbody></table></div></div>`;
+
+  el.innerHTML=html;
+}
+
+function buildRaceResults(data){
+  const turns=data.turns||[];
+  const logEntries=(data.runner_status||{}).log||[];
+  const raceResultsArr=(data.runner_status||{}).race_results||[];
+  const results=[];
+
+  // Primary source: runner_status.race_results (persisted for ALL races, never evicted)
+  const rrMap={};
+  for(const rr of raceResultsArr){
+    const t=parseInt(rr.turn||0);
+    if(t)rrMap[t]=rr;
+  }
+
+  // Fallback: runner_status.log (rolling 120-entry buffer, early entries may be evicted)
+  const rankMap={};
+  for(const entry of logEntries){
+    const turn=entry.turn;
+    if(!rankMap[turn])rankMap[turn]={rank:null,usedClock:false,rankAfterClock:null};
+    if(entry.action==='race_rank'){
+      const m=entry.detail.match(/rank\s+(\d+)/);
+      if(m)rankMap[turn].rank=parseInt(m[1]);
+    }
+    if(entry.action==='race_clock'){rankMap[turn].usedClock=true}
+    if(entry.action==='race_rank_retry'){
+      const m=entry.detail.match(/rank\s+(\d+)/);
+      if(m)rankMap[turn].rankAfterClock=parseInt(m[1]);
+    }
+  }
+
+  for(const t of turns){
+    if(categorize(t)!=='race')continue;
+    const reason=t.decision_reason||'';
+    const parts=reason.split(' · ');
+
+    // Use race_results as primary source for name/grade/distance/rank
+    const rr=rrMap[t.turn];
+    const name=rr?rr.name:parts[0]||reason;
+    const grade=rr?rr.grade:(parts.length>=2?parts[1]:'—');
+    const distM=rr&&rr.distance_m?rr.distance_m+'m':'';
+    const terrain=rr?rr.terrain:'';
+    const dist=distM||(parts.length>=3?parts[2]:'—');
+    const surface=terrain||(parts.length>=4?parts[3]:'');
+
+    // Rank: prefer race_results (always complete), fall back to log buffer
+    const rm=rankMap[t.turn]||{};
+    let finalRank=null;
+    let usedClock=false;
+    if(rr){
+      finalRank=rr.final_rank||rr.rank||null;
+      usedClock=!!(rr.clocks_used||rr.clock_retry);
+    }
+    if(!finalRank){finalRank=rm.rankAfterClock||rm.rank||null}
+    if(!usedClock){usedClock=rm.usedClock||false}
+
+    const _prn4=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    const itemsUsed=[...(t.bot_item_use_selected||[]).filter(i=>!_prn4.has(i.name)),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name||ITEM[i.item_id]||''));
+
+    // Race selection reasoning from decision_reason
+    const raceReason=parts.length>=2?parts.slice(1).join(' · '):'';
+
+    results.push({turn:t.turn,name,grade,distance:dist+(surface?' '+surface:''),finalRank,usedClock,itemsUsed,raceReason,
+      fansReward:rr?rr.fans:0,distanceType:rr?rr.distance_type||'':'',wonFlag:rr?rr.won:finalRank===1});
+  }
+  return results;
+}
+
+/* ═══════════════════════════════════════
+   METRICS TAB (multi-file)
+   ═══════════════════════════════════════ */
+function renderMetrics(){
+  const el=document.getElementById('panelMetrics');
+  if(!allLogs.length){el.innerHTML='<p class="no-data">No log files loaded.</p>';return}
+
+  const CLEAT_IDS={11001:'Artisan Cleat Hammer',11002:'Master Cleat Hammer'};
+  const PRIORITY_GROUPS=[
+    {label:'MCH',ids:[11002]},{label:'ACH',ids:[11001]},
+    {label:'Coach Mega',ids:[8001]},{label:'Motiv Mega',ids:[8002]},{label:'Empower Mega',ids:[8003]},
+    {label:'Spd Scroll',ids:[1201]},{label:'Sta Scroll',ids:[1202]},{label:'Pow Scroll',ids:[1203]},{label:'Gut Scroll',ids:[1204]},{label:'Wit Scroll',ids:[1205]},
+    {label:'Spd Manual',ids:[1101]},{label:'Sta Manual',ids:[1102]},{label:'Pow Manual',ids:[1103]},{label:'Gut Manual',ids:[1104]},{label:'Wit Manual',ids:[1105]},
+  ];
+
+  const runRows=allLogs.map(({filename,data},i)=>{
+    const turns=data.turns||[];
+    const rs=data.runner_status||{};
+    const last=turns.length?turns[turns.length-1]:{};
+    const lastStats=last.stats||{};
+    const totalStat=(lastStats.speed||0)+(lastStats.stamina||0)+(lastStats.power||0)+(lastStats.guts||0)+(lastStats.wit||0);
+
+    const raceResults=buildRaceResults(data);
+    const wins=raceResults.filter(r=>r.finalRank===1).length;
+
+    const raw=filename.replace(/career_log_?/,'').replace(/\.json$/,'')||filename;
+    const m=raw.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})/);
+    const dateLabel=m?`${m[2]}/${m[3]} ${m[4]}:${m[5]}`:raw;
+    const shortName=`${ordinalLabel(i)} (${dateLabel})`;
+
+    const mch73=checkTurn73MCH(turns);
+
+    return{shortName,filename,turns,lastStats,totalStat,raceResults,wins,mch73,rs,data};
+  });
+
+  const totalRuns=runRows.length;
+
+  // Stat comparison across runs
+  let html=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Run Comparison</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr>
+    <th class="sortable" onclick="sortTable(this)">Run</th>
+    <th class="r sortable" onclick="sortTable(this)">Total</th>
+    ${STAT_KEYS.map(s=>`<th class="r sortable" onclick="sortTable(this)">${s.l}</th>`).join('')}
+    <th class="r sortable" onclick="sortTable(this)">SP Left</th>
+    <th class="r sortable" onclick="sortTable(this)">Races</th>
+    <th class="r sortable" onclick="sortTable(this)">Wins</th>
+    <th class="r sortable" onclick="sortTable(this)">Fans</th>
+    <th class="r sortable" onclick="sortTable(this)">Duration</th>
+    </tr></thead><tbody>`;
+  for(const r of runRows){
+    const d=r.data;
+    const dur=d.started_at&&d.ended_at?fmtDur(new Date(d.ended_at)-new Date(d.started_at)):'—';
+    html+=`<tr><td title="${esc(r.filename)}">${esc(r.shortName)}</td>
+    <td class="r" style="font-weight:700;color:var(--accent2)">${r.totalStat}</td>
+    ${STAT_KEYS.map(s=>`<td class="r sm ${s.c}">${r.lastStats[s.k]||0}</td>`).join('')}
+    <td class="r sm sp">${r.lastStats.skill_point||0}</td>
+    <td class="r">${r.raceResults.length}</td>
+    <td class="r" style="color:var(--green);font-weight:600">${r.wins}</td>
+    <td class="r">${r.rs.fans_gained?fmtNum(r.rs.fans_gained):'—'}</td>
+    <td class="r" style="color:var(--text3)">${dur}</td></tr>`;
+  }
+  html+=`</tbody></table></div></div>`;
+
+  // Turn 73 MCH check
+  const passCount=runRows.filter(r=>r.mch73.met).length;
+  html+=`<div class="section open"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>T73 Master Cleat Hammer Check — ${passCount}/${totalRuns} pass</h3><div class="s-arrow">▾</div></div><div class="section-body">
+    <table class="tbl"><thead><tr>
+    <th class="sortable" onclick="sortTable(this)">Run</th>
+    <th>inv + shop = total</th>
+    <th class="sortable" onclick="sortTable(this)">Result</th>
+    </tr></thead><tbody>
+    ${runRows.map(r=>{
+      const{invCount,shopCount,total,met}=r.mch73;
+      return`<tr><td>${esc(r.shortName)}</td><td style="color:var(--text2)">${invCount} + ${shopCount} = <b>${total}</b></td><td class="${met?'pass-cell':'fail-cell'}">${met?'✓ Pass':'✗ Fail'}</td></tr>`;
+    }).join('')}
+    </tbody></table></div></div>`;
+
+  // Priority items per run
+  html+=`<div class="section"><div class="section-hdr" onclick="this.closest('.section').classList.toggle('open')"><h3>Priority Items Per Run</h3><div class="s-arrow">▾</div></div><div class="section-body" style="overflow-x:auto">
+    <table class="tbl"><thead><tr>
+    <th class="sortable" onclick="sortTable(this)">Run</th>
+    ${PRIORITY_GROUPS.map(g=>`<th class="sortable" onclick="sortTable(this)">${esc(g.label)}<br><span style="font-size:9px;font-weight:400;opacity:.5">o/b/u</span></th>`).join('')}
+    </tr></thead><tbody>`;
+  for(const r of runRows){
+    html+=`<tr><td>${esc(r.shortName)}</td>`;
+    for(const g of PRIORITY_GROUPS){
+      const s=countItemStats(r.turns,g.ids);
+      html+=`<td><span style="color:var(--text3)">${s.offered}</span>/<span style="color:${s.bought?'var(--green)':'var(--text3)'};font-weight:${s.bought?700:400}">${s.bought}</span>/<span style="color:${s.used?'var(--blue)':'var(--text3)'}">${s.used}</span></td>`;
+    }
+    html+=`</tr>`;
+  }
+  html+=`</tbody></table></div></div>`;
+
+  el.innerHTML=html;
+}
+
+function checkTurn73MCH(turns){
+  const TARGET_ID=11002,TARGET_TURN=73,GOAL=3;
+  const turn73=[...turns].reverse().find(t=>t.turn<=TARGET_TURN);
+  if(!turn73)return{met:false,invCount:0,shopCount:0,total:0};
+  const invEntry=(turn73.inventory||[]).find(i=>i.item_id===TARGET_ID);
+  const invCount=invEntry?(invEntry.current_num||invEntry.num||1):0;
+  const shopCount=(turn73.shop_rows_enriched||[]).filter(r=>r.item_id===TARGET_ID&&!r.selected&&!r.limit_reached&&!r.expired).length;
+  const total=invCount+shopCount;
+  return{met:total>=GOAL,invCount,shopCount,total};
+}
+
+function countItemStats(turns,targetIds){
+  const idSet=new Set(targetIds);
+  let offered=0,bought=0,used=0;
+  for(const t of turns){
+    for(const row of(t.shop_rows_enriched||[]))if(idSet.has(row.item_id)){offered++;if(row.selected&&!row.skip_reason)bought++}
+    const _prn5=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const item of(t.bot_item_use_selected||[]).filter(i=>!_prn5.has(i.name)))if(idSet.has(item.item_id))used++;
+    for(const item of(t.bot_pre_race_use_selected||[]))if(idSet.has(item.item_id))used++;
+  }
+  return{offered,bought,used};
+}
+
+/* ═══════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════ */
+function categorize(t){
+  const a=t.selected_action||'';
+  const r=t.decision_reason||'';
+  if(a==='race')return'race';
+  // Parse race-like reasons: "RaceName · Grade · ..."
+  if(r.includes(' · '))return'race';
+  if(r.startsWith('rest')||r.includes('rest '))return'rest';
+  if(r.includes('train '))return'training';
+  if(a==='command'&&!r.includes('rest'))return'training';
+  return'other';
+}
+
+function parseAction(t){
+  const action=t.selected_action||'';
+  const reason=t.decision_reason||'';
+  if(action==='race'||reason.includes(' · ')){
+    const parts=reason.split(' · ');
+    if(parts.length>=2)return{label:`🏁 ${parts[0]} (${parts[1]})`,cls:'a-race'};
+    return{label:'🏁 '+reason,cls:'a-race'};
+  }
+  if(reason.startsWith('rest')||reason.includes(': rest'))return{label:'💤 Rest',cls:'a-rest'};
+  if(reason.includes('train ')){
+    const m=reason.match(/train\s+(\w+)/);
+    return{label:`⚡ ${m?m[1]:'?'} Training`,cls:'a-train'};
+  }
+  if(reason.includes('energy-rescue train')){
+    const m=reason.match(/train\s+(\w+)/);
+    return{label:`⚡ ${m?m[1]:'?'} (rescue)`,cls:'a-train'};
+  }
+  if(reason.includes('recover mood'))return{label:'😊 Recover Mood',cls:'a-other'};
+  if(reason==='ready to finish'||action==='finish')return{label:'🏁 Finish',cls:'a-other'};
+  return{label:reason||action||'—',cls:'a-other'};
+}
+
+function sbar(label,val,max,prev,cls){
+  if(val==null)return'';
+  const pct=max?Math.min(100,Math.round(val/max*100)):0;
+  const d=(prev!=null&&val!==prev)?val-prev:null;
+  const delta=d!==null?` <span class="dp ${d>=0?'pos':'neg'}">${d>=0?'+':''}${d}</span>`:'';
+  return`<div class="sb-row"><span class="sb-lbl">${label}</span><div class="sb-track"><div class="sb-fill ${cls}" style="width:${pct}%"></div></div><span class="sb-val sm ${cls}">${val}${delta}</span></div>`;
+}
+function ir(l,v){return`<div class="ir"><span class="ir-lbl">${l}</span><span class="ir-val">${v}</span></div>`}
+function fmtRes(r){if(!r||!Object.keys(r).length)return'';if(r.skip)return`<span style="color:var(--text3);font-size:10px">(${esc(r.skip)})</span>`;if(r.result==='ok')return`<span style="color:var(--green);font-size:10px">✓</span>`;if(r.result==='failed')return`<span style="color:var(--red);font-size:10px">✗</span>`;return''}
+function fmtDur(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);if(h)return`${h}h ${m%60}m`;if(m)return`${m}m ${s%60}s`;return`${s}s`}
+function fmtNum(n){return n>=1000000?(n/1000000).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':String(n)}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtItem(n){
+  const s=String(n||'');
+  const rules=[
+    [/^(Master|Artisan) Cleat Hammer$/,'Hammer ($1 Cleat)'],
+    [/^(Speed|Stamina|Power|Guts|Wit) Scroll$/,'Scroll ($1)'],
+    [/^(Speed|Stamina|Power|Guts|Wit) Manual$/,'Manual ($1)'],
+    [/^(Speed|Stamina|Power|Guts|Wit) Notepad$/,'Notepad ($1)'],
+    [/^(Speed|Stamina|Power|Guts) Ankle Weights$/,'Ankle Weights ($1)'],
+    [/^(Speed|Stamina|Power|Guts|Wit) Training Application$/,'Training App ($1)'],
+    [/^(Coaching|Motivating|Empowering) Megaphone$/,'Megaphone ($1)'],
+    [/^Vita (\d+)$/,'Vita ($1)'],
+    [/^(Plain|Berry Sweet) Cupcake$/,'Cupcake ($1)'],
+    [/^Energy Drink (.+)$/,'Energy Drink ($1)'],
+  ];
+  for(const [re,rep] of rules){if(re.test(s))return s.replace(re,rep)}
+  return s;
+}
+function smTag(cls,val,prev,title){if(val==null)return'';const d=(prev!=null&&val!==prev)?val-prev:null;const delta=d!==null?`<span class="dp ${d>=0?'pos':'neg'}">${d>=0?'+':''}${d}</span>`:'';return`<span class="sm ${cls}" title="${title}">${val}${delta}</span>`}
+function itemGroup(id){if(id===11002)return 0;if(id===11001)return 1;if(id>=8001&&id<=8003)return 2;if(id>=1201&&id<=1205)return 3;if(id>=1101&&id<=1105)return 4;return 5}
+function friendlySkipReason(r){
+  const map={
+    skip_buy:'Low priority (policy)',
+    rule_rejected:'Not selected (rules)',
+    unaffordable:'Not enough coins',
+    limit_reached:'Already owned max',
+    expired:'Offer expired',
+    rejected:'Rejected',
+    failed_snapshot:'Snapshot failed',
+    auto_buy_cap:'Auto-buy cap reached',
+    user_excluded:'Excluded by user',
+    skip_wasteful:'Wasteful consumable',
+    skip_notepad:'Notepad excluded',
+    skip_inv_cap:'Inventory cap',
+    skip_mega_surplus:'Megaphone surplus',
+    skip_anklet_cap:'Anklet stock cap',
+    skip_cure_redundant:'Cure redundant',
+    skip_budget:'Budget too low',
+    skip_pre_summer:'Pre-summer reserve',
+    skip_low_deck:'Low deck support',
+    skip_buff_used:'Buff already used'
+  };
+  return map[r]||r;
+}
+
+/* ═══════════════════════════════════════
+   AI SUMMARY EXPORT
+   ═══════════════════════════════════════ */
+function copyAISummary(){
+  const text=generateAISummary();
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.getElementById('copyAIBtn');
+    btn.textContent='✓ Copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='📋 Copy AI Summary';btn.classList.remove('copied')},2000);
+  }).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)});
+}
+
+function generateAISummary(){
+  if(!logData)return'No log loaded.';
+  const d=logData,turns=d.turns||[],rs=d.runner_status||{};
+  let last=turns.length?turns[turns.length-1]:{};
+  if(!last.stats||!last.stats.speed){for(let i=turns.length-1;i>=0;i--){if(turns[i].stats&&turns[i].stats.speed){last=turns[i];break}}}
+  const ls=last.stats||{};
+  const totalStats=(ls.speed||0)+(ls.stamina||0)+(ls.power||0)+(ls.guts||0)+(ls.wit||0);
+  const sc=SCENARIO[d.scenario_id]||'Scenario '+d.scenario_id;
+  const dur=d.started_at&&d.ended_at?fmtDur(new Date(d.ended_at)-new Date(d.started_at)):'—';
+
+  let o='';
+  o+='=== ICARUS TRACKBLAZER RUN REPORT ===\n';
+  o+='Generated: '+new Date().toLocaleString()+'\n';
+  o+='File: '+((allLogs[activeLogIndex]||{}).filename||'—')+'\n\n';
+
+  // Career info
+  o+='--- CAREER INFO ---\n';
+  o+='Preset: '+(d.preset_name||'—')+'\n';
+  o+='Scenario: '+sc+'\n';
+  o+='Status: '+(d.status||'—')+'\n';
+  o+='Duration: '+dur+'\n';
+  o+='Decision Mode: '+((d.runtime_settings||{}).decision_mode||'—')+'\n';
+  o+='Total Turns: '+turns.length+'/'+(d.final_turn||'—')+'\n';
+  o+='Run: '+(rs.loop_index||'—')+' / '+(rs.loop_target||'—')+'\n\n';
+
+  // Final stats
+  o+='--- FINAL STATS ---\n';
+  o+='Speed: '+(ls.speed||0)+' | Stamina: '+(ls.stamina||0)+' | Power: '+(ls.power||0)+' | Guts: '+(ls.guts||0)+' | Wit: '+(ls.wit||0)+'\n';
+  o+='Total: '+totalStats+'\n';
+  o+='SP Remaining: '+(ls.skill_point||0)+'\n';
+  o+='Final HP: '+(ls.hp||'?')+'/'+(ls.max_hp||100)+'\n';
+  o+='Final Coins: '+(last.mant_coin!=null?last.mant_coin:'—')+'\n\n';
+
+  // Race economy
+  const rr=buildRaceResults(d);
+  const rWins=rr.filter(r=>r.finalRank===1).length;
+  const rClocks=rr.filter(r=>r.usedClock).length;
+  const rWinPct=rr.length?(rWins/rr.length*100).toFixed(1):'0';
+
+  o+='--- RACE ECONOMY ---\n';
+  o+='Total Races: '+rr.length+'\n';
+  o+='Wins (1st): '+rWins+' ('+rWinPct+'%)\n';
+  o+='Clock Retries: '+rClocks+'\n';
+  o+='Fans Gained: '+(rs.fans_gained?fmtNum(rs.fans_gained):'—')+'\n\n';
+
+  // By grade
+  const byG={};
+  for(const r of rr){if(!byG[r.grade])byG[r.grade]={t:0,w:0,c:0};byG[r.grade].t++;if(r.finalRank===1)byG[r.grade].w++;if(r.usedClock)byG[r.grade].c++}
+  const gOrd=['G1','G2','G3','900','OP','Pre-OP'];
+  o+='By Grade:\n';
+  for(const[g,gd]of Object.entries(byG).sort((a,b)=>(gOrd.indexOf(a[0])===-1?99:gOrd.indexOf(a[0]))-(gOrd.indexOf(b[0])===-1?99:gOrd.indexOf(b[0])))){
+    o+='  '+g+': '+gd.w+'/'+gd.t+' wins ('+Math.round(gd.w/gd.t*100)+'%)'+(gd.c?' ['+gd.c+' clocks]':'')+'\n';
+  }
+  o+='\n';
+
+  // Race log
+  o+='Race Log:\n';
+  for(const r of rr){
+    let ln='  T'+String(r.turn).padStart(2,'0')+': '+r.name+' ('+r.grade+') '+r.distance+' → #'+(r.finalRank||'?');
+    if(r.usedClock)ln+=' 🕐';
+    if(r.fansReward)ln+=' ['+fmtNum(r.fansReward)+' fans]';
+    if(r.itemsUsed.length)ln+=' ['+r.itemsUsed.join(', ')+']';
+    o+=ln+'\n';
+  }
+  o+='\n';
+
+  // Consecutive race chains
+  const chains=aiRaceChains(turns);
+  if(chains.length){
+    o+='Consecutive Race Chains:\n';
+    for(const c of chains){
+      const flag=c.length>=4?' ⚠⚠ HEAVY FLAG':c.length>=3?' ⚠ FLAG':'';
+      o+='  T'+c[0]+'-T'+c[c.length-1]+': '+c.length+' consecutive races'+flag+'\n';
+    }
+    o+='\n';
+  }
+
+  // Item economy
+  o+='--- ITEM ECONOMY ---\n';
+  const ie=aiItemSummary(turns);
+  const leftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  o+='Total Items Bought: '+ie.boughtCount+'\n';
+  o+='Total Items Used: '+ie.usedCount+'\n';
+  o+='Items Left Over: '+leftover+'\n';
+  o+='Total Coins Spent: '+ie.spent+'\n\n';
+
+  const allNames=new Set([...Object.keys(ie.bought),...Object.keys(ie.used)]);
+  const itemRows=[...allNames].map(nm=>({name:nm,b:ie.bought[nm]||0,u:ie.used[nm]||0,l:(ie.bought[nm]||0)-(ie.used[nm]||0)})).sort((a,b)=>b.b-a.b||b.u-a.u);
+  o+='Per Item (bought / used / left):\n';
+  for(const it of itemRows){o+='  '+fmtItem(it.name)+': '+it.b+' / '+it.u+' / '+Math.max(0,it.l)+(it.l>0?' ⚠':'')+'\n'}
+  o+='\n';
+
+  // Skip reasons
+  const skipR={};
+  for(const t of turns)for(const row of(t.shop_rows_enriched||[]))if(row.skip_reason){const r=friendlySkipReason(row.skip_reason);skipR[r]=(skipR[r]||0)+1}
+  if(Object.keys(skipR).length){
+    o+='Skip Reason Summary:\n';
+    for(const[r,c]of Object.entries(skipR).sort((a,b)=>b[1]-a[1]))o+='  '+r+': '+c+'\n';
+    o+='\n';
+  }
+
+  // Summer bootcamp
+  o+='--- SUMMER BOOTCAMP ---\n';
+  o+=aiSummerSnap(turns,37,40,'Classic Summer (T37-40)');
+  o+=aiSummerSnap(turns,61,64,'Senior Summer (T61-64)');
+  o+='\n';
+
+  // T73 / Climax
+  o+='--- TURN 73 / CLIMAX PREP ---\n';
+  o+=aiT73Summary(turns,rr);
+  o+='\n';
+
+  // Mood & HP
+  o+='--- MOOD & HP ---\n';
+  o+=aiMoodSummary(turns);
+  o+='\n';
+
+  // Skills
+  o+='--- SKILLS ---\n';
+  o+=aiSkillSummary(turns);
+  o+='\n';
+
+  // Final inventory
+  const fInv=last.inventory||[];
+  if(fInv.length){
+    o+='--- FINAL INVENTORY ---\n';
+    for(const it of fInv){const nm=it.name||ITEM[it.item_id]||'id:'+it.item_id;o+='  '+fmtItem(nm)+' ×'+(it.current_num||it.num||1)+'\n'}
+    o+='\n';
+  }
+
+  // Condensed turn log
+  const rrMap={};for(const r of rr)rrMap[r.turn]=r;
+  o+='--- TURN LOG (CONDENSED) ---\n';
+  o+=aiTurnLog(turns,rrMap);
+
+  return o;
+}
+
+function aiRaceChains(turns){
+  const chains=[];let cur=[];
+  for(const t of turns){if(categorize(t)==='race'){cur.push(t.turn)}else{if(cur.length>=2)chains.push([...cur]);cur=[]}}
+  if(cur.length>=2)chains.push([...cur]);
+  return chains;
+}
+
+function aiItemSummary(turns){
+  const bought={},used={};let boughtCount=0,usedCount=0,spent=0;
+  for(const t of turns){
+    for(const b of(t.bot_shop_selected||[])){boughtCount++;spent+=(b.cost||0);const nm=b.name||ITEM[b.item_id]||'id:'+b.item_id;bought[nm]=(bought[nm]||0)+1}
+    const prn=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    for(const u of(t.bot_item_use_selected||[]).filter(i=>!prn.has(i.name))){usedCount++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;used[nm]=(used[nm]||0)+(u.use_num||1)}
+    for(const u of(t.bot_pre_race_use_selected||[])){usedCount++;const nm=u.name||ITEM[u.item_id]||'id:'+u.item_id;used[nm]=(used[nm]||0)+(u.use_num||1)}
+  }
+  return{bought,used,boughtCount,usedCount,spent};
+}
+
+function aiSummerSnap(turns,ss,se,label){
+  const pre=[...turns].reverse().find(t=>t.turn<ss);
+  const sum=turns.filter(t=>t.turn>=ss&&t.turn<=se);
+  let o=label+':\n';
+  if(pre){
+    o+='  Coins entering: '+(pre.mant_coin!=null?pre.mant_coin:'—')+'\n';
+    o+='  HP: '+((pre.stats||{}).hp||'?')+' | Mood: '+(pre.motivation||(pre.stats||{}).motivation||'?')+'/5\n';
+    const inv=pre.inventory||[];
+    if(inv.length)o+='  Inventory: '+inv.map(i=>fmtItem(i.name||ITEM[i.item_id]||'?')+'×'+(i.current_num||i.num||1)).join(', ')+'\n';
+  }
+  o+='  Turns:\n';
+  for(const t of sum){
+    const{label:al}=parseAction(t);
+    const b=(t.bot_shop_selected||[]).map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    const prn=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    const u=[...(t.bot_item_use_selected||[]).filter(i=>!prn.has(i.name)),...(t.bot_pre_race_use_selected||[])].map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    let ln='    T'+t.turn+': '+al;
+    if(b.length)ln+=' | bought: '+b.join(', ');
+    if(u.length)ln+=' | used: '+u.join(', ');
+    const st=t.stats||{};
+    ln+=' | SPD:'+(st.speed||0)+' STA:'+(st.stamina||0)+' POW:'+(st.power||0)+' GUT:'+(st.guts||0)+' WIT:'+(st.wit||0);
+    o+=ln+'\n';
+  }
+  if(!sum.length)o+='    (no turns in range)\n';
+  return o;
+}
+
+function aiT73Summary(turns,rr){
+  const TID=11002;
+  const t73=[...turns].reverse().find(t=>t.turn<=73);
+  let o='';
+  if(t73){
+    const invE=(t73.inventory||[]).find(i=>i.item_id===TID);
+    const ic=invE?(invE.current_num||invE.num||1):0;
+    const sc2=(t73.shop_rows_enriched||[]).filter(r=>r.item_id===TID&&!r.selected&&!r.limit_reached&&!r.expired).length;
+    const tot=ic+sc2;
+    o+='MCH in inventory: '+ic+'\n';
+    o+='MCH in shop (unbought): '+sc2+'\n';
+    o+='MCH total available: '+tot+'\n';
+    o+='MCH Check: '+(tot>=3?'PASS ✓':tot>=2?'RISKY ⚠':'FAIL ✗')+'\n';
+    o+='Coins at T'+t73.turn+': '+(t73.mant_coin!=null?t73.mant_coin:'—')+'\n';
+    const inv=t73.inventory||[];
+    if(inv.length)o+='Inventory at T'+t73.turn+': '+inv.map(i=>fmtItem(i.name||ITEM[i.item_id]||'?')+'×'+(i.current_num||i.num||1)).join(', ')+'\n';
+  }else o+='No turn data at or before T73.\n';
+  const climax=rr.filter(r=>r.turn>=74);
+  if(climax.length){
+    o+='\nFinal Climax Races:\n';
+    for(const r of climax)o+='  T'+r.turn+': '+r.name+' ('+r.grade+') → #'+(r.finalRank||'?')+(r.usedClock?' 🕐':'')+(r.itemsUsed.length?' ['+r.itemsUsed.join(', ')+']':'')+'\n';
+  }
+  return o;
+}
+
+function aiMoodSummary(turns){
+  const mc={1:0,2:0,3:0,4:0,5:0};let mt=0,mn=0,rc=0,lhp=0;
+  for(const t of turns){
+    const m=t.motivation||(t.stats||{}).motivation||0;
+    if(m>=1&&m<=5){mc[m]++;mt+=m;mn++}
+    if(categorize(t)==='rest')rc++;
+    if((t.stats||{}).hp<20)lhp++;
+  }
+  let o='';
+  o+='Average Mood: '+(mn?(mt/mn).toFixed(1):'—')+'/5\n';
+  o+='Distribution: Best='+mc[5]+'('+(mn?Math.round(mc[5]/mn*100):0)+'%) Good='+mc[4]+'('+(mn?Math.round(mc[4]/mn*100):0)+'%) Normal='+mc[3]+'('+(mn?Math.round(mc[3]/mn*100):0)+'%) Bad='+mc[2]+'('+(mn?Math.round(mc[2]/mn*100):0)+'%) Worst='+mc[1]+'('+(mn?Math.round(mc[1]/mn*100):0)+'%)\n';
+  o+='Rest Count: '+rc+'\n';
+  o+='Low HP Turns (<20): '+lhp+'\n';
+  return o;
+}
+
+function aiSkillSummary(turns){
+  const last=turns.length?turns[turns.length-1]:{};
+  const owned=last.owned_skills||[];
+  const log=[];let spent=0;
+  for(const t of turns)for(const sk of(t.bot_skill_selected||[])){log.push({turn:t.turn,name:sk.name||'id:'+sk.skill_id,cost:sk.cost||0});spent+=(sk.cost||0)}
+  let o='';
+  o+='Skills Owned: '+owned.length+(owned.length<=1&&spent===0&&log.length===0?' (innate only — no skills were purchased)':'')+'\n';
+  o+='SP Spent: '+spent+'\n';
+  o+='SP Remaining: '+((last.stats||{}).skill_point||0)+'\n';
+  if(owned.length<=1&&spent===0&&log.length===0){o+='WARNING: Bot did not buy any skills this career. All SP remains unspent.\n'}
+  if(log.length){o+='Acquisition Timeline:\n';for(const sk of log)o+='  T'+String(sk.turn).padStart(2,'0')+': '+sk.name+' ('+sk.cost+' SP)\n'}
+  return o;
+}
+
+function aiTurnLog(turns,raceResultMap){
+  let o='';
+  for(const t of turns){
+    const s=t.stats||{};
+    const{label:al}=parseAction(t);
+    const motiv=t.motivation||s.motivation||'?';
+    const coin=t.mant_coin!=null?t.mant_coin:'?';
+    const b=(t.bot_shop_selected||[]).map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    const prn=new Set((t.bot_pre_race_use_selected||[]).map(i=>i.name));
+    const u=(t.bot_item_use_selected||[]).filter(i=>!prn.has(i.name)).map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    const pr=(t.bot_pre_race_use_selected||[]).map(i=>fmtItem(i.name||ITEM[i.item_id]||'?'));
+    const sk=(t.bot_skill_selected||[]).map(i=>i.name||'?');
+    let ln='T'+String(t.turn).padStart(2,'0')+': '+al+' | HP:'+(s.hp||'?')+' SPD:'+(s.speed||0)+' STA:'+(s.stamina||0)+' POW:'+(s.power||0)+' GUT:'+(s.guts||0)+' WIT:'+(s.wit||0)+' SP:'+(s.skill_point||0)+' | coins:'+coin+' mood:'+motiv;
+    if(b.length)ln+=' | bought:['+b.join(',')+']';
+    if(u.length)ln+=' | used:['+u.join(',')+']';
+    if(pr.length)ln+=' | pre-race:['+pr.join(',')+']';
+    if(sk.length)ln+=' | skills:['+sk.join(',')+']';
+    // Enrich race turns with result from race_results
+    if(raceResultMap&&raceResultMap[t.turn]){
+      const rr=raceResultMap[t.turn];
+      ln+=' | result:#'+(rr.finalRank||'?')+(rr.usedClock?' 🕐':'')+(rr.fansReward?' fans:'+fmtNum(rr.fansReward):'');
+    }
+    o+=ln+'\n';
+  }
+  return o;
+}
+
+function sortTable(th){
+  const table=th.closest('table');
+  const idx=Array.from(th.parentElement.children).indexOf(th);
+  const asc=th.dataset.sortDir!=='asc';
+  th.closest('tr').querySelectorAll('th.sortable').forEach(t=>delete t.dataset.sortDir);
+  th.dataset.sortDir=asc?'asc':'desc';
+  const tbody=table.querySelector('tbody');
+  const rows=Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a,b)=>{
+    const aT=(a.children[idx]||{}).textContent||'';
+    const bT=(b.children[idx]||{}).textContent||'';
+    const aN=parseFloat(aT.replace(/[^0-9.-]/g,''));
+    const bN=parseFloat(bT.replace(/[^0-9.-]/g,''));
+    if(!isNaN(aN)&&!isNaN(bN))return asc?aN-bN:bN-aN;
+    return asc?aT.localeCompare(bT):bT.localeCompare(aT);
+  });
+  rows.forEach(r=>tbody.appendChild(r));
+}
+
+/* ── Server-side loading (Icarus integration) ──
+   Loads career logs straight from uma_runtime/.../bot_logs via the API so the
+   Career History "VIEW LOG" button (logview.html?run_id=…) opens the right run,
+   and the "Server Logs" header button browses every saved log. File upload /
+   drag-drop still work for shared logs. */
+function _pushLog(name,data){
+  const idx=allLogs.findIndex(l=>l.filename===name);
+  if(idx>=0)allLogs[idx]={filename:name,data};
+  else allLogs.push({filename:name,data});
+  allLogs.sort((a,b)=>b.filename.localeCompare(a.filename));
+  activeLogIndex=allLogs.findIndex(l=>l.filename===name);
+  if(activeLogIndex<0)activeLogIndex=0;
+  renderAll();
+}
+async function loadServerLog(file){
+  try{
+    const r=await fetch('/api/career/log?file='+encodeURIComponent(file));
+    const j=await r.json();
+    if(!j||!j.success||!j.log)throw new Error((j&&j.detail)||'load failed');
+    _pushLog(j.file||file,j.log);
+  }catch(e){alert('Could not load '+file+': '+e.message)}
+}
+async function loadServerByRunId(runId){
+  const dz=document.getElementById('dropZone');
+  const setMsg=(t,s)=>{if(dz){const a=dz.querySelector('.drop-title');if(a)a.textContent=t;const b=dz.querySelector('.drop-sub');if(b&&s!=null)b.textContent=s}};
+  setMsg('Loading career log…','run '+runId);
+  try{
+    const r=await fetch('/api/career/log?run_id='+encodeURIComponent(runId));
+    const j=await r.json();
+    if(!j||!j.success||!j.log)throw new Error((j&&j.detail)||'no log matched that run');
+    _pushLog(j.file||('run_'+runId+'.json'),j.log);
+  }catch(e){setMsg('Could not load log',String(e.message||e))}
+}
+async function loadServerLogs(){
+  const dz=document.getElementById('dropZone');
+  try{
+    const r=await fetch('/api/career/logs');
+    const j=await r.json();
+    const logs=(j&&j.logs)||[];
+    if(dz){
+      dz.style.display='flex';
+      if(!logs.length){dz.innerHTML='<div class="drop-icon">📋</div><div class="drop-title">No server logs found</div><div class="drop-sub">Run a career first, or drop a log file here.</div>';return}
+      dz.innerHTML='<div class="drop-title">Server logs ('+logs.length+')</div>'
+        +'<div class="drop-sub">click one to open · uma_runtime/&lt;profile&gt;/bot_logs</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:820px;margin-top:12px">'
+        +logs.map(l=>{
+          const m=l.file.replace(/career_log_?/,'').replace(/\.json$/,'').match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})/);
+          const ds=m?(m[2]+'/'+m[3]+' '+m[4]+':'+m[5]):l.file;
+          return '<button class="file-pill" style="cursor:pointer" onclick="loadServerLog(\''+esc(l.file)+'\')">'+esc(ds)+'</button>';
+        }).join('')
+        +'</div>';
+    }
+  }catch(e){if(dz){const a=dz.querySelector('.drop-title');if(a)a.textContent='Could not reach the server'}}
+}
+/* Auto-load when opened from a career box: ?run_id=… or ?file=… */
+(function(){
+  const qs=new URLSearchParams(location.search);
+  const runId=qs.get('run_id'),file=qs.get('file');
+  if(file)loadServerLog(file);
+  else if(runId)loadServerByRunId(runId);
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   RACE FLIGHT-RECORDER REPLAY
+   A bar-chart "horse race" of one race's field_results: each
+   horse gets a lane that creeps left→right toward the finish
+   line, ordered by finishing position. Player lane in --accent,
+   rivals/mobs muted. Bar speed is derived from the saved
+   finish_time / finish_diff_time so the leader pulls ahead and
+   the field strings out realistically; missing data falls back
+   to an estimated creep by rank. Freezes into a 1/2/3 podium.
+   Pure rAF + CSS, offline, honors prefers-reduced-motion.
+   Mirrors core.js's ensureFontLink for the lazy <link> inject.
+   ═══════════════════════════════════════════════════════════ */
+const RUN_STYLE={1:'Front',2:'Pace',3:'Late',4:'End'};       // running_style codes
+const REPLAY_DURATION_MS=4200;                                // wall time for a full creep
+let _replayState=null;                                        // {raf,start,dur,paused,t0frac,horses,...}
+
+/* Lazy-inject our own stylesheet exactly once (guarded by id). */
+function ensureReplayCSS(){
+  const id='css-logview-replay';
+  if(document.getElementById(id))return;
+  const l=document.createElement('link');
+  l.id=id;l.rel='stylesheet';l.href='logview-replay.css?v=1';
+  (document.head||document.documentElement).appendChild(l);
+}
+function prefersReducedMotion(){
+  try{return window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches}
+  catch(e){return false}
+}
+
+/* Find the persisted race_results row for a turn (has field_results). */
+function _raceRowForTurn(turn){
+  const arr=((logData||{}).runner_status||{}).race_results||[];
+  for(const rr of arr){if(parseInt(rr.turn||0)===parseInt(turn))return rr}
+  return null;
+}
+function raceHasField(turn){
+  const rr=_raceRowForTurn(turn);
+  return !!(rr&&Array.isArray(rr.field_results)&&rr.field_results.length);
+}
+
+/* Build a normalized horse model from field_results.
+   Each horse: {order, isPlayer, kind, label, style, finishT, gap, frac}
+   - gap     = seconds behind the leader (0 for winner)
+   - frac    = leader-relative position used to size the bar at finish
+               (winner = 1.0; trailers proportionally shorter)            */
+function _buildReplayHorses(rr){
+  const raw=(rr.field_results||[]).slice();
+  // sort by finishing order (fallback to finish_time, then frame)
+  raw.sort((a,b)=>{
+    const ao=a.finish_order||999,bo=b.finish_order||999;
+    if(ao!==bo)return ao-bo;
+    return (a.finish_time||0)-(b.finish_time||0);
+  });
+  const haveTimes=raw.some(h=>h.finish_time);
+  const minT=haveTimes?Math.min(...raw.filter(h=>h.finish_time).map(h=>h.finish_time)):0;
+  const maxT=haveTimes?Math.max(...raw.filter(h=>h.finish_time).map(h=>h.finish_time)):0;
+
+  // cumulative diff fallback: gap behind leader = running sum of finish_diff_time
+  let cum=0;
+  const playerName=((logData||{}).preset_name)||((logData||{}).runner_status||{}).preset||'You';
+
+  let rivalN=0;
+  const horses=raw.map((h,i)=>{
+    let gap;
+    if(haveTimes&&h.finish_time)gap=Math.max(0,h.finish_time-minT);
+    else{cum+=(h.finish_diff_time||0);gap=cum}
+    const isPlayer=!!h.is_player;
+    let kind='mob',label;
+    if(isPlayer){kind='player';label=playerName}
+    else if(h.chara_id&&h.chara_id>1){kind='rival';rivalN++;label='Rival '+(h.chara_id)}
+    else{label='Field horse'}
+    return{
+      order:h.finish_order||(i+1),
+      isPlayer,kind,label,
+      style:RUN_STYLE[h.running_style]||'',
+      chara:h.chara_id,
+      finishT:h.finish_time||null,
+      gap,
+      stats:h.stats||null,
+    };
+  });
+
+  // Convert gaps → relative finishing positions. The biggest gap maps to the
+  // shortest bar (but never < a floor so trailing lanes stay visible).
+  const maxGap=Math.max(0.0001,...horses.map(h=>h.gap));
+  for(const h of horses){
+    // spread: winner ~1.0, slowest ~0.62 of track (keeps it readable, not flat)
+    h.frac=1-(h.gap/maxGap)*0.38;
+  }
+  return{horses,haveTimes,minT,maxT,spread:maxT-minT};
+}
+
+/* Open the replay overlay for a given turn. */
+function openRaceReplay(turn){
+  ensureReplayCSS();
+  const rr=_raceRowForTurn(turn);
+  const overlay=document.getElementById('replayOverlay');
+  const modal=document.getElementById('replayModal');
+  if(!overlay||!modal)return;
+
+  // meta line
+  const distM=rr&&rr.distance_m?rr.distance_m+'m':'';
+  const terr=rr&&rr.terrain?rr.terrain:'';
+  const name=rr&&rr.name?rr.name:'Race';
+  const grade=rr&&rr.grade?rr.grade:'';
+  const meta=[grade,distM,terr,'Turn '+turn].filter(Boolean)
+    .map(x=>`<b>${esc(String(x))}</b>`).join('<span style="opacity:.4">·</span>');
+
+  let body;
+  if(!raceHasField(turn)){
+    body=`<div class="replay-nofield"><span class="nf-icon">🏁</span>No field data was saved for this race.<br>
+      <span style="font-size:11px">Older career logs don't include per-horse finishing order — newer runs do.</span></div>`;
+    modal.innerHTML=`<div class="replay-hdr"><span class="rh-title">${esc(name)}</span><span class="rh-meta">${meta}</span><button class="rh-close" onclick="closeRaceReplay()">✕</button></div>${body}`;
+    overlay.classList.add('open');
+    return;
+  }
+
+  const model=_buildReplayHorses(rr);
+  const horses=model.horses;
+
+  // lanes
+  const lanes=horses.map((h,i)=>{
+    const cls=h.kind==='player'?'rl-player':h.kind==='rival'?'rl-rival':'rl-mob';
+    const laneCls='rl-lane'+(h.isPlayer?' is-player':'');
+    const tag=`<span class="rl-tag">${esc(h.label)}${h.style?`<span class="rl-style">${esc(h.style)}</span>`:''}</span>`;
+    const knob=`<span class="rl-knob">${h.isPlayer?'★':''}</span>`;
+    return`<div class="${laneCls}" data-i="${i}">
+      <div class="rl-bar ${cls}" style="width:2%">${tag}${knob}</div>
+      <span class="rl-pos" data-pos="">—</span>
+    </div>`;
+  }).join('');
+
+  modal.innerHTML=`
+    <div class="replay-hdr">
+      <span class="rh-title">${esc(name)}</span>
+      <span class="rh-meta">${meta}<b style="color:var(--text3)">${horses.length} horses</b></span>
+      <button class="rh-close" onclick="closeRaceReplay()">✕</button>
+    </div>
+    <div class="replay-track-wrap">
+      <div class="replay-finishflag">🏁</div>
+      <div class="replay-track" id="replayTrack">${lanes}</div>
+    </div>
+    <div class="replay-podium" id="replayPodium" style="display:none"></div>
+    <div class="replay-controls">
+      <button class="rc-btn" id="replayPlayBtn" onclick="toggleReplayPlay()">⏸ Pause</button>
+      <button class="rc-btn" onclick="restartReplay()">↻ Restart</button>
+      <input type="range" class="replay-scrub" id="replayScrub" min="0" max="1000" value="0" oninput="scrubReplay(this.value)">
+      <span class="replay-clock" id="replayClock">0.0s</span>
+      <select class="replay-speed" id="replaySpeed" onchange="setReplaySpeed(this.value)">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+        <option value="4">4×</option>
+      </select>
+    </div>`;
+
+  overlay.classList.add('open');
+
+  _replayState={
+    horses,model,turn,
+    dur:REPLAY_DURATION_MS,
+    speed:1,
+    elapsed:0,        // ms of replay progress (pre-speed)
+    last:0,           // last rAF timestamp
+    raf:null,
+    paused:false,
+    finished:false,
+    reduced:prefersReducedMotion(),
+  };
+
+  if(_replayState.reduced){
+    // Jump straight to the final podium — no creep.
+    _applyReplayFrac(1);
+    _finishReplay();
+    const pb=document.getElementById('replayPlayBtn');if(pb){pb.textContent='▶ Play';pb.disabled=true}
+  }else{
+    _replayState.last=performance.now();
+    _replayState.raf=requestAnimationFrame(_replayTick);
+  }
+}
+
+function closeRaceReplay(){
+  if(_replayState&&_replayState.raf)cancelAnimationFrame(_replayState.raf);
+  _replayState=null;
+  const overlay=document.getElementById('replayOverlay');
+  if(overlay)overlay.classList.remove('open');
+}
+/* Esc closes the overlay. */
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('replayOverlay').classList.contains('open'))closeRaceReplay()});
+
+/* Eased progress so the field pulls apart smoothly then settles. */
+function _ease(t){return t<0?0:t>1?1:1-Math.pow(1-t,1.6)}
+
+function _replayTick(now){
+  const s=_replayState;if(!s)return;
+  if(!s.paused){
+    const dt=now-s.last;
+    s.elapsed+=dt*s.speed;
+  }
+  s.last=now;
+  const frac=Math.min(1,s.elapsed/s.dur);
+  _applyReplayFrac(frac);
+  const scrub=document.getElementById('replayScrub');if(scrub)scrub.value=Math.round(frac*1000);
+  if(frac>=1){_finishReplay();return}
+  s.raf=requestAnimationFrame(_replayTick);
+}
+
+/* Position every bar at a given global progress (0..1).
+   Each horse reaches its own final length staggered by its finishing
+   gap so the leader visibly pulls ahead and trailers string out. */
+function _applyReplayFrac(globalFrac){
+  const s=_replayState;if(!s)return;
+  const track=document.getElementById('replayTrack');if(!track)return;
+  const lanes=track.querySelectorAll('.rl-lane');
+  const eased=_ease(globalFrac);
+
+  // running live-order: who is currently furthest along
+  const live=s.horses.map((h,i)=>{
+    // a trailing horse advances slightly slower → its bar lags
+    const target=h.frac;                    // final bar length (0..1)
+    // make the slower horses ramp a touch later for a "stretch" feel
+    const lag=(1-target)*0.30;              // up to 30% later start for the slowest
+    const local=Math.max(0,(eased-lag)/(1-lag||1));
+    const w=Math.min(target,local*target);
+    return{i,w,order:h.order};
+  });
+
+  // current standings by bar width (descending)
+  const standings=live.slice().sort((a,b)=>b.w-a.w);
+  const posByLane={};
+  standings.forEach((e,rank)=>{posByLane[e.i]=rank+1});
+
+  lanes.forEach(lane=>{
+    const i=+lane.dataset.i;
+    const bar=lane.querySelector('.rl-bar');
+    const pos=lane.querySelector('.rl-pos');
+    const w=live[i].w;
+    if(bar)bar.style.width=(2+w*96).toFixed(2)+'%';   // 2%..98% of track
+    if(pos){
+      // during the run, show LIVE standings; at the very end snap to true order
+      const shown=globalFrac>=1?s.horses[i].order:posByLane[i];
+      pos.textContent='#'+shown;
+    }
+  });
+
+  const clock=document.getElementById('replayClock');
+  if(clock){
+    if(s.model.haveTimes&&s.model.spread>=0){
+      // map progress onto the real winner finish-time window for flavor
+      const t=s.model.minT*globalFrac;   // leader's elapsed proxy
+      clock.textContent=(t).toFixed(1)+'s';
+    }else{
+      clock.textContent=(globalFrac*(s.dur/1000)).toFixed(1)+'s';
+    }
+  }
+}
+
+function _finishReplay(){
+  const s=_replayState;if(!s)return;
+  if(s.raf){cancelAnimationFrame(s.raf);s.raf=null}
+  s.finished=true;s.elapsed=s.dur;
+  _applyReplayFrac(1);
+  const track=document.getElementById('replayTrack');
+  if(track)track.querySelectorAll('.rl-lane').forEach(l=>l.classList.add('is-finished'));
+  const pb=document.getElementById('replayPlayBtn');if(pb)pb.textContent='▶ Play';
+  _renderPodium();
+}
+
+function _renderPodium(){
+  const s=_replayState;if(!s)return;
+  const pod=document.getElementById('replayPodium');if(!pod)return;
+  // top 3 by finishing order
+  const top=s.horses.slice().sort((a,b)=>a.order-b.order).slice(0,3);
+  if(!top.length){pod.style.display='none';return}
+  const MEDAL=['🥇','🥈','🥉'];
+  // visual podium order: 2nd, 1st, 3rd
+  const layout=[top[1],top[0],top[2]].filter(Boolean);
+  pod.innerHTML=layout.map(h=>{
+    const rank=h.order;
+    const cls='podium-step podium-'+rank+(h.isPlayer?' is-player':'');
+    const t=h.finishT!=null?h.finishT.toFixed(2)+'s':(h.gap>0?'+'+h.gap.toFixed(2)+'s':'—');
+    return`<div class="${cls}">
+      <div class="podium-medal">${MEDAL[rank-1]||''}</div>
+      <div class="podium-name${h.isPlayer?' is-player':''}" title="${esc(h.label)}">${esc(h.label)}</div>
+      <div class="podium-time">${esc(t)}</div>
+      <div class="podium-block">#${rank}</div>
+    </div>`;
+  }).join('');
+  pod.style.display='flex';
+}
+
+/* ── Transport controls ── */
+function toggleReplayPlay(){
+  const s=_replayState;if(!s)return;
+  const pb=document.getElementById('replayPlayBtn');
+  if(s.finished){restartReplay();return}
+  s.paused=!s.paused;
+  if(pb)pb.textContent=s.paused?'▶ Play':'⏸ Pause';
+  if(!s.paused&&!s.reduced){s.last=performance.now();s.raf=requestAnimationFrame(_replayTick)}
+}
+function restartReplay(){
+  const s=_replayState;if(!s)return;
+  if(s.raf){cancelAnimationFrame(s.raf);s.raf=null}
+  s.elapsed=0;s.paused=false;s.finished=false;
+  const pod=document.getElementById('replayPodium');if(pod)pod.style.display='none';
+  const track=document.getElementById('replayTrack');
+  if(track)track.querySelectorAll('.rl-lane').forEach(l=>l.classList.remove('is-finished'));
+  const pb=document.getElementById('replayPlayBtn');if(pb)pb.textContent='⏸ Pause';
+  if(s.reduced){_applyReplayFrac(1);_finishReplay();return}
+  s.last=performance.now();s.raf=requestAnimationFrame(_replayTick);
+}
+function scrubReplay(v){
+  const s=_replayState;if(!s)return;
+  if(s.raf){cancelAnimationFrame(s.raf);s.raf=null}
+  s.paused=true;s.finished=false;
+  const pb=document.getElementById('replayPlayBtn');if(pb)pb.textContent='▶ Play';
+  const frac=Math.max(0,Math.min(1,(+v)/1000));
+  s.elapsed=frac*s.dur;
+  const pod=document.getElementById('replayPodium');if(pod)pod.style.display='none';
+  const track=document.getElementById('replayTrack');
+  if(track)track.querySelectorAll('.rl-lane').forEach(l=>l.classList.remove('is-finished'));
+  _applyReplayFrac(frac);
+  if(frac>=1)_finishReplay();
+}
+function setReplaySpeed(v){if(_replayState)_replayState.speed=parseFloat(v)||1}
+</script>
+</body>
+</html>

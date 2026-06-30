@@ -602,7 +602,6 @@ class CareerRunner:
             self.report = new_report(preset, scenario_id)
             try:
                 _mc_start = (preset or {}).get("mant_config") or {}
-                _tss = (preset or {}).get("trackblazer_solver_settings") or {}
                 self.report["runtime_settings"] = {
                     "burn_clocks": bool(burn_clocks),
                     "clock_retry_policy": {
@@ -610,49 +609,13 @@ class CareerRunner:
                         "enabled": bool(burn_clocks),
                         "source": "career_start",
                     },
+                    # Record the active engine + stat-focus so logs are unambiguous
+                    # about which mode produced the result (A/B clarity).
                     "decision_mode": str(_mc_start.get("decision_mode") or "trackblazer"),
                     "stat_focus_mode": str(_mc_start.get("stat_focus_mode") or "balanced"),
                     "run_id": self.status.get("run_id"),
                     "loop_index": self.status.get("loop_index"),
                     "loop_target": self.status.get("loop_target"),
-                    # FORK: snapshot nirio tuning values active for this run
-                    "nirio": {k: v for k, v in _mc_start.items() if str(k).startswith("nirio_")},
-                    # FORK: full settings snapshot for log_viewer / AI summary feedback
-                    "training": {
-                        "training_stat_priority": list((preset or {}).get("training_stat_priority") or []),
-                        "training_blacklist": list(_mc_start.get("training_blacklist") or []),
-                        "stat_focus_mode": str(_mc_start.get("stat_focus_mode") or "balanced"),
-                    },
-                    "skills": {
-                        "enable_skill_point_check": bool((preset or {}).get("enable_skill_point_check", True)),
-                        "learn_skill_threshold": int((preset or {}).get("learn_skill_threshold") or 888),
-                        "skill_spending_strategy": str((preset or {}).get("skill_spending_strategy") or "best_skills_first"),
-                        "skill_optimization_target": str((preset or {}).get("skill_optimization_target") or "career"),
-                        "skill_condition_gating": str((preset or {}).get("skill_condition_gating") or "penalize"),
-                        "enable_pre_finals_skill_dump": bool((preset or {}).get("enable_pre_finals_skill_dump", True)),
-                        "pre_finals_skill_turn": int((preset or {}).get("pre_finals_skill_turn") or 73),
-                    },
-                    "racing": {
-                        "extra_race_list_source": str((preset or {}).get("extra_race_list_source") or "smart"),
-                        "max_races_in_row": int(_mc_start.get("max_races_in_row") or _tss.get("max_races_in_row") or 5),
-                        "distance_preference_mode": str(_tss.get("distance_preference_mode") or "balanced"),
-                        "include_op": bool(_tss.get("include_op", False)),
-                        "allow_summer_racing": bool(_tss.get("allow_summer_racing", False)),
-                        "enable_live_smart_replan": bool(_tss.get("enable_live_smart_replan", True)),
-                        "replan_on_events_only": bool(_tss.get("replan_on_events_only", True)),
-                        "preferred_distances": list((preset or {}).get("preferred_distances") or []),
-                    },
-                    "scenario": {
-                        "energy_recovery_threshold": int(_mc_start.get("energy_recovery_threshold") or 40),
-                        "force_train_energy_floor": int(_mc_start.get("force_train_energy_floor") or 20),
-                        "trackblazer_cupcake_reserve": int(_mc_start.get("trackblazer_cupcake_reserve") or 1),
-                        "trackblazer_master_hammer_finale_reserve": int(_mc_start.get("trackblazer_master_hammer_finale_reserve") or _mc_start.get("trackblazer_hammer_finale_reserve") or 3),
-                        "save_items_lategame": bool(_mc_start.get("save_items_lategame", False)),
-                        "trackblazer_shop_check_frequency": int(_mc_start.get("trackblazer_shop_check_frequency") or 1),
-                        "race_chain_target": int(_mc_start.get("race_chain_target") or 3),
-                        "summer_force_train_over_recreation": bool(_mc_start.get("summer_force_train_over_recreation", True)),
-                        "release_cupcake_reserve_when_no_kale": bool(_mc_start.get("release_cupcake_reserve_when_no_kale", True)),
-                    },
                 }
             except Exception:
                 pass
@@ -1044,6 +1007,12 @@ class CareerRunner:
                             state = self._recover_with_backoff(client, strategy, exc)
                             continue
                         raise
+                    # #10 fix: pre-race item use (cleat hammers etc.) is populated by
+                    # handle_pre_race INSIDE _race, AFTER _record_action ran above, so
+                    # patch THIS race's row with the items it actually fired this turn
+                    # (else the row showed the previous race's items, hiding the hammer
+                    # on the first climax).
+                    self._patch_last_race_items(int(decision.payload.get("current_turn") or turn))
                     # v6.7.12: a non-finale mandatory race loss sets
                     # career_stopped_reason instead of raising.  End the
                     # loop cleanly here so the career report is still
@@ -1123,6 +1092,16 @@ class CareerRunner:
                     final_chara = self._extract_final_chara_payload(state, chara)
                     final_summary = self._compact_final_chara(final_chara)
                     final_summary["race_results"] = list(self.status.get("race_results") or [])
+                    try:    # auto win-prob self-calibration (read-only analytics; never affects play)
+                        from career_bot import win_prob_calibration as _wpc
+                        _wpc_summary = _wpc.update_from_career(
+                            self.base_dir, final_summary["race_results"],
+                            card_id=(final_chara or {}).get("card_id") or (chara or {}).get("card_id") or 0)
+                        if _wpc_summary:
+                            with self.lock:
+                                self.status["win_prob_calibration"] = _wpc_summary
+                    except Exception:
+                        pass
                     self._record_completed_run_metrics(final_chara)
                     self._mark(
                         last_action="finish",
@@ -2783,6 +2762,10 @@ class CareerRunner:
         perf = self._official_performance_hint(program_id, chara=chara or {}, running_style=running_style)
         if perf:
             row["performance_hint"] = perf
+        field = getattr(self, "_last_race_field", None)   # full-field results from _capture_race_field
+        if field:
+            row["field_results"] = field
+            self._last_race_field = None
         with self.lock:
             results = self.status.setdefault("race_results", [])
             # Replace duplicate result for the same turn/program when a retry improves the rank.
@@ -3122,6 +3105,57 @@ class CareerRunner:
 
         return finish_order + 1
 
+    def _capture_race_field(self, res):
+        """READ-ONLY: decode the FULL race field (every horse's finish + stats)
+        from a race_start response and stash it so the next _record_race_result
+        logs it for offline win-probability calibration. Never raises and never
+        affects the race flow."""
+        try:
+            from career_bot import race_scenario
+            data = (res or {}).get("data") or {}
+            scen_b64 = data.get("race_scenario")
+            if not scen_b64:
+                return
+            rhd = ((data.get("race_start_info") or {}).get("race_horse_data")) or []
+            vid = int(((res or {}).get("data_headers") or {}).get("viewer_id") or 0)
+            scen = race_scenario.parse_b64(scen_b64)
+            self._last_race_field = race_scenario.field_results(scen, rhd, player_viewer_id=vid)
+        except Exception:
+            pass
+
+    def _patch_last_race_items(self, current_turn):
+        """READ-ONLY display fix: re-attach the items the pre-race path used THIS
+        turn to the race's action_history row + reasoning. _record_action runs
+        BEFORE handle_pre_race populates mgr.last_pre_race_use_selected, so without
+        this the race row showed the PREVIOUS race's items (lagged by one) -- which
+        hid the Master Cleat Hammer on the FIRST climax. Never raises; never affects
+        gameplay."""
+        try:
+            mgr = getattr(self, "item_manager", None)
+            if not mgr:
+                return
+            stamp = getattr(mgr, "_pre_race_ran_turn", None)
+            if stamp is not None and int(stamp) != int(current_turn):
+                names, line = [], ""        # pre-race path didn't fire this turn -> no items
+            else:
+                names = self._items_used_names(int(current_turn), action="race")
+                line = self._items_used_reason_line(int(current_turn), action="race") if names else ""
+            with self.lock:
+                history = self.status.get("action_history") or []
+                if not history:
+                    return
+                row = history[-1]
+                if int(row.get("turn") or -1) != int(current_turn) or row.get("action") != "race":
+                    return
+                row["items"] = names
+                reasons = [r for r in (row.get("reasoning") or [])
+                           if not str(r).startswith("Items used this turn")]
+                if line:
+                    reasons.append(line)
+                row["reasoning"] = reasons
+        except Exception:
+            pass
+
     def _running_style_for_race(self, preset, program_id, turn, chara=None):
         bucket = None
         if self.race_planner and program_id:
@@ -3400,24 +3434,6 @@ class CareerRunner:
                     self._log_locked("items_use", payload["current_turn"], f"pre-race {used}")
             # v2.1 (#8): refresh the turn-debug item-use rows after pre-race item use.
             self._reemit_item_use_debug(state)
-            # FORK: log pre-race item usage to the career report for log_viewer.html
-            if self.report and self.item_manager.last_pre_race_use_selected:
-                race_turn = int(payload.get("current_turn") or 0)
-                target = None
-                for t in reversed(self.report.get("turns") or []):
-                    if int(t.get("turn") or 0) == race_turn:
-                        target = t
-                        break
-                if not target:
-                    for t in reversed(self.report.get("turns") or []):
-                        if t.get("stats"):
-                            target = t
-                            break
-                if target:
-                    target.setdefault("bot_pre_race_use_selected", []).extend(
-                        self.item_manager.last_pre_race_use_selected)
-                    target["bot_pre_race_use_result"] = dict(
-                        self.item_manager.last_pre_race_use_result)
 
         program_id = payload.get("program_id")
         current_turn = payload["current_turn"]
@@ -3568,6 +3584,7 @@ class CareerRunner:
             raise
 
         rank = self._parse_race_rank(res)
+        self._capture_race_field(res)          # read-only full-field capture (win-prob calibration)
         initial_rank = int(rank or 99)
         self._log("race_rank", current_turn, f"rank {rank}")
 
@@ -3659,6 +3676,7 @@ class CareerRunner:
                 dna_sleep(0.1, 0.45, 0.166 + client.api_jitter, 0.05)
                 res = client.race_start(is_short=is_short, current_turn=current_turn)
                 rank = self._parse_race_rank(res)
+                self._capture_race_field(res)      # read-only full-field capture (final attempt wins)
                 retry_row.update({
                     "rank_after": int(rank or 99),
                     "standard_clocks_after": int(std_clocks),

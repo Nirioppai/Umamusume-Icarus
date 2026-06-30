@@ -28,7 +28,22 @@
     return String(n);
   };
   const pad2 = (n) => String(n).padStart(2, '0');
-  const hpTone = (hp) => hp <= 15 ? 'red' : hp <= 35 ? 'amber' : 'green';
+  const hpTone = (hp) => hp < 35 ? 'red' : hp <= 60 ? 'amber' : 'green';
+
+  // ---------- cool-dash: shared utils ----------
+  // Lazy-inject our own stylesheet once (mirrors core.js ensureFontLink). Keeps
+  // all the add-on styling out of styles.css per the file-ownership rule.
+  function ensureCoolDashCss() {
+    const id = 'cd-coolstyle';
+    if (document.getElementById(id)) return;
+    const l = document.createElement('link');
+    l.id = id; l.rel = 'stylesheet'; l.href = 'cool-dash.css?v=2';
+    (document.head || document.documentElement).appendChild(l);
+  }
+  const _rmm = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const reducedMotion = () => !!(_rmm && _rmm.matches);
+  const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 
   // ---------- runtime state ----------
   const state = {
@@ -37,6 +52,7 @@
     reasonTab: 'decision',
     logHist: {},      // turn -> action row  (accumulated archive)
     reasonHist: {},   // turn -> decision card (accumulated archive)
+    lastAttrPct: {},  // attr key -> last-rendered bar %  (so bars animate on change)
     devToggles: { tempt: false, burn: false, loop: false, finish: false },
   };
 
@@ -139,18 +155,28 @@
 
     const list = $('attr-list');
     list.innerHTML = '';
+    const animBars = [];
     (runner.stats || []).forEach((s) => {
       const pct = Math.min(100, Math.round((s.v / (s.max || 600)) * 100));
-      const accent = s.accent ? 'amber' : (pct >= 70 ? 'green' : null);
+      // SP always glows amber; the last-trained stat glows green; nothing else glows.
+      const glow = s.accent ? 'amber' : (s.trained ? 'green' : null);
+      // Start the bar at its previous width so the CSS transition animates the rise
+      // (innerHTML rebuilds the element each poll, so a fresh bar wouldn't animate).
+      const prev = state.lastAttrPct[s.k];
+      const startPct = (prev == null) ? pct : prev;
       const row = el('div', 'attr');
       row.innerHTML = `
-        <span class="attr-k${s.accent ? ' c-amber' : ''}">${s.k}</span>
-        <div class="attr-track"><div class="attr-bar${accent ? ' fill-' + accent : ''}" style="width:${pct}%"></div></div>
-        <span class="attr-v${s.accent ? ' c-amber' : (pct >= 70 ? ' c-green' : '')}">${s.v}</span>`;
+        <span class="attr-k${glow ? ' c-' + glow : ''}">${s.k}</span>
+        <div class="attr-track"><div class="attr-bar${glow ? ' fill-' + glow : ''}" style="width:${startPct}%"></div></div>
+        <span class="attr-v${glow ? ' c-' + glow : ''}">${s.v}</span>`;
       list.appendChild(row);
+      animBars.push([row.querySelector('.attr-bar'), pct]);
+      state.lastAttrPct[s.k] = pct;
     });
+    requestAnimationFrame(() => animBars.forEach(([b, p]) => { if (b) b.style.width = p + '%'; }));
 
     // Lifetime metrics now live in the navbar (Icarus.renderLifetime), not here.
+    cdAfterVitals(runner);   // cool-dash: radar swap + ECG/mood instruments (#1, #2)
   }
 
   function renderLog(runner) {
@@ -159,23 +185,27 @@
     const rows = Object.values(state.logHist).sort((a, b) => a.turn - b.turn);
     $('feed-meta').textContent = `${rows.length} TURN${rows.length === 1 ? '' : 'S'} · ${runner.running ? 'LIVE' : 'IDLE'}`;
     const wrap = $('log-rows');
+    if (!rows.length) { wrap.innerHTML = '<div class="feed-idle">Awaiting career signal — press <b>RUN CAREER</b> to begin.</div>'; return; }
     const stick = wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 4;      // following live → keep pinned to newest (bottom)
     const prev = wrap.scrollTop;
     wrap.innerHTML = '';
     rows.forEach((r, i) => {
-      const tone = hpTone(r.hp);
+      // HP tone is by PERCENTAGE of the turn's max-HP, so it stays accurate as the
+      // ceiling grows over a career (raw thresholds would read "green" forever).
+      const frac = r.hpmax ? (r.hp / r.hpmax) : (r.hp / 100);
+      const hpClr = frac <= 0.18 ? 'red' : frac <= 0.42 ? 'amber' : 'green';
+      const moodClr = (typeof r.mood === 'number') ? (r.mood >= 4 ? 'green' : r.mood === 3 ? 'amber' : 'red') : 'mut';
       const row = el('div', 'log-row' + (i === 0 ? ' is-current' : ''));
-      const hpTxt = r.hpDelta ? r.hpDelta : pad2(r.hp);
-      const hpClr = r.hpDelta ? 'green' : tone;
       row.innerHTML = `
         <span class="log-turn">${r.turn}</span>
         <span class="log-act"><span class="rcard-badge bg-${r.actTone}">${r.act}</span></span>
-        <span class="log-target${r.act === 'REST' || r.act === 'REC' ? ' is-mut' : ''}">${esc(r.target)}</span>
-        <span class="log-hp r c-${hpClr}">${hpTxt}</span>
-        <span class="log-mood r">${r.mood ?? '—'}</span>`;
+        <span class="log-target${r.act === 'REST' || r.act === 'REC' ? ' is-mut' : ''}">${esc(r.target)}${r.win ? ' <span class="log-1st">1ST</span>' : ''}</span>
+        <span class="log-hp r c-${hpClr}">${pad2(r.hp)}</span>
+        <span class="log-mood r c-${moodClr}">${r.mood ?? '—'}</span>`;
       wrap.appendChild(row);
     });
     wrap.scrollTop = stick ? wrap.scrollHeight : prev;
+    cdScanWins(runner);      // cool-dash: tiny win pop at the 1ST badge on a freshly-seen win (#4)
   }
 
   // ---- Shop-item icons (game8 source), keyed by the in-game item name as it
@@ -247,6 +277,7 @@
     (runner.reasoning || []).forEach((r) => { if (r && r.turn != null) state.reasonHist[r.turn] = r; });
     const body = $('reason-body');
     const cards = Object.values(state.reasonHist).sort((a, b) => a.turn - b.turn);
+    if (!cards.length) { body.innerHTML = '<div class="feed-idle">Decision reasoning will stream here once a career is running.</div>'; return; }
     const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 4;
     const prev = body.scrollTop;
     body.innerHTML = '';
@@ -316,6 +347,516 @@
     renderLog(snap.runner);
     renderReasoning(snap.runner);
     renderLive(snap.runner);
+  }
+
+  // ============================================================
+  //  COOL-DASH  — dashboard UI upgrades (lazy-injected stylesheet).
+  //  Tasteful, offline, vanilla treatments hooked off the existing render
+  //  functions + state.runner: attribute RADAR (with TARGET-GHOST), vitals
+  //  ECG/mood instruments, a tiny WIN POP at the 1ST badge, a typed RUN-CAREER
+  //  boot sequence, and EVENT TOASTS (skill buys / career errors). All
+  //  animation degrades to static under prefers-reduced-motion. Namespaced `cd*`.
+  // ============================================================
+  const cd = {
+    radarOn: lsGet('cd_attr_radar', '0') === '1',
+    instrOn: lsGet('cd_vitals_instr', '0') === '1',
+    seenWins: new Set(),          // race turns we've already celebrated (#4 win pop)
+    bootTimer: null, bootAbort: null,
+    toastHost: null,
+    targetCache: null,            // active preset's per-stat target (radar ghost)
+    targetFetchAt: 0,             // last fetch time (ms) — refreshed lazily
+    seenSkills: new Set(),        // skill names already toasted (event-toast de-dupe)
+    seenSkillCount: -1,           // last-seen skills_bought count
+    lastErrorSig: null,           // last career-error string already toasted
+  };
+
+  // ---- 1) ATTRIBUTE RADAR -----------------------------------------------
+  // Build the toggle button beside the ATTRIBUTES title (once), then render
+  // either the flat bars (renderVitals does that) or our SVG pentagon.
+  const RADAR_KEYS = ['SPD', 'STA', 'PWR', 'GUT', 'WIT'];   // 5 axes (excludes SP)
+  const RADAR_CAP = 1200;
+  const RADAR_CAP_REF = 1100;     // fallback "cap ref" target when no real target exists
+
+  // Resolve the per-stat TARGET for the radar's faint ghost pentagon, in priority:
+  //   (a) preset mant_config.global_stat_target  (gated by enable_global_stat_target)
+  //   (b) preset mant_config.stat_targets_by_distance  → per-stat MAX across distances
+  //   (c) a flat cap-reference at RADAR_CAP_REF / RADAR_CAP
+  // Returns { vals:[SPD,STA,PWR,GUT,WIT], real:bool, label:string } or null while
+  // the (lazy, cached) fetch is still pending. The target order matches RADAR_KEYS.
+  function cdResolveTarget() {
+    if (cd.targetCache) return cd.targetCache;
+    // cap-reference is always available immediately as a safe default
+    return { vals: RADAR_KEYS.map(() => RADAR_CAP_REF), real: false, label: 'cap ref' };
+  }
+  function cdComputeTargetFromPreset(payload) {
+    const presets = (payload && payload.presets) || [];
+    const active = (payload && payload.active) || '';
+    let p = presets.find((x) => x && String(x.name) === String(active)) || presets[0] || null;
+    const mc = (p && p.mant_config) || {};
+    // (a) global stat target (only when explicitly enabled)
+    const g = mc.global_stat_target;
+    if (mc.enable_global_stat_target && Array.isArray(g) && g.length >= 5) {
+      return { vals: g.slice(0, 5).map((n) => Number(n) || 0), real: true, label: 'target' };
+    }
+    // (b) per-distance targets → take the per-stat MAX across all defined distances
+    //     (the practical ceiling you'd want for your best distance; avoids needing
+    //     the trainee's live distance aptitude wired into the snapshot).
+    const byDist = mc.stat_targets_by_distance;
+    if (byDist && typeof byDist === 'object') {
+      const rows = Object.values(byDist).filter((r) => Array.isArray(r) && r.length >= 5);
+      if (rows.length) {
+        const vals = [0, 0, 0, 0, 0];
+        rows.forEach((r) => { for (let i = 0; i < 5; i++) vals[i] = Math.max(vals[i], Number(r[i]) || 0); });
+        return { vals, real: true, label: 'target' };
+      }
+    }
+    // (c) cap reference
+    return { vals: RADAR_KEYS.map(() => RADAR_CAP_REF), real: false, label: 'cap ref' };
+  }
+  // Lazily fetch the active preset's targets (cached ~60s). Re-renders the radar
+  // once on first resolution so the ghost appears without waiting for a stat change.
+  function cdEnsureTargets() {
+    const now = Date.now();
+    if (cd.targetCache && (now - cd.targetFetchAt) < 60000) return;
+    if (cd._targetFetching) return;
+    cd._targetFetching = true;
+    fetch('/api/settings-presets?t=' + now)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        cd._targetFetching = false;
+        if (!j) return;
+        cd.targetCache = cdComputeTargetFromPreset(j);
+        cd.targetFetchAt = Date.now();
+        if (cd.radarOn && state.runner) cdRenderRadar(state.runner.stats || []);   // show the ghost now
+      })
+      .catch(() => { cd._targetFetching = false; });
+  }
+  function cdEnsureRadarToggle() {
+    const title = document.querySelector('.vitals .attr-title');
+    if (!title || title.dataset.cdRow) return;
+    title.dataset.cdRow = '1';
+    const row = el('div', 'attr-title-row');
+    title.parentNode.insertBefore(row, title);
+    row.appendChild(title);
+    const btn = el('button', 'cd-radar-toggle' + (cd.radarOn ? ' on' : ''), cd.radarOn ? 'BARS' : 'RADAR');
+    btn.type = 'button';
+    btn.title = 'Toggle attribute radar / bars';
+    btn.addEventListener('click', () => {
+      cd.radarOn = !cd.radarOn;
+      lsSet('cd_attr_radar', cd.radarOn ? '1' : '0');
+      btn.classList.toggle('on', cd.radarOn);
+      btn.textContent = cd.radarOn ? 'BARS' : 'RADAR';
+      state.lastAttrPct = {};                       // force bars to re-seed when we switch back
+      if (state.runner) renderVitals(state.runner);  // immediate swap
+    });
+    row.appendChild(btn);
+  }
+  // SVG pentagon radar. Vertices tween via CSS (transition on cx/cy/points).
+  function cdRenderRadar(stats) {
+    const list = $('attr-list');
+    if (!list) return;
+    const byK = {}; (stats || []).forEach((s) => { byK[s.k] = s; });
+    const n = RADAR_KEYS.length, R = 78, cx = 110, cy = 100;
+    const ang = (i) => (-Math.PI / 2) + (i * 2 * Math.PI / n);   // start at top
+    const ptAt = (i, r) => [cx + r * Math.cos(ang(i)), cy + r * Math.sin(ang(i))];
+    // current data points (clamped to the 1200 cap)
+    const valpoly = [], vals = [];
+    RADAR_KEYS.forEach((k, i) => {
+      const s = byK[k] || { v: 0 };
+      const frac = Math.max(0.02, Math.min(1, (s.v || 0) / RADAR_CAP));
+      valpoly.push(ptAt(i, R * frac).map((v) => v.toFixed(1)));
+      vals.push(s.v || 0);
+    });
+    const polyStr = valpoly.map((p) => p.join(',')).join(' ');
+    // TARGET-GHOST: a second, faint pentagon drawn BEHIND the current polygon
+    // showing the per-stat target (or a cap reference). Same axes/cap mapping.
+    cdEnsureTargets();
+    const tgt = cdResolveTarget();
+    const tgtStr = RADAR_KEYS.map((_, i) => {
+      const frac = Math.max(0.02, Math.min(1, (Number(tgt.vals[i]) || 0) / RADAR_CAP));
+      return ptAt(i, R * frac).map((v) => v.toFixed(1)).join(',');
+    }).join(' ');
+    let svg = list.querySelector('svg.cd-radar');
+    // Build the static scaffold (rings + spokes + axis keys) ONCE; afterward only
+    // the polygon points / vertex positions / value labels are updated in place so
+    // the CSS transitions on points/cx/cy tween the shape when stats change.
+    if (!svg) {
+      const ringPts = (r) => RADAR_KEYS.map((_, i) => ptAt(i, r).map((v) => v.toFixed(1)).join(',')).join(' ');
+      let rings = '';
+      [0.25, 0.5, 0.75, 1].forEach((f) => { rings += `<polygon class="cd-ring" points="${ringPts(R * f)}"/>`; });
+      let spokes = '', labels = '', dots = '';
+      RADAR_KEYS.forEach((k, i) => {
+        const edge = ptAt(i, R);
+        spokes += `<line class="cd-spoke" x1="${cx}" y1="${cy}" x2="${edge[0].toFixed(1)}" y2="${edge[1].toFixed(1)}"/>`;
+        dots += `<circle class="cd-vtx" data-i="${i}" cx="${valpoly[i][0]}" cy="${valpoly[i][1]}" r="2.6"/>`;
+        const lp = ptAt(i, R + 16);
+        const anchor = Math.abs(lp[0] - cx) < 6 ? 'middle' : (lp[0] > cx ? 'start' : 'end');
+        const dy = lp[1] < cy - 4 ? 0 : (lp[1] > cy + 4 ? 9 : 4);
+        labels += `<text class="cd-axis-k" x="${lp[0].toFixed(1)}" y="${(lp[1] + dy).toFixed(1)}" text-anchor="${anchor}">${k}</text>`
+                + `<text class="cd-axis-v" data-i="${i}" x="${lp[0].toFixed(1)}" y="${(lp[1] + dy + 11).toFixed(1)}" text-anchor="${anchor}">${vals[i]}</text>`;
+      });
+      // The ghost polygon is emitted BEFORE the current polygon so it paints behind.
+      list.innerHTML = `<div class="cd-radar-wrap">
+        <svg class="cd-radar" viewBox="0 0 220 200" role="img" aria-label="Attribute radar">
+          ${rings}${spokes}
+          <polygon class="cd-ghost" points="${tgtStr}"/>
+          <polygon class="cd-poly" points="${polyStr}"/>
+          ${dots}${labels}
+        </svg></div>
+        <div class="cd-radar-legend">
+          <span class="cd-lg cd-lg-cur"><i></i>current</span>
+          <span class="cd-lg cd-lg-tgt ${tgt.real ? 'is-real' : 'is-ref'}"><i></i>${esc(tgt.label)}</span>
+        </div>`;
+      return;
+    }
+    // in-place update → CSS tweens the vertices/polygon
+    const poly = svg.querySelector('.cd-poly');
+    if (poly) poly.setAttribute('points', polyStr);
+    const ghost = svg.querySelector('.cd-ghost');
+    if (ghost) ghost.setAttribute('points', tgtStr);
+    svg.querySelectorAll('.cd-vtx').forEach((c) => {
+      const i = Number(c.dataset.i);
+      c.setAttribute('cx', valpoly[i][0]); c.setAttribute('cy', valpoly[i][1]);
+    });
+    svg.querySelectorAll('.cd-axis-v').forEach((t) => {
+      const i = Number(t.dataset.i);
+      if (String(vals[i]) !== t.textContent) t.textContent = vals[i];
+    });
+    // keep the target-legend label in sync (real target vs cap reference)
+    const lgTgt = list.querySelector('.cd-radar-legend .cd-lg-tgt');
+    if (lgTgt) {
+      lgTgt.classList.toggle('is-real', !!tgt.real);
+      lgTgt.classList.toggle('is-ref', !tgt.real);
+      const txtNode = lgTgt.childNodes[lgTgt.childNodes.length - 1];
+      if (txtNode && txtNode.nodeType === 3 && txtNode.textContent !== tgt.label) txtNode.textContent = tgt.label;
+    }
+  }
+
+  // ---- 2) VITALS GAUGES + ECG HEARTLINE ---------------------------------
+  function cdEnsureInstrToggle() {
+    const head = document.querySelector('.vitals .hp-head');
+    if (!head || head.dataset.cdInstr) return;
+    head.dataset.cdInstr = '1';
+    const lbl = head.querySelector('.hp-label');
+    const btn = el('button', 'cd-instr-toggle' + (cd.instrOn ? ' on' : ''), 'ECG');
+    btn.type = 'button';
+    btn.title = 'Toggle ECG heartline + mood gauge';
+    btn.addEventListener('click', () => {
+      cd.instrOn = !cd.instrOn;
+      lsSet('cd_vitals_instr', cd.instrOn ? '1' : '0');
+      btn.classList.toggle('on', cd.instrOn);
+      cdSyncInstruments();
+    });
+    // Insert as a SIBLING of .hp-label (not a child) — renderVitals rewrites the
+    // label's textContent every poll, which would otherwise destroy the button.
+    if (lbl && lbl.parentNode === head) lbl.insertAdjacentElement('afterend', btn);
+    else head.appendChild(btn);
+    // mount points (after the HP track, before the kv rows)
+    const track = head.parentNode.querySelector('.hp-track');
+    if (track && !head.parentNode.querySelector('.cd-ecg')) {
+      const ecg = el('div', 'cd-ecg'); ecg.id = 'cd-ecg';
+      track.parentNode.insertBefore(ecg, track.nextSibling);
+      const gauge = el('div', 'cd-gauge'); gauge.id = 'cd-gauge'; gauge.style.display = 'none';
+      ecg.parentNode.insertBefore(gauge, ecg.nextSibling);
+    }
+  }
+  // A repeating ECG waveform path; the visible window scrolls (CSS sweep). The
+  // colour tracks HP tone, and the beat period shortens as HP drops to critical.
+  function cdEcgPath(w, h) {
+    // one "beat" cell ~ 70px wide; baseline + a QRS spike
+    const mid = h * 0.5, cell = 70, pts = [];
+    for (let x = 0; x <= w; x += 2) {
+      const p = (x % cell) / cell; let y = mid;
+      if (p > 0.40 && p < 0.46) y = mid - h * 0.06;        // P
+      else if (p >= 0.46 && p < 0.50) y = mid + h * 0.10;  // Q
+      else if (p >= 0.50 && p < 0.54) y = mid - h * 0.42;  // R spike
+      else if (p >= 0.54 && p < 0.58) y = mid + h * 0.22;  // S
+      else if (p > 0.66 && p < 0.74) y = mid - h * 0.12;   // T
+      pts.push(x + ',' + y.toFixed(1));
+    }
+    return pts.join(' ');
+  }
+  function cdRenderEcg(runner) {
+    const host = $('cd-ecg');
+    if (!host) return;
+    const hp = runner.hp ?? 0;
+    const tone = hpTone(hp);
+    const crit = tone === 'red';
+    // beat quickens at low HP (reuse the critpulse idea): 1.6s healthy → .55s critical
+    const beat = (0.55 + (Math.max(0, Math.min(100, hp)) / 100) * 1.05).toFixed(2) + 's';
+    host.style.setProperty('--cd-ecg-beat', beat);
+    host.classList.toggle('crit', crit && !reducedMotion());
+    const W = 280, H = 38;
+    const sweepCls = reducedMotion() ? '' : ' cd-ecg-sweep';
+    const path = cdEcgPath(W, H);
+    // draw two copies side-by-side so the translateX sweep is seamless
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <g class="${sweepCls.trim()}" style="transform-box:view-box">
+        <polyline class="cd-ecg-line t-${tone}" points="${path}"/>
+        <polyline class="cd-ecg-line t-${tone}" points="${path}" transform="translate(${W} 0)"/>
+      </g></svg>`;
+  }
+  // Compact arc gauge for MOOD (motivation 1-5).
+  function cdRenderMoodGauge(runner) {
+    const g = $('cd-gauge');
+    if (!g) return;
+    const mood = runner.mood || {};
+    const val = Number(mood.value) || 0;
+    const frac = Math.max(0, Math.min(1, val / 5));
+    const tone = mood.tone && mood.tone !== 'mut' ? mood.tone : 'cyan';
+    const stroke = `var(--${tone})`;
+    const r = 18, c = 2 * Math.PI * r, off = (c * (1 - frac)).toFixed(1);
+    g.innerHTML = `
+      <svg viewBox="0 0 46 46" aria-label="Mood gauge">
+        <circle class="cd-gauge-track" cx="23" cy="23" r="${r}"/>
+        <circle class="cd-gauge-arc" cx="23" cy="23" r="${r}"
+          stroke="${stroke}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off}"
+          transform="rotate(-90 23 23)"/>
+      </svg>
+      <div class="cd-gauge-meta">
+        <div class="cd-gauge-k">MOOD</div>
+        <div class="cd-gauge-v c-${tone}">${esc(mood.label || '—')}${val ? ' · ' + val : ''}</div>
+      </div>`;
+  }
+  function cdSyncInstruments() {
+    const ecg = $('cd-ecg'), g = $('cd-gauge');
+    if (ecg) ecg.classList.toggle('on', cd.instrOn);
+    if (g) g.style.display = cd.instrOn ? 'flex' : 'none';
+    if (cd.instrOn && state.runner) { cdRenderEcg(state.runner); cdRenderMoodGauge(state.runner); }
+  }
+
+  // Called at the tail of every renderVitals (see hook below).
+  function cdAfterVitals(runner) {
+    cdEnsureRadarToggle();
+    cdEnsureInstrToggle();
+    if (cd.radarOn) cdRenderRadar(runner.stats || []);   // replaces the bars renderVitals just drew
+    cdSyncInstruments();
+  }
+
+  // ---- 4) WIN POP (tiny localized burst at the 1ST badge) ---------------
+  function cdConfettiColors() {
+    const cs = getComputedStyle(document.documentElement);
+    const amber = (cs.getPropertyValue('--amber') || '#f2a900').trim();
+    const green = (cs.getPropertyValue('--green') || '#4ade80').trim();
+    const cyan = (cs.getPropertyValue('--cyan') || '#36c5d0').trim();
+    return [amber, amber, amber, green, cyan, '#ffffff'];
+  }
+  // A small, localized particle pop centred on (px, py) viewport coords — the
+  // on-screen position of the winning row's 1ST badge. ~14 tiny particles,
+  // short radius/duration. Tiny fixed canvas around the origin (not full-screen).
+  function cdFireWinPop(px, py) {
+    if (reducedMotion()) return;
+    const BOX = 120;                                   // canvas half-extent ~ pop radius
+    const cv = el('canvas', 'cd-winpop');
+    cv.style.left = (px - BOX) + 'px';
+    cv.style.top = (py - BOX) + 'px';
+    cv.style.width = (BOX * 2) + 'px';
+    cv.style.height = (BOX * 2) + 'px';
+    document.body.appendChild(cv);
+    const ctx = cv.getContext('2d');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = BOX * 2 * dpr; cv.height = BOX * 2 * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cx = BOX, cy = BOX;                           // origin in canvas space
+    const colors = cdConfettiColors();
+    const N = 12 + ((Math.random() * 7) | 0), parts = []; // 12-18 particles
+    for (let i = 0; i < N; i++) {
+      const ang = (i / N) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      const spd = 2.2 + Math.random() * 3.4;           // small radius
+      parts.push({
+        x: cx, y: cy, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1.2,
+        g: 0.14 + Math.random() * 0.08, w: 3 + Math.random() * 3, h: 2 + Math.random() * 3,
+        rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.4,
+        c: colors[(Math.random() * colors.length) | 0],
+      });
+    }
+    const t0 = performance.now(), DUR = 700;            // short duration
+    function frame(now) {
+      const t = now - t0;
+      ctx.clearRect(0, 0, BOX * 2, BOX * 2);
+      let alive = false;
+      parts.forEach((p) => {
+        p.vy += p.g; p.vx *= 0.97; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        const a = Math.max(0, 1 - t / DUR);
+        if (a > 0) alive = true;
+        ctx.save();
+        ctx.globalAlpha = a; ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      if (alive && t < DUR) requestAnimationFrame(frame);
+      else cv.remove();
+    }
+    requestAnimationFrame(frame);
+  }
+  // Find the 1ST badge of the NEWEST winning row (data-turn === the won turn) and
+  // emit the pop at its centre. Falls back to no pop if the badge isn't on screen.
+  function cdPopAtBadge(turn) {
+    const wrap = $('log-rows');
+    if (!wrap) return;
+    let badge = null;
+    wrap.querySelectorAll('.log-row').forEach((row) => {
+      const t = row.querySelector('.log-turn');
+      if (t && Number(t.textContent) === Number(turn)) {
+        const b = row.querySelector('.log-1st');
+        if (b) badge = b;
+      }
+    });
+    if (!badge) return;
+    const r = badge.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return;        // not laid out / off screen
+    cdFireWinPop(r.left + r.width / 2, r.top + r.height / 2);
+  }
+  // Detect NEW wins from the just-rendered log. Only celebrate during a running
+  // career and never replay old wins across poll re-renders (seenWins is seeded
+  // silently on the first snapshot we ever see).
+  function cdScanWins(runner) {
+    const rows = (runner && runner.action_rows) || [];
+    const wins = rows.filter((r) => r && r.win === true).map((r) => Number(r.turn));
+    if (cd.seenWins.size === 0 && !cd._winSeeded) {
+      // first observation of this run: record without celebrating
+      wins.forEach((t) => cd.seenWins.add(t));
+      cd._winSeeded = true;
+      return;
+    }
+    const fresh = wins.filter((t) => !cd.seenWins.has(t));
+    fresh.forEach((t) => cd.seenWins.add(t));
+    if (fresh.length && runner.running) {
+      const newest = fresh[fresh.length - 1];
+      // renderLog has already (re)built the rows for this poll — pop at the badge
+      // after layout settles so getBoundingClientRect reads the final position.
+      requestAnimationFrame(() => cdPopAtBadge(newest));
+      cdEventToast('1ST PLACE', 'G1/Race win on T' + newest, 'amber');
+    }
+  }
+
+  // ---- EVENT TOASTS (new skill buys / career errors) --------------------
+  // Prefer the shared navbar toaster (window.Icarus.toast); fall back to the
+  // local cdToast. Single entry point so every cool-dash toast routes the same.
+  function cdEventToast(title, msg, tone) {
+    if (window.Icarus && Icarus.toast) { try { Icarus.toast(title + ' — ' + msg, tone); return; } catch (e) {} }
+    cdToast(title, msg, tone);
+  }
+  // Pull the bought-skill names out of the raw action_history rows (the runner
+  // appends purchased skill names onto each turn's row under `skills`).
+  function cdSkillNamesFromRaw(raw) {
+    const runner = (raw && raw.runner) || {};
+    const ah = Array.isArray(runner.action_history) ? runner.action_history : [];
+    const names = [];
+    ah.forEach((e) => { ((e && Array.isArray(e.skills)) ? e.skills : []).forEach((nm) => { if (nm) names.push(String(nm)); }); });
+    return names;
+  }
+  // Fire toasts for events detected BETWEEN polls. De-duped so the same skill /
+  // error never re-toasts on subsequent polls. Seeds silently on the first
+  // observation of a run so an in-progress resume doesn't dump a backlog.
+  function cdScanEvents(snap, raw) {
+    const runner = (raw && raw.runner) || {};
+    const adapted = (snap && snap.runner) || {};
+    const running = !!runner.running;
+
+    // (i) NEW skill purchase — count rose (skills_bought) and/or new names appear.
+    const count = Number(runner.skills_bought || 0);
+    const names = cdSkillNamesFromRaw(raw);
+    const firstObs = (cd.seenSkillCount < 0);
+    if (firstObs) {
+      // seed silently: remember the baseline so we only toast genuinely-new buys
+      cd.seenSkillCount = count;
+      names.forEach((nm) => cd.seenSkills.add(nm));
+    } else {
+      const newNames = names.filter((nm) => !cd.seenSkills.has(nm));
+      newNames.forEach((nm) => cd.seenSkills.add(nm));
+      const countRose = count > cd.seenSkillCount;
+      cd.seenSkillCount = Math.max(cd.seenSkillCount, count);
+      if (running && (newNames.length || countRose)) {
+        if (newNames.length) {
+          const shown = newNames.slice(0, 3).join(', ') + (newNames.length > 3 ? ` +${newNames.length - 3} more` : '');
+          cdEventToast('SKILL LEARNED', shown, 'cyan');
+        } else {
+          // count rose but no names surfaced (older/locked rows) — generic notice
+          cdEventToast('SKILL LEARNED', '+1 skill purchased', 'cyan');
+        }
+      }
+    }
+
+    // (ii) career ERROR / CRASH — last_error newly set, or a crashed/stuck state.
+    const err = String(runner.last_error || '').trim();
+    const crashed = !!(runner.crashed || runner.stuck);
+    const sig = err || (crashed ? 'CRASHED' : '');
+    if (sig && sig !== cd.lastErrorSig) {
+      cd.lastErrorSig = sig;
+      cdEventToast('CAREER ERROR', err || 'Career crashed / stuck — see Diagnostics.', 'red');
+    } else if (!sig) {
+      cd.lastErrorSig = null;   // cleared upstream → allow the next error to toast
+    }
+  }
+
+  // ---- 5) CAREER BOOT SEQUENCE ------------------------------------------
+  function cdAbortBoot() {
+    if (cd.bootTimer) { clearTimeout(cd.bootTimer); cd.bootTimer = null; }
+    if (cd.bootAbort) { try { cd.bootAbort(); } catch (e) {} cd.bootAbort = null; }
+    const o = document.getElementById('cd-boot'); if (o) o.remove();
+  }
+  function cdStartBoot(traineeName) {
+    cdAbortBoot();
+    const feed = document.querySelector('.feed');
+    if (!feed) return;
+    const lines = [
+      ['<span class="acc">ICARUS</span> // amber console online', 0],
+      ['AUTH … <span class="ok">ok</span>', 1],
+      ['LOADING TRAINEE … <span class="acc">' + esc(traineeName || 'standby') + '</span>', 1],
+      ['ENGINE: <span class="acc">trackblazer</span>', 1],
+      ['SSE LINK … <span class="ok">established</span>', 1],
+      ['<span class="dim">awaiting first turn…</span>', 0],
+    ];
+    const overlay = el('div', 'cd-boot'); overlay.id = 'cd-boot';
+    overlay.title = 'click to skip';
+    feed.appendChild(overlay);
+    overlay.addEventListener('click', cdAbortBoot, { once: true });
+    if (reducedMotion()) {                   // no typing — show all lines, auto-clear
+      overlay.innerHTML = lines.map((l) => `<div class="cd-boot-line">${l[0]}</div>`).join('');
+      cd.bootTimer = setTimeout(cdAbortBoot, 1500);
+      return;
+    }
+    let li = 0, ci = 0, tags = '';   // tags = the completed lines (accumulates across li)
+    // strip tags for char-by-char typing, then swap to the rich line when complete
+    function stripped(html) { const d = document.createElement('div'); d.innerHTML = html; return d.textContent || ''; }
+    let cancelled = false;
+    cd.bootAbort = () => { cancelled = true; };
+    function typeStep() {
+      if (cancelled) return;
+      if (li >= lines.length) { cd.bootTimer = setTimeout(cdAbortBoot, 350); return; }
+      const full = lines[li][0];
+      const text = stripped(full);
+      if (ci <= text.length) {
+        overlay.innerHTML = tags
+          + `<div class="cd-boot-line">${esc(text.slice(0, ci))}<span class="cd-boot-caret"></span></div>`;
+        ci++;
+        cd.bootTimer = setTimeout(typeStep, 16 + Math.random() * 22);
+      } else {
+        tags += `<div class="cd-boot-line done">${full}</div>`;   // swap to the rich (tagged) line
+        overlay.innerHTML = tags;
+        li++; ci = 0;
+        cd.bootTimer = setTimeout(typeStep, 90 + lines[Math.min(li, lines.length - 1)][1] * 70);
+      }
+    }
+    typeStep();
+  }
+
+  // ---- toast (use Icarus.toast if present, else a tiny local fallback) ----
+  function cdToast(title, msg, tone) {
+    if (window.Icarus && Icarus.toast) { try { Icarus.toast(title + ' — ' + msg, tone); return; } catch (e) {} }
+    if (reducedMotion()) return;
+    if (!cd.toastHost) { cd.toastHost = el('div', 'cd-toast-host'); document.body.appendChild(cd.toastHost); }
+    const toneCls = tone === 'red' ? ' t-red' : tone === 'cyan' ? ' t-cyan' : '';
+    const t = el('div', 'cd-toast' + toneCls);
+    t.innerHTML = `<span class="cd-toast-t">${esc(title)}</span> · ${esc(msg)}`;
+    cd.toastHost.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3400);
+  }
+
+  // ---- init: run once at boot ----
+  function cdInit() {
+    ensureCoolDashCss();
   }
 
   // ============================================================
@@ -412,17 +953,36 @@
     const motivation = cur.motivation ?? lastStats.motivation;
     const hasCareer = !!(cur.turn || ah.length || runner.running || runner.finished || runner.paused);
 
-    const sRow = (k, key, accent, max) => ({ k, v: Number(cs[key] || 0), max: max || 1200, accent: !!accent });
+    // The bar/value GLOW follows the most recently trained stat (SP keeps its own
+    // amber accent always). Walk action_history backwards for the last `train` turn
+    // and map its facility ("Speed"/… or 101-105) to a stat key.
+    const TRAIN_STAT = {
+      speed: 'speed', stamina: 'stamina', power: 'power', guts: 'guts', wit: 'wit', wisdom: 'wit',
+      '101': 'speed', '102': 'stamina', '103': 'power', '104': 'guts', '105': 'wit',
+    };
+    let lastTrained = null;
+    for (let j = ah.length - 1; j >= 0; j--) {
+      const e = ah[j] || {};
+      if (String(e.action || '').toLowerCase() === 'train') {
+        const f = String(e.facility || '').trim().toLowerCase().replace(/\s*training$/, '');
+        lastTrained = TRAIN_STAT[f] || null;
+        break;
+      }
+    }
+    const sRow = (k, key) => ({ k, key, v: Number(cs[key] || 0), max: 1200, trained: key === lastTrained });
     // SP (skill points) can live on the chara top-level OR in either stats dict.
     const skillPoints = Number(cur.skill_point ?? cs.skill_point ?? lastStats.skill_point ?? 0);
     const stats = [
-      sRow('SPD', 'speed', true), sRow('STA', 'stamina'), sRow('PWR', 'power'),
+      sRow('SPD', 'speed'), sRow('STA', 'stamina'), sRow('PWR', 'power'),
       sRow('GUT', 'guts'), sRow('WIT', 'wit'),
       // Skill Points row (preview style): bar + number, amber. SP is a spendable
       // resource so the bar is scaled to a soft 700 cap (the number is the truth).
-      { k: 'SP', v: skillPoints, max: 700, accent: true },
+      { k: 'SP', key: 'sp', v: skillPoints, max: 700, accent: true },
     ];
 
+    const wonTurns = new Set(((runner.race_results) || [])
+      .filter((rr) => Number(rr.rank ?? rr.final_rank ?? 99) === 1)
+      .map((rr) => Number(rr.turn)));
     const action_rows = ah.map((r) => {
       const meta = actMeta(r.action);
       const st = r.stats || {};
@@ -430,7 +990,9 @@
         turn: r.turn, act: meta[0], actTone: meta[1],
         target: facLabel(r),
         hp: Number(st.hp ?? 0),
+        hpmax: Number(st.max_hp ?? 100) || 100,
         mood: st.motivation != null ? moodFromMotivation(st.motivation).value : '—',
+        win: meta[0] === 'RACE' && wonTurns.has(Number(r.turn)),
       };
     });
 
@@ -441,8 +1003,10 @@
       // Kept as an ARRAY of lines so the panel renders them as bullet points;
       // esc + icon decoration happens at render time.
       const reasons = Array.isArray(r.reasoning) ? r.reasoning.filter(Boolean) : [];
-      const lines = reasons.length ? reasons
+      const rawLines = reasons.length ? reasons
         : (r.reason && !isStatDump(r.reason) ? [r.reason] : [reasonFor(r)]);
+      // strip the engine-name prefix ("trackblazer: " / "summer/finale: ") from each line
+      const lines = rawLines.map((l) => String(l).replace(/^\s*(trackblazer|summer\/finale)\s*:\s*/i, ''));
       return {
         turn: r.turn,
         title: `T${r.turn ?? '?'} · ${facLabel(r).toUpperCase()}`,
@@ -556,8 +1120,18 @@
     // New career started (incl. mid-loop): backend run_id changed → drop the old
     // run's accumulated feed/reasoning so the dashboard switches to the new run. (#5)
     const rid = snap.runner && snap.runner.run_id;
-    if (rid && rid !== lastRunId) { lastRunId = rid; state.logHist = {}; state.reasonHist = {}; }
+    if (rid && rid !== lastRunId) {
+      lastRunId = rid; state.logHist = {}; state.reasonHist = {}; state.lastAttrPct = {};
+      // new run → reset cool-dash per-run state (wins + event-toast de-dupe)
+      cd.seenWins = new Set(); cd._winSeeded = false;
+      cd.seenSkills = new Set(); cd.seenSkillCount = -1; cd.lastErrorSig = null;
+    }
     render(snap);
+    // cool-dash: the first real action row aborts the typed boot overlay (#5) so
+    // it never delays data.
+    if ((snap.runner.action_rows || []).length) cdAbortBoot();
+    // cool-dash: event toasts (new skill buys / career errors) off the same snapshot.
+    cdScanEvents(snap, raw);
     // Feed the shared bottom MONITOR dock from the same live snapshot.
     if (window.Icarus && Icarus.setMonitor) Icarus.setMonitor(raw);
     // Bordered lifetime metrics in the navbar + recolour the accent to the active
@@ -688,7 +1262,16 @@
   // ============================================================
   function bind() {
     // run / stop / pause — POST to the real runner endpoints.
-    $('run-btn').addEventListener('click', async () => { await startCareer(); });
+    $('run-btn').addEventListener('click', async () => {
+      // cool-dash: typed boot overlay (#5) — only when no live feed is already on
+      // screen; the first real row (or a click) aborts it instantly.
+      if (!Object.keys(state.logHist).length) {
+        const nm = (state.runner && state.runner.trainee && state.runner.trainee.name)
+          || ($('trainee-name') && $('trainee-name').textContent !== 'NO CAREER' ? $('trainee-name').textContent : '');
+        cdStartBoot(nm);
+      }
+      await startCareer();
+    });
     $('stop-btn').addEventListener('click', async () => {
       await api('/api/career/runner/stop', { method: 'POST' });
       refresh();
@@ -764,6 +1347,7 @@
   }
 
   // ---------- boot ----------
+  cdInit();   // cool-dash: inject stylesheet (once)
   bind();
   if (window.Icarus && Icarus.bindTheme) Icarus.bindTheme();
   if (window.Icarus && Icarus.wireLogout) Icarus.wireLogout();

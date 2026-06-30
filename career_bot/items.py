@@ -631,9 +631,8 @@ class MantItemManager:
                 skip_reason = "expired"
             elif current_num >= limit:
                 skip_reason = "limit_reached"
-            else:
-                # FORK: _skip_buy returns granular string reasons for log_viewer.html
-                skip_reason = self._skip_buy(name, owned, preset, current_turn, start_budget, data, race_planner) or None
+            elif self._skip_buy(name, owned, preset, current_turn, start_budget, data, race_planner):
+                skip_reason = "skip_buy"
             official = (load_master_shop_core((preset or {}).get("_base_dir") or (preset or {}).get("base_dir")).get("by_id") or {}).get(item_id, {})
             self.last_buy_options.append({
                 "name": name,
@@ -943,14 +942,6 @@ class MantItemManager:
     def _race_name_key(self, name):
         return "".join(ch.lower() for ch in str(name or "") if ch.isalnum())
 
-    def _nirio_remaining_climax_races(self, turn):
-        # FORK: (nirio) count remaining Climax races based on expected schedule.
-        remaining = 0
-        for ct in tb_rules.TRACKBLAZER_FINALE_RACE_TURNS:
-            if turn < ct:
-                remaining += 1
-        return remaining
-
     def _hammer_target_for_race(self, owned, turn, grade, cfg, is_climax=False):
         master_qty = int(owned.get("Master Cleat Hammer", 0) or 0)
         artisan_qty = int(owned.get("Artisan Cleat Hammer", 0) or 0)
@@ -960,20 +951,12 @@ class MantItemManager:
         is_final_race = turn >= tb_rules.TRACKBLAZER_FINAL_RACE_TURN
         conservation = turn >= tb_rules.RACE_ITEM_CONSERVATION_START_TURN
 
-        # P0: CLIMAX/finale race — reverse-priority allocation.
-        # FORK: (nirio) protect MCH for later Climax races first (T78 > T76 > T74).
-        # remaining_after = future Climax races not yet reached. With nirio_final_mch_required=2:
-        # T74 (remaining_after=2): use MCH only if 3+; T76 (remaining_after=1): use if 2+;
-        # T78 (remaining_after=0): use if any. Artisan fallback protected the same way.
+        # P0: CLIMAX/finale race -> swing the best hammer unconditionally.  This is
+        # the payoff for the conservation reserves enforced on regular G1s below.
         if is_climax or grade == "CLIMAX":
-            remaining_after = sum(1 for ct in tb_rules.TRACKBLAZER_FINALE_RACE_TURNS if turn < ct)
-            nirio_final_mch_req = _cfg_num(cfg, "nirio_final_mch_required", tb_rules.DEFAULT_NIRIO_FINAL_MCH_REQUIRED)
-            nirio_final_artisan = _cfg_num(cfg, "nirio_final_artisan_reserve", tb_rules.DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE)
-            mch_for_future = min(nirio_final_mch_req, remaining_after)
-            artisan_for_future = min(nirio_final_artisan, remaining_after)
-            if master_qty > mch_for_future:
+            if master_qty > 0:
                 return "Master Cleat Hammer"
-            if artisan_qty > artisan_for_future:
+            if artisan_qty > 0:
                 return "Artisan Cleat Hammer"
             return None
 
@@ -981,12 +964,6 @@ class MantItemManager:
             return None
 
         total = master_qty + artisan_qty
-
-        # FORK: (nirio) dynamic MCH reserve — protect exactly as many Master
-        # hammers as there are remaining Climax races (T74/T76/T78).
-        nirio_mch_reserve = _cfg_num(cfg, "nirio_mch_reserve", tb_rules.DEFAULT_NIRIO_MCH_RESERVE)
-        remaining_climax = self._nirio_remaining_climax_races(turn)
-        protected_mch = min(nirio_mch_reserve, remaining_climax)
 
         # Before conservation opens (or on the final race):
         # G1 always swings the best it has (Artisan is always considered for a G1).
@@ -996,11 +973,10 @@ class MantItemManager:
         # for the climax / G1s).
         if not conservation or is_final_race:
             if grade == "G1":
-                # FORK: (nirio) prefer Artisan on pre-conservation G1s to preserve Masters for Climax.
+                if master_qty > 0:
+                    return "Master Cleat Hammer"
                 if artisan_qty > 0:
                     return "Artisan Cleat Hammer"
-                if master_qty > protected_mch:
-                    return "Master Cleat Hammer"
                 return None
             if artisan_qty > 0:
                 if grade == "G2" and artisan_qty < _cfg_num(cfg, "trackblazer_artisan_hammer_min_stock_for_g2", 0):
@@ -1018,11 +994,9 @@ class MantItemManager:
         # the Item Conservation sliders. Defaults preserve v2.0 behavior (reserve
         # DEFAULT_HAMMER_FINALE_RESERVE; no per-grade Artisan minimum). The legacy
         # trackblazer_hammer_finale_reserve key is still honored as a fallback.
-        # FORK: (nirio) dynamic reserve — use upstream's slider as max, dynamically reduce.
-        upstream_reserve = _cfg_num(cfg, "trackblazer_master_hammer_finale_reserve",
-                                   _cfg_num(cfg, "trackblazer_hammer_finale_reserve",
-                                            tb_rules.DEFAULT_HAMMER_FINALE_RESERVE))
-        finale_reserve = min(upstream_reserve, protected_mch)
+        finale_reserve = _cfg_num(cfg, "trackblazer_master_hammer_finale_reserve",
+                                  _cfg_num(cfg, "trackblazer_hammer_finale_reserve",
+                                           tb_rules.DEFAULT_HAMMER_FINALE_RESERVE))
         # Spec (High): Artisan Hammers are ALWAYS considered for a G1, independent
         # of BOTH the G3/G2 min-stock threshold AND this finale-reserve bank that
         # gates G2/G3 below. Spend an Artisan if any is owned (banking Masters for
@@ -1032,7 +1006,7 @@ class MantItemManager:
         if grade == "G1":
             if artisan_qty > 0:
                 return "Artisan Cleat Hammer"
-            if master_qty > protected_mch:
+            if total > finale_reserve and master_qty > 0:
                 return "Master Cleat Hammer"
             return None
         if total <= finale_reserve:
@@ -1445,19 +1419,6 @@ class MantItemManager:
         cfg.setdefault("trackblazer_glow_stick_min_fans", tb_rules.DEFAULT_GLOW_STICK_MIN_FANS)
         cfg.setdefault("glow_stick_fan_multiplier", 1.0)
         cfg.setdefault("late_whistle_lackluster_threshold", DEFAULT_LATE_WHISTLE_LACKLUSTER_THRESHOLD)
-        # FORK: (nirio) tuning knobs — user-adjustable via Scenario Override Settings
-        cfg.setdefault("nirio_mood_floor", tb_rules.DEFAULT_NIRIO_MOOD_FLOOR)
-        cfg.setdefault("nirio_mood_repair_turn", tb_rules.DEFAULT_NIRIO_MOOD_REPAIR_TURN)
-        cfg.setdefault("nirio_mood_critical_turn", tb_rules.DEFAULT_NIRIO_MOOD_CRITICAL_TURN)
-        cfg.setdefault("nirio_charm_dump_turn", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_TURN)
-        cfg.setdefault("nirio_charm_dump_min_gain", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_MIN_GAIN)
-        cfg.setdefault("nirio_charm_dump_failure_rate", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_FAILURE_RATE)
-        cfg.setdefault("nirio_whistle_dump_turn", tb_rules.DEFAULT_NIRIO_WHISTLE_DUMP_TURN)
-        cfg.setdefault("nirio_whistle_dump_score", tb_rules.DEFAULT_NIRIO_WHISTLE_DUMP_SCORE)
-        cfg.setdefault("nirio_mch_reserve", tb_rules.DEFAULT_NIRIO_MCH_RESERVE)
-        cfg.setdefault("nirio_final_mch_required", tb_rules.DEFAULT_NIRIO_FINAL_MCH_REQUIRED)
-        cfg.setdefault("nirio_final_artisan_reserve", tb_rules.DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE)
-        cfg.setdefault("nirio_chain_mood_floor", tb_rules.DEFAULT_NIRIO_CHAIN_MOOD_FLOOR)
         return cfg
 
     def _owned_map(self, free):
@@ -1638,16 +1599,6 @@ class MantItemManager:
         reserve = max(0, _cfg_num(cfg, "trackblazer_cupcake_reserve", tb_rules.DEFAULT_CUPCAKE_RESERVE))
         threshold = _cfg_num(cfg, "cupcake_energy_threshold", 70)
 
-        # FORK: (nirio) mood floor — use cupcakes aggressively when mood is critically low.
-        # Integrates with upstream's reserve: keeps 1 cupcake for kale synergy.
-        nirio_repair_turn = _cfg_num(cfg, "nirio_mood_repair_turn", tb_rules.DEFAULT_NIRIO_MOOD_REPAIR_TURN)
-        nirio_floor = _cfg_num(cfg, "nirio_mood_floor", tb_rules.DEFAULT_NIRIO_MOOD_FLOOR)
-        if turn >= nirio_repair_turn and motivation <= nirio_floor:
-            nirio_reserve = max(0, reserve - 1)
-            cupcake = self._available_cupcake(owned, reserve=nirio_reserve, allow_reserved=True)
-            if cupcake:
-                return (cupcake, 1)
-
         # v2.1 late-game cupcake policy (turn >= 60):
         #  * Past turn 59 Plain Cupcake is NOT held back for the kale-juice mood
         #    offset (the reserve that protects it mid-career no longer matters --
@@ -1722,9 +1673,7 @@ class MantItemManager:
         # they're used to reroll into turns worth spending megaphones + anklets on.
         # Don't burn them rerolling random mid-career turns.
         SUMMER = {36, 37, 38, 39, 40, 60, 61, 62, 63, 64}
-        # FORK: (nirio) whistle dump activates at an earlier turn
-        _nirio_whistle_turn = int(_cfg_num(cfg, "nirio_whistle_dump_turn", tb_rules.DEFAULT_NIRIO_WHISTLE_DUMP_TURN))
-        whistle_late_turn = min(int(_cfg_num(cfg, "whistle_late_turn", 65)), _nirio_whistle_turn)
+        whistle_late_turn = int(_cfg_num(cfg, "whistle_late_turn", 65))
         if int(turn or 0) not in SUMMER and int(turn or 0) < whistle_late_turn:
             return None
         current_chara = None
@@ -1777,23 +1726,17 @@ class MantItemManager:
         # main-gain / low-mood floors so leftovers don't strand at career end
         # (finale gives no coins). The ONLY skip is a literal 0%-failure AND 0-gain
         # pick, where a charm protects nothing and secures nothing (pure waste).
-        # FORK: (nirio) intermediate charm dump — lower thresholds after nirio_charm_dump_turn
-        _nirio_charm_dump = (not _dump_late) and int(turn or 0) >= _cfg_num(cfg, "nirio_charm_dump_turn", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_TURN)
-
         if _dump_late:
             if fail_rate < 1 and main_gain < 1:
                 return None
             return ("Good-Luck Charm", 1)
 
         # Normal (mid-career) charm policy below.
-        if _nirio_charm_dump:
-            threshold = _cfg_num(cfg, "nirio_charm_dump_failure_rate", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_FAILURE_RATE)
-            min_gain = _cfg_num(cfg, "nirio_charm_dump_min_gain", tb_rules.DEFAULT_NIRIO_CHARM_DUMP_MIN_GAIN)
-        else:
-            threshold = _cfg_num(cfg, "charm_failure_rate", tb_rules.DEFAULT_CHARM_FAILURE_THRESHOLD)
-            min_gain = _cfg_num(cfg, "charm_min_main_gain", tb_rules.DEFAULT_CHARM_MIN_MAIN_GAIN)
+        threshold = _cfg_num(cfg, "charm_failure_rate", tb_rules.DEFAULT_CHARM_FAILURE_THRESHOLD)
         if fail_rate < threshold:
             return None
+
+        min_gain = _cfg_num(cfg, "charm_min_main_gain", tb_rules.DEFAULT_CHARM_MIN_MAIN_GAIN)
         # Aggressiveness (fixes "fails despite high failure rate"): on a HIGH
         # failure-rate turn, protect even a modest-gain training -- a wasted-turn
         # failure costs the whole turn, so the gain bar shouldn't block the charm.
@@ -2206,15 +2149,7 @@ class MantItemManager:
         return result
 
     def _item_cap(self, name, preset=None):
-        # FORK: auto_buy_items caps take priority over item_caps
-        cfg = (preset or {}).get("mant_config") or {}
-        auto_buy = cfg.get("auto_buy_items") or {}
-        if name in auto_buy:
-            try:
-                return max(0, int(auto_buy[name]))
-            except Exception:
-                pass
-        caps = cfg.get("item_caps") or {}
+        caps = ((preset or {}).get("mant_config") or {}).get("item_caps") or {}
         if name in caps:
             try:
                 return max(0, int(caps[name]))
@@ -2308,12 +2243,12 @@ class MantItemManager:
             excluded = [part.strip() for part in excluded.split(",") if part.strip()]
         excluded_slugs = {display_to_slug(item) for item in excluded}
         if display_to_slug(name) in excluded_slugs:
-            return "user_excluded"  # FORK: granular skip reason for log_viewer.html
+            return True
         # Hard exclusions: wasteful pre-race auto-consumed items (see
         # ALWAYS_EXCLUDE_SLUGS).  Never bought unless explicitly re-enabled.
         if (display_to_slug(name) in ALWAYS_EXCLUDE_SLUGS
                 and not cfg.get("allow_wasteful_consumables", False)):
-            return "skip_wasteful"  # FORK: granular skip reason for log_viewer.html
+            return True
         # P3: small +3 stat notepads (ids 1001-1005) are skip-by-default -- their
         # tiny stat gain isn't worth the coins.  Medium Manual (+7) / Large Scroll
         # (+15) are unaffected (different slug suffixes).  Opt back in via config.
@@ -2324,9 +2259,9 @@ class MantItemManager:
             # Buy them once coins exceed the flush threshold so surplus coins convert
             # into stats instead of being wasted.
             if int(budget or 0) < _cfg_num(cfg, "trackblazer_notepad_flush_coin", 250):
-                return "skip_notepad"  # FORK: granular skip reason for log_viewer.html
+                return True
         if int(owned.get(name, 0) or 0) >= self._item_cap(name, preset):
-            return "skip_inv_cap"  # FORK: granular skip reason for log_viewer.html
+            return True
         # v2.1 R2: during the late-summer window (turns 60-64) lift the
         # stock-conservation caps so anklets/megaphones are bought freely and the
         # use logic has stock to spend.  Past turn 64 (R6) conservation is off
@@ -2338,50 +2273,50 @@ class MantItemManager:
         _dump_late = (not cfg.get("save_items_lategame", tb_rules.DEFAULT_SAVE_ITEMS_LATEGAME)) and int(turn or 0) > 64
         _lift_conservation = _late_summer or _dump_late
         if name in MEGAPHONE_TIERS and not _lift_conservation and self._megaphone_buy_surplus(data or {}, owned, turn, race_planner, preset):
-            return "skip_mega_surplus"  # FORK: granular skip reason for log_viewer.html
+            return True
         # v2.0 megaphone buy policy: never buy small (Coaching); buy big
         # (Empowering) freely; buy medium (Motivating) only if still short on big
         # megaphones for the upcoming summer.
         if name == "Coaching Megaphone" and not _lift_conservation and not cfg.get("trackblazer_buy_small_megaphone", False):
-            return "skip_mega_surplus"  # FORK: granular skip reason for log_viewer.html
+            return True
         if name == "Motivating Megaphone" and not _lift_conservation:
             big_target = _cfg_num(cfg, "megaphone_big_summer_target", 2)
             if int(owned.get("Empowering Megaphone", 0) or 0) >= big_target:
-                return "skip_mega_surplus"  # FORK: granular skip reason for log_viewer.html
+                return True
         # P1: anklet over-buy guard.  Keep only ~2 anklets in stock total (main +
         # sub); once we hold that many across all types, stop buying more.
         if name in set(TRAINING_TYPE_ANKLET.values()) and not _lift_conservation:
             anklet_max = _cfg_num(cfg, "trackblazer_anklet_max_stock", 2)
             total_anklets = sum(int(owned.get(a, 0) or 0) for a in set(TRAINING_TYPE_ANKLET.values()))
             if total_anklets >= anklet_max:
-                return "skip_anklet_cap"  # FORK: granular skip reason for log_viewer.html
+                return True
         if name in CURE_ITEMS:
             # Rich Hand Cream and Miracle Cure are Trackblazer-critical race/run
             # insurance and may be stocked up to their normal cap. Other specific
             # cures are one-copy safety valves, and are skipped if Miracle Cure
             # already covers the same emergency.
             if name in {"Rich Hand Cream", AILMENT_CURE_ALL}:
-                return None  # FORK: granular skip reason for log_viewer.html
+                return False
             if owned.get(name, 0) > 0 or (name != AILMENT_CURE_ALL and owned.get(AILMENT_CURE_ALL, 0) > 0):
-                return "skip_cure_redundant"  # FORK: granular skip reason for log_viewer.html
+                return True
         guide = self._guide(preset)
         fast_cfg = ((guide.get("shop_priorities") or {}).get("fast_learner") or {})
         if name == fast_cfg.get("item", "Scholar's Hat"):
             min_coin = int(fast_cfg.get("min_coin_before_buy") or 280)
             if int(budget or 0) < min_coin:
-                return "skip_budget"  # FORK: granular skip reason for log_viewer.html
+                return True
         # Preserve coins before summer unless the item is a high-impact guide priority.
         reserve = int(((guide.get("summer_strategy") or {}).get("pre_summer_reserve_coin") or 0))
         if is_pre_summer(turn) and budget < reserve and name not in set(((guide.get("shop_priorities") or {}).get("training_boost_items") or {}).get("names") or []):
             if name not in set(((guide.get("shop_priorities") or {}).get("immediate_stat_items") or {}).get("names") or []):
-                return "skip_pre_summer"  # FORK: granular skip reason for log_viewer.html
+                return True
         type_idx = TRAINING_ITEM_DECK_TYPE_INDEX.get(name)
         if type_idx is not None:
             counts = (preset or {}).get("_deck_type_counts") or []
             count = int(counts[type_idx] or 0) if len(counts) > type_idx else 0
             if count < 2:
-                return "skip_low_deck"  # FORK: granular skip reason for log_viewer.html
-            return None  # FORK: granular skip reason for log_viewer.html
+                return True
+            return False
         if name in ONE_TIME_BUFF_ITEMS and name in self.used_buffs:
-            return "skip_buff_used"  # FORK: granular skip reason for log_viewer.html
-        return None  # FORK: granular skip reason for log_viewer.html
+            return True
+        return False

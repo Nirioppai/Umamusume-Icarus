@@ -30,6 +30,22 @@ window.Icarus = (() => {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // Respect the OS "reduce motion" preference for every animation we add.
+  const reduceMotion = () => {
+    try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (e) { return false; }
+  };
+
+  // Lazy-inject our OWN stylesheet (cool-core.css) once, mirroring ensureFontLink.
+  // core.js owns no HTML, so the visuals for the chrome upgrades live here.
+  function ensureCoolCss() {
+    if (document.getElementById('cool-core-css')) return;
+    const l = document.createElement('link');
+    l.id = 'cool-core-css'; l.rel = 'stylesheet'; l.href = 'cool-core.css?v=1';
+    (document.head || document.documentElement).appendChild(l);
+  }
+  ensureCoolCss();
+
   let mockMode = false;
   const listeners = [];
 
@@ -378,16 +394,68 @@ window.Icarus = (() => {
     ['RUNTIME', (lt) => fmtDur(lt.total_runtime_seconds_live ?? lt.total_runtime_seconds ?? 0)],
     ['CAREERS', (lt) => String(lt.careers_completed ?? 0)],
   ];
+  // ---- rolling-digit counter (Feature 2) ------------------------------------
+  // Each value cell is a row of digit "reels". A digit is a vertical 0-9 strip
+  // translated by translateY so it animates between values; non-digit glyphs
+  // (K, M, ., h, m, s, /, etc.) render static. We diff per-cell so only changed
+  // cells re-translate, and flash a brief --amber underline when the value rises.
+  const _reelDigits = '0123456789';
+  function buildReelCell(v) {
+    const s = String(v);
+    let html = '';
+    for (const ch of s) {
+      const d = _reelDigits.indexOf(ch);
+      if (d >= 0) {
+        const strip = _reelDigits.split('').map((g) => `<span>${g}</span>`).join('');
+        html += `<span class="reel-d"><span class="reel-strip" data-d="${d}" style="transform:translateY(${-d}em)">${strip}</span></span>`;
+      } else {
+        html += `<span class="reel-static">${esc(ch)}</span>`;
+      }
+    }
+    return html;
+  }
+  // Compare a numeric-ish display string for the rise flash (strips non-digits).
+  const _numOf = (s) => Number(String(s).replace(/[^\d.]/g, '')) || 0;
   function renderLifetime(runner) {
     const host = ensureLifetimeHost();
     if (!host) return;
     const lt = (runner && runner.lifetime) || null;
-    if (!lt) { host.innerHTML = ''; return; }
+    if (!lt) { host.innerHTML = ''; host._lmVals = null; return; }
     const careerFans = (runner.current_chara && runner.current_chara.fans) || runner.fans_current || 0;
-    const cells = LM_DEFS.map(([k, fn]) =>
-      `<div class="lm-cell"><div class="lm-cell-k">${k}</div><div class="lm-cell-v">${esc(fn(lt))}</div></div>`);
-    cells.push(`<div class="lm-cell"><div class="lm-cell-k">CAREER FANS</div><div class="lm-cell-v">${esc(fmtCompact(careerFans))}</div></div>`);
-    host.innerHTML = cells.join('');
+    const vals = LM_DEFS.map(([k, fn]) => [k, String(fn(lt))]);
+    vals.push(['CURRENT', String(fmtCompact(careerFans))]);
+    const reduced = reduceMotion();
+    // First build (or layout change): full innerHTML with reels.
+    if (!host._lmVals || host._lmVals.length !== vals.length) {
+      host.innerHTML = vals.map(([k, v]) =>
+        `<div class="lm-cell"><div class="lm-cell-k">${esc(k)}</div><div class="lm-cell-v reel">${reduced ? esc(v) : buildReelCell(v)}</div></div>`).join('');
+      host._lmVals = vals.map((x) => x[1]);
+      return;
+    }
+    // Diff: only retranslate cells whose string changed.
+    const cells = host.querySelectorAll('.lm-cell-v');
+    vals.forEach(([, v], i) => {
+      const prev = host._lmVals[i];
+      if (prev === v) return;
+      const cell = cells[i];
+      if (!cell) return;
+      if (reduced) { cell.textContent = v; }
+      else {
+        cell.innerHTML = buildReelCell(v);
+        // animate from 0 -> target so the digits visibly roll into place
+        requestAnimationFrame(() => {
+          cell.querySelectorAll('.reel-strip').forEach((st) => {
+            const d = Number(st.dataset.d) || 0;
+            st.style.transform = 'translateY(0)';
+            requestAnimationFrame(() => { st.style.transform = `translateY(${-d}em)`; });
+          });
+        });
+      }
+      if (_numOf(v) > _numOf(prev)) {
+        cell.classList.remove('delta-up'); void cell.offsetWidth; cell.classList.add('delta-up');
+      }
+      host._lmVals[i] = v;
+    });
   }
 
   // ============================================================
@@ -531,31 +599,126 @@ window.Icarus = (() => {
     ['error', 'screen read retry \u00b7 recovered', 'red', 'error'],
   ];
 
-  function monChart(turn) {
-    const frac = Math.min(1, turn / 78);
-    const series = [
-      ['SPD', '#36c5d0', 360], ['STA', '#4ade80', 332], ['PWR', '#f04444', 388],
-      ['GUT', '#c084fc', 305], ['SP', '#f2a900', 619],
-    ];
-    const W = 480, H = 128, N = 11, maxV = 690;
-    let svg = `<svg viewBox="0 0 ${W} ${H + 8}" preserveAspectRatio="none" style="width:100%;height:118px;display:block">`;
-    [10, 44, 78, 112].forEach((y) => { svg += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#15181e"/>`; });
-    const legend = [];
-    series.forEach(([name, color, target]) => {
-      const cur = Math.round(target * (0.34 + 0.66 * frac));
-      let pts = '';
-      for (let i = 0; i <= N; i++) {
-        const f = i / N;
-        const v = target * (0.30 + (cur / target - 0.30) * f) * (0.965 + 0.05 * Math.sin(i * 1.6 + target));
-        const x = (W * i / N).toFixed(0);
-        const y = (H - (v / maxV) * H + 4).toFixed(1);
-        pts += `${x},${y} `;
-      }
-      svg += `<polyline fill="none" stroke="${color}" stroke-width="${name === 'SP' ? 2 : 1.6}" points="${pts.trim()}"/>`;
-      legend.push(`<span><i style="background:${color}"></i>${name} ${cur}</span>`);
+  // ---- REAL telemetry chart (Feature 1) -------------------------------------
+  // Draws 5 stat polylines (Speed/Stamina/Power/Guts/Wit) scaled to a 0-1200 cap
+  // across every turn in runner.action_history, plus a faint dashed SP line. The
+  // trainee's highest/priority stat is drawn in --amber; the rest are muted. A
+  // transparent hit-rect drives a crosshair + tooltip showing that turn's exact
+  // values. Lines animate on first paint (stroke-dashoffset). Pure inline SVG.
+  const TELE_W = 480, TELE_H = 124, TELE_TOP = 6, TELE_CAP = 1200;
+  // [key, label, muted colour] — priority stat is recoloured to var(--amber).
+  const TELE_SERIES = [
+    ['speed', 'SPD'], ['stamina', 'STA'], ['power', 'PWR'], ['guts', 'GUT'], ['wit', 'WIT'],
+  ];
+  const TELE_MUTED = { speed: '#37b7c4', stamina: '#5fc98a', power: '#d96a6a', guts: '#b48ee6', wit: '#c9a23e' };
+  let _teleAnimDone = false;        // animate the draw only on the first real paint
+  function _teleY(v) { return (TELE_TOP + (TELE_H - (Math.max(0, Math.min(TELE_CAP, v)) / TELE_CAP) * TELE_H)).toFixed(1); }
+  function monChart(snap) {
+    const runner = (snap && snap.runner) || null;
+    const ah = (runner && Array.isArray(runner.action_history)) ? runner.action_history : [];
+    // collapse to one stats sample per turn (last seen wins), in turn order
+    const byTurn = new Map();
+    ah.forEach((e) => {
+      const t = (e && e.turn != null) ? Number(e.turn) : null;
+      const st = (e && e.stats) || null;
+      if (t == null || !st) return;
+      byTurn.set(t, st);
     });
+    const turns = Array.from(byTurn.keys()).sort((a, b) => a - b);
+    if (turns.length < 2) {
+      return '<div class="tele-idle">' + (runner && runner.running ? 'COLLECTING TELEMETRY…' : 'NO CAREER · IDLE') + '</div>';
+    }
+    const n = turns.length;
+    const xOf = (i) => (TELE_W * (n === 1 ? 0.5 : i / (n - 1)));
+    // pick the priority/highest stat at the latest turn for the amber line
+    const last = byTurn.get(turns[n - 1]) || {};
+    let pri = 'speed', priV = -1;
+    TELE_SERIES.forEach(([k]) => { const v = Number(last[k]) || 0; if (v > priV) { priV = v; pri = k; } });
+
+    const reduced = reduceMotion();
+    const animate = !reduced && !_teleAnimDone;
+    let svg = `<svg class="tele-svg" viewBox="0 0 ${TELE_W} ${TELE_H + TELE_TOP + 4}" preserveAspectRatio="none">`;
+    // gridlines at 300/600/900/1200 of the 0-1200 cap
+    [300, 600, 900, 1200].forEach((g) => {
+      const y = _teleY(g);
+      svg += `<line class="tele-grid" x1="0" y1="${y}" x2="${TELE_W}" y2="${y}"/>`;
+      svg += `<text class="tele-axis" x="3" y="${(Number(y) - 2).toFixed(1)}">${g}</text>`;
+    });
+    const legend = [];
+    // SP first (under the stat lines), faint + dashed
+    const spPts = turns.map((t, i) => `${xOf(i).toFixed(1)},${_teleY(Number((byTurn.get(t) || {}).skill_point) || 0)}`).join(' ');
+    // SP stays a static dashed line (a dashoffset draw fights its dash pattern).
+    svg += `<polyline class="tele-line is-sp" points="${spPts}"/>`;
+    legend.push(`<span><i style="background:var(--label)"></i>SP ${Math.round(Number(last.skill_point) || 0)}</span>`);
+    // five stat lines
+    TELE_SERIES.forEach(([k, label]) => {
+      const pts = turns.map((t, i) => `${xOf(i).toFixed(1)},${_teleY(Number((byTurn.get(t) || {})[k]) || 0)}`).join(' ');
+      const isPri = k === pri;
+      const cls = `tele-line${isPri ? ' is-pri' : ''}${animate ? ' animate' : ''}`;
+      // estimate path length for the draw animation (rough: width as proxy)
+      const style = (isPri ? '' : `stroke:${TELE_MUTED[k]};stroke-width:1.5;`) + (animate ? `--len:${(TELE_W * 1.25).toFixed(0)};` : '');
+      svg += `<polyline class="${cls}" points="${pts}"${style ? ` style="${style}"` : ''}/>`;
+      legend.push(`<span><i style="background:${isPri ? 'var(--amber)' : TELE_MUTED[k]}"></i>${label} ${Math.round(Number(last[k]) || 0)}</span>`);
+    });
+    // crosshair + hover dot (positioned by JS), and a full-width hit area
+    svg += `<line class="tele-crosshair" id="tele-cross" x1="0" y1="0" x2="0" y2="${TELE_H + TELE_TOP}" style="display:none"/>`;
+    svg += `<circle class="tele-dot" id="tele-dot" r="2.6" fill="var(--amber)" style="display:none"/>`;
+    svg += `<rect class="tele-hit" id="tele-hit" x="0" y="0" width="${TELE_W}" height="${TELE_H + TELE_TOP + 4}"/>`;
     svg += '</svg>';
-    return svg + `<div class="legend">${legend.join('')}</div>`;
+    _teleAnimDone = true;
+    // stash the per-turn data on a JSON attr the hover handler reads back
+    const data = turns.map((t, i) => {
+      const st = byTurn.get(t) || {};
+      return { x: xOf(i), turn: t, speed: Math.round(+st.speed || 0), stamina: Math.round(+st.stamina || 0),
+        power: Math.round(+st.power || 0), guts: Math.round(+st.guts || 0), wit: Math.round(+st.wit || 0),
+        sp: Math.round(+st.skill_point || 0) };
+    });
+    return `<div class="tele-wrap" data-tele='${esc(JSON.stringify(data))}'>${svg}<div class="tele-tip" id="tele-tip"></div></div>` +
+      `<div class="legend">${legend.join('')}</div>`;
+  }
+
+  // Bind the crosshair/tooltip once per freshly-rendered chart (called by setMonitor).
+  function bindTeleHover(host) {
+    const wrap = host && host.querySelector('.tele-wrap');
+    if (!wrap || wrap.dataset.hoverBound) return;
+    let data; try { data = JSON.parse(wrap.dataset.tele || '[]'); } catch (e) { data = []; }
+    if (!data.length) return;
+    wrap.dataset.hoverBound = '1';
+    const svg = wrap.querySelector('.tele-svg');
+    const hit = wrap.querySelector('#tele-hit');
+    const cross = wrap.querySelector('#tele-cross');
+    const dot = wrap.querySelector('#tele-dot');
+    const tip = wrap.querySelector('#tele-tip');
+    if (!svg || !hit) return;
+    const COLORS = { speed: TELE_MUTED.speed, stamina: TELE_MUTED.stamina, power: TELE_MUTED.power, guts: TELE_MUTED.guts, wit: TELE_MUTED.wit, sp: 'var(--label)' };
+    const move = (clientX) => {
+      const r = svg.getBoundingClientRect();
+      const fx = (clientX - r.left) / r.width;            // 0..1 across the svg
+      const ux = fx * TELE_W;                              // user-space x
+      let best = data[0], bd = Infinity;
+      data.forEach((p) => { const d = Math.abs(p.x - ux); if (d < bd) { bd = d; best = p; } });
+      if (cross) { cross.setAttribute('x1', best.x); cross.setAttribute('x2', best.x); cross.style.display = ''; }
+      // amber dot sits on the priority/highest line — recompute its max here
+      const maxK = ['speed', 'stamina', 'power', 'guts', 'wit'].reduce((a, b) => (best[b] > best[a] ? b : a), 'speed');
+      if (dot) {
+        dot.setAttribute('cx', best.x);
+        dot.setAttribute('cy', _teleY(best[maxK]));
+        dot.style.display = '';
+      }
+      if (tip) {
+        const rows = [['SPD', 'speed'], ['STA', 'stamina'], ['PWR', 'power'], ['GUT', 'guts'], ['WIT', 'wit'], ['SP', 'sp']]
+          .map(([lb, k]) => `<div><i style="background:${COLORS[k]}"></i>${lb} <b>${best[k]}</b></div>`).join('');
+        tip.innerHTML = `<span class="tt-turn">TURN ${best.turn}</span>${rows}`;
+        tip.style.left = (best.x / TELE_W * 100) + '%';
+        tip.classList.add('show');
+      }
+    };
+    hit.addEventListener('mousemove', (e) => move(e.clientX));
+    hit.addEventListener('mouseleave', () => {
+      if (cross) cross.style.display = 'none';
+      if (dot) dot.style.display = 'none';
+      if (tip) tip.classList.remove('show');
+    });
   }
 
   // ---- Bottom MONITOR dock: render REAL career rows from the runner snapshot.
@@ -656,8 +819,9 @@ window.Icarus = (() => {
     if (monDock.classList.contains('open')) {
       monRenderRows();
       const ch = monDock.querySelector('#mon-chart');
-      if (ch) ch.innerHTML = monChart((runner && runner.turn) || 0);
+      if (ch) { ch.innerHTML = monChart(snap); bindTeleHover(ch); }
     }
+    updateTabBadges(runner);   // live status dot + DIAG/AI warning marker
   }
 
   function mountMonitor() {
@@ -734,18 +898,248 @@ window.Icarus = (() => {
     else document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('icarus_theme', t);
   }
+  function cycleTheme() {
+    const cur = localStorage.getItem('icarus_theme') || 'amber';
+    const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+    applyTheme(next);
+    return next;
+  }
   function bindTheme() {
     applyTheme(localStorage.getItem('icarus_theme') || 'amber');
     const brand = document.querySelector('.rail-brand');
     if (brand && !brand.dataset.themeBound) {
       brand.dataset.themeBound = '1';
       brand.title = 'Click to switch accent theme';
-      brand.addEventListener('click', (e) => {
-        e.preventDefault();
-        const cur = localStorage.getItem('icarus_theme') || 'amber';
-        applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
-      });
+      brand.addEventListener('click', (e) => { e.preventDefault(); cycleTheme(); });
     }
+  }
+
+  // ============================================================
+  //  TOASTS  (Feature 3) — window.Icarus.toast(msg, {tone, timeout})
+  //  Top-right stack, slide-in, thin auto-dismiss timer bar, click to
+  //  dismiss. Reduced-motion safe (CSS degrades). Other page-scripts call
+  //  Icarus.toast(...); the host is created lazily on first use.
+  // ============================================================
+  let toastHost = null;
+  function ensureToastHost() {
+    if (toastHost && document.body.contains(toastHost)) return toastHost;
+    toastHost = document.createElement('div');
+    toastHost.className = 'toast-host';
+    toastHost.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toastHost);
+    return toastHost;
+  }
+  function toast(msg, opts) {
+    opts = opts || {};
+    const tone = ['amber', 'green', 'red', 'cyan'].indexOf(opts.tone) >= 0 ? opts.tone : 'amber';
+    const timeout = opts.timeout != null ? Number(opts.timeout) : 4200;
+    const host = ensureToastHost();
+    const t = document.createElement('div');
+    t.className = 'toast is-' + tone;
+    t.setAttribute('role', 'status');
+    t.innerHTML = `<span class="toast-x" aria-hidden="true">×</span><div class="toast-msg">${esc(msg)}</div>` +
+      (timeout > 0 ? `<div class="toast-timer" style="animation-duration:${timeout}ms"></div>` : '');
+    host.appendChild(t);
+    let killed = false;
+    const dismiss = () => {
+      if (killed) return; killed = true;
+      if (reduceMotion()) { t.remove(); return; }
+      t.classList.add('leaving');
+      t.addEventListener('animationend', () => t.remove(), { once: true });
+      setTimeout(() => { if (t.parentNode) t.remove(); }, 350);   // fallback
+    };
+    t.addEventListener('click', dismiss);
+    if (timeout > 0) setTimeout(dismiss, timeout);
+    return dismiss;
+  }
+
+  // ============================================================
+  //  CMD-K COMMAND PALETTE  (Feature 4) — zero-dep, fuzzy filter
+  //  Ctrl/Cmd-K opens; Esc/backdrop closes; ↑/↓ move; Enter/click run.
+  //  Built from page-agnostic nav commands + page-conditional ones
+  //  (RUN/PAUSE/STOP, dev flag toggles) only when those controls exist.
+  // ============================================================
+  const NAV_CMDS = [
+    ['Go to Dashboard', 'index.html', 'NAV', '■'],
+    ['Go to Setup', 'setup.html', 'NAV', '■'],
+    ['Go to Help', 'help.html', 'NAV', '■'],
+    ['Go to Accounts', 'accounts.html', 'NAV', '■'],
+    ['Go to Diag / AI', 'diag.html', 'NAV', '■'],
+    ['Go to Career History', 'history.html', 'NAV', '■'],
+    ['Go to Log Viewer', 'logview.html', 'NAV', '■'],
+  ];
+  function buildCommands() {
+    const cmds = NAV_CMDS.map(([label, href, cat, ico]) => ({ label, cat, ico, run: () => { location.href = href; } }));
+    cmds.push({ label: 'Open DISPLAY appearance settings', cat: 'VIEW', ico: '◈', run: () => openAppearanceModal() });
+    cmds.push({ label: 'Switch accent theme (cycle)', cat: 'VIEW', ico: '◈',
+      run: () => { const t = cycleTheme(); toast('Accent theme → ' + t, { tone: 'cyan', timeout: 1600 }); } });
+    // page-conditional: transport + dev flags (only if the controls are on this page)
+    const click = (id) => { const b = document.getElementById(id); if (b && !b.disabled) b.click(); };
+    if (document.getElementById('run-btn'))   cmds.push({ label: 'Run career', cat: 'RUN', ico: '▶', run: () => click('run-btn') });
+    if (document.getElementById('pause-btn')) cmds.push({ label: 'Pause / resume career', cat: 'RUN', ico: '❚❚', run: () => click('pause-btn') });
+    if (document.getElementById('stop-btn'))  cmds.push({ label: 'Stop career', cat: 'RUN', ico: '■', run: () => click('stop-btn') });
+    if (document.getElementById('dev-burn'))    cmds.push({ label: 'Toggle BURN clocks flag', cat: 'DEV', ico: '⚙', run: () => click('dev-burn') });
+    if (document.getElementById('dev-finish'))  cmds.push({ label: 'Toggle FINISH-run flag', cat: 'DEV', ico: '⚙', run: () => click('dev-finish') });
+    if (document.getElementById('dev-loop'))    cmds.push({ label: 'Cycle LOOP run-count', cat: 'DEV', ico: '⚙', run: () => click('dev-loop') });
+    if (document.getElementById('dev-intercept')) cmds.push({ label: 'Toggle skill-buy INTERCEPT flag', cat: 'DEV', ico: '⚙', run: () => click('dev-intercept') });
+    return cmds;
+  }
+  // tiny subsequence fuzzy matcher → score (lower = better), with highlight ranges
+  function fuzzy(needle, hay) {
+    needle = needle.toLowerCase(); const h = hay.toLowerCase();
+    if (!needle) return { ok: true, score: 0, hit: [] };
+    let i = 0, score = 0, last = -1; const hit = [];
+    for (let j = 0; j < h.length && i < needle.length; j++) {
+      if (h[j] === needle[i]) { hit.push(j); if (last >= 0) score += (j - last - 1); last = j; i++; }
+    }
+    return i === needle.length ? { ok: true, score, hit } : { ok: false };
+  }
+  function hl(label, hits) {
+    if (!hits || !hits.length) return esc(label);
+    const set = new Set(hits); let out = '';
+    for (let i = 0; i < label.length; i++) out += set.has(i) ? `<b>${esc(label[i])}</b>` : esc(label[i]);
+    return out;
+  }
+  let cmdkOv = null, cmdkCmds = [], cmdkView = [], cmdkSel = 0;
+  function closeCmdk() {
+    if (cmdkOv) { cmdkOv.remove(); cmdkOv = null; }
+    document.removeEventListener('keydown', cmdkKeys, true);
+  }
+  function cmdkRender(q) {
+    const list = cmdkOv.querySelector('.cmdk-list');
+    const scored = [];
+    cmdkCmds.forEach((c) => { const m = fuzzy(q, c.label); if (m.ok) scored.push({ c, score: m.score, hit: m.hit }); });
+    scored.sort((a, b) => a.score - b.score);
+    cmdkView = scored;
+    if (cmdkSel >= scored.length) cmdkSel = Math.max(0, scored.length - 1);
+    if (!scored.length) { list.innerHTML = '<div class="cmdk-empty">No matching command.</div>'; return; }
+    list.innerHTML = scored.map(({ c, hit }, i) =>
+      `<div class="cmdk-row${i === cmdkSel ? ' sel' : ''}" data-i="${i}">
+         <span class="ck-ico">${c.ico || ''}</span>
+         <span class="ck-label">${hl(c.label, hit)}</span>
+         <span class="ck-cat">${esc(c.cat)}</span>
+       </div>`).join('');
+    list.querySelectorAll('.cmdk-row').forEach((row) => {
+      row.addEventListener('mousemove', () => { cmdkSel = Number(row.dataset.i); syncSel(); });
+      row.addEventListener('click', () => runSel(Number(row.dataset.i)));
+    });
+  }
+  function syncSel() {
+    if (!cmdkOv) return;
+    cmdkOv.querySelectorAll('.cmdk-row').forEach((r) => r.classList.toggle('sel', Number(r.dataset.i) === cmdkSel));
+    const sel = cmdkOv.querySelector('.cmdk-row.sel');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+  function runSel(i) {
+    const item = cmdkView[i != null ? i : cmdkSel];
+    closeCmdk();
+    if (item && item.c && typeof item.c.run === 'function') { try { item.c.run(); } catch (e) {} }
+  }
+  function cmdkKeys(e) {
+    if (!cmdkOv) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeCmdk(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); cmdkSel = Math.min(cmdkView.length - 1, cmdkSel + 1); syncSel(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cmdkSel = Math.max(0, cmdkSel - 1); syncSel(); }
+    else if (e.key === 'Enter') { e.preventDefault(); runSel(); }
+  }
+  function openCmdk() {
+    if (cmdkOv) return;
+    ensureCoolCss();
+    cmdkCmds = buildCommands(); cmdkSel = 0;
+    cmdkOv = document.createElement('div');
+    cmdkOv.className = 'cmdk-ov';
+    cmdkOv.innerHTML = `
+      <div class="cmdk" role="dialog" aria-modal="true" aria-label="Command palette">
+        <div class="cmdk-search">
+          <span class="glyph">›</span>
+          <input class="cmdk-input" type="text" placeholder="Type a command…" autocomplete="off" spellcheck="false">
+          <span class="cmdk-hint">ESC</span>
+        </div>
+        <div class="cmdk-list"></div>
+      </div>`;
+    document.body.appendChild(cmdkOv);
+    cmdkOv.addEventListener('mousedown', (e) => { if (e.target === cmdkOv) closeCmdk(); });
+    const inp = cmdkOv.querySelector('.cmdk-input');
+    inp.addEventListener('input', () => { cmdkSel = 0; cmdkRender(inp.value.trim()); });
+    cmdkRender('');
+    document.addEventListener('keydown', cmdkKeys, true);
+    setTimeout(() => inp.focus(), 0);
+  }
+  function bindCmdk() {
+    if (document._cmdkBound) return;
+    document._cmdkBound = true;
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        if (cmdkOv) closeCmdk(); else openCmdk();
+      }
+    });
+  }
+
+  // ============================================================
+  //  CRT VEIL  (Feature 5) — one fixed overlay; intensity via --crt 0..1.
+  //  OFF by default (no flicker). Slider added to the DISPLAY panel below.
+  // ============================================================
+  const CRT_LEVELS = [['off', 'Off', 0], ['low', 'Low', 0.4], ['med', 'Med', 0.8]];
+  function getCrt() {
+    const v = localStorage.getItem('icarus_crt');
+    return CRT_LEVELS.some((c) => c[0] === v) ? v : 'off';
+  }
+  function applyCrt(key) {
+    const lvl = CRT_LEVELS.find((c) => c[0] === key) || CRT_LEVELS[0];
+    document.documentElement.style.setProperty('--crt', String(lvl[2]));
+    let veil = document.getElementById('crt-veil');
+    if (lvl[2] > 0 && !veil) {
+      ensureCoolCss();
+      veil = document.createElement('div');
+      veil.id = 'crt-veil'; veil.className = 'crt-veil'; veil.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(veil);
+    }
+  }
+  function setCrt(key) {
+    if (!CRT_LEVELS.some((c) => c[0] === key)) key = 'off';
+    try { localStorage.setItem('icarus_crt', key); } catch (e) { /* ignore */ }
+    applyCrt(key);
+  }
+
+  // ============================================================
+  //  TAB STATUS BADGES  (Feature 6) — live dot on the active tab + a ⚠
+  //  marker on the DIAG / AI tab when the AI model is unhealthy/untrained.
+  // ============================================================
+  function _activeTab() {
+    return document.querySelector('.tabs .tab.is-active') ||
+      (function () {
+        // fallback: match by filename when no .is-active is set
+        const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+        return Array.from(document.querySelectorAll('.tabs .tab')).find(
+          (a) => (a.getAttribute('href') || '').toLowerCase() === here);
+      })();
+  }
+  function updateTabBadges(runner) {
+    const active = _activeTab();
+    if (active) {
+      let dot = active.querySelector('.tab-stat-dot');
+      if (!dot) { dot = document.createElement('span'); dot.className = 'tab-stat-dot'; active.appendChild(dot); }
+      const cls = runner && runner.running ? '' : (runner && runner.paused ? 'is-paused' : 'is-idle');
+      dot.className = 'tab-stat-dot' + (cls ? ' ' + cls : '');
+    }
+  }
+  // Lightweight AI-health probe → ⚠ on the DIAG / AI tab when untrained/unhealthy.
+  let _aiHealthChecked = false;
+  function checkAiHealth() {
+    if (_aiHealthChecked) return; _aiHealthChecked = true;
+    const tab = Array.from(document.querySelectorAll('.tabs .tab'))
+      .find((a) => /diag\.html$/i.test(a.getAttribute('href') || ''));
+    if (!tab) return;
+    api('/api/ai/status').then((d) => {
+      // healthy = request OK AND a model exists (version) AND not flagged untrained
+      const healthy = !!(d && d.success !== false && (d.version || d.model_version ||
+        (d.turn_decisions && (d.turn_decisions.rows || d.turn_decisions.live_rows))));
+      let warn = tab.querySelector('.tab-warn');
+      if (!healthy) {
+        if (!warn) { warn = document.createElement('span'); warn.className = 'tab-warn'; warn.title = 'AI model untrained or unhealthy'; warn.textContent = '⚠'; tab.appendChild(warn); }
+      } else if (warn) { warn.remove(); }
+    }).catch(() => { /* offline → leave the tab unmarked */ });
   }
 
   // ============================================================
@@ -827,6 +1221,7 @@ window.Icarus = (() => {
     const size = appPref('size', 'normal');
     applyFontScale(FS_SCALES[size] != null ? size : 'normal');
     ['body', 'head', 'num'].forEach((role) => applyFont(role, appPref(role, FONT_ROLES[role][1][0][0])));
+    applyCrt(getCrt());   // CRT veil (Feature 5) — same persisted-pref lifecycle
   }
 
   function openAppearanceModal() {
@@ -847,6 +1242,9 @@ window.Icarus = (() => {
     const curTheme = localStorage.getItem('icarus_theme') || 'amber';
     const themeBtns = THEMES.map((t) =>
       `<button class="segbtn${t === curTheme ? ' on' : ''}" type="button" data-theme-pick="${t}" style="text-transform:capitalize">${t}</button>`).join('');
+    const curCrt = getCrt();
+    const crtBtns = CRT_LEVELS.map(([k, t]) =>
+      `<button class="segbtn${k === curCrt ? ' on' : ''}" type="button" data-crt="${k}">${t}</button>`).join('');
     const body = `
       <div class="fsec">
         <div class="fsec-title">TEXT SIZE</div>
@@ -869,6 +1267,14 @@ window.Icarus = (() => {
           <div class="segrow" id="ap-theme">${themeBtns}</div>
           <div class="field-help">Highlight colour (also cycles by clicking the ICARUS logo).</div>
         </div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-title">SCREEN EFFECT</div>
+        <div class="field">
+          <div class="field-label">CRT screen effect <span class="val" id="ap-crt-val">${esc((CRT_LEVELS.find((c) => c[0] === getCrt()) || CRT_LEVELS[0])[1])}</span></div>
+          <div class="segrow" id="ap-crt">${crtBtns}</div>
+          <div class="field-help">Subtle scanlines + a soft corner vignette over the whole app. Off by default; never flickers (accessibility-safe).</div>
+        </div>
       </div>`;
     const o = modal({ title: 'DISPLAY', sub: 'appearance', body });
     o.querySelectorAll('#ap-size .segbtn').forEach((b) => b.addEventListener('click', () => {
@@ -883,6 +1289,11 @@ window.Icarus = (() => {
       applyFont(role, s.value);
     }));
     o.querySelectorAll('#ap-theme .segbtn').forEach((b) => b.addEventListener('click', () => applyTheme(b.dataset.themePick)));
+    o.querySelectorAll('#ap-crt .segbtn').forEach((b) => b.addEventListener('click', () => {
+      setCrt(b.dataset.crt);
+      const v = o.querySelector('#ap-crt-val');
+      if (v) v.textContent = (CRT_LEVELS.find((c) => c[0] === b.dataset.crt) || CRT_LEVELS[0])[1];
+    }));
   }
 
   // Inject the DISPLAY button into the (every-page) .rail-toggles, left of LOGOUT.
@@ -903,6 +1314,12 @@ window.Icarus = (() => {
   // alone left the button missing there; doing it at module load fixes all pages.
   // Idempotent + guarded against a double-mount when a page also calls mountChrome().
   mountAppearance();
+  // The dashboard's app.js calls bindTheme()/mountMonitor() but NOT mountChrome(),
+  // so self-mount the page-agnostic chrome upgrades at module load too. All guarded
+  // (document._cmdkBound / _aiHealthChecked) so a page that DOES call mountChrome
+  // won't double-bind.
+  bindCmdk();
+  checkAiHealth();
 
   // ============================================================
   //  STEAM LOGIN GATE
@@ -1024,6 +1441,8 @@ window.Icarus = (() => {
     mountAppearance();
     bindDevToggles();
     mountMonitor();
+    bindCmdk();          // Ctrl/Cmd-K command palette (Feature 4)
+    checkAiHealth();     // ⚠ on DIAG/AI tab when the model is untrained (Feature 6)
     wireLogout();
     ensureAuth();
     pollChrome();
@@ -1136,5 +1555,11 @@ window.Icarus = (() => {
     setMonitor,        // feed the bottom MONITOR dock real rows from a live snapshot
     renderLifetime,    // bordered lifetime metrics in the navbar (fed the raw runner)
     applyTraineeTheme, clearTraineeTheme,   // recolour the accent to the active trainee
+    // ---- cool-core chrome upgrades ----
+    toast,             // window.Icarus.toast(msg, {tone:'amber|green|red|cyan', timeout}) — shared, other modules call this
+    openCmdk, bindCmdk,            // Ctrl/Cmd-K command palette (also self-binds)
+    setCrt, getCrt,                // CRT veil level (persisted)
+    cycleTheme,                    // accent-theme cycle (shared with the palette)
+    updateTabBadges, checkAiHealth, // tab status dot + DIAG/AI ⚠ marker
   };
 })();

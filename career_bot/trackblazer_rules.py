@@ -271,32 +271,3 @@ EVENT_MOOD_BONUS_BY_MOTIVATION = {
     4: 60,
     5: 0,
 }
-
-
-# FORK: (nirio) fork-only tuning constants
-# Mega/anklet/cashout removed — superseded by upstream v3.2.2 dump-mode floor-drop.
-
-DEFAULT_NIRIO_SKILL_FORCE_TURN = 60
-DEFAULT_NIRIO_SKILL_SP_FLOOR = 500
-DEFAULT_NIRIO_SKILL_HOARD_THRESHOLD = 1000
-
-DEFAULT_NIRIO_MOOD_FLOOR = 2
-DEFAULT_NIRIO_MOOD_REPAIR_TURN = 50
-DEFAULT_NIRIO_MOOD_CRITICAL_TURN = 68
-
-DEFAULT_NIRIO_CHARM_DUMP_TURN = 60
-DEFAULT_NIRIO_CHARM_DUMP_MIN_GAIN = 8
-DEFAULT_NIRIO_CHARM_DUMP_FAILURE_RATE = 10
-
-DEFAULT_NIRIO_WHISTLE_DUMP_TURN = 60
-DEFAULT_NIRIO_WHISTLE_DUMP_SCORE = 20
-
-DEFAULT_NIRIO_MCH_RESERVE = 3
-
-# FORK: (nirio) reverse-priority final Climax hammer allocation (T78 > T76 > T74).
-# final_mch_required: how many MCH to keep protected for later races; with 2, T74 only
-# gets a MCH if 3+ are available. final_artisan_reserve: Artisan fallback protection.
-DEFAULT_NIRIO_FINAL_MCH_REQUIRED = 2
-DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE = 1
-
-DEFAULT_NIRIO_CHAIN_MOOD_FLOOR = 2

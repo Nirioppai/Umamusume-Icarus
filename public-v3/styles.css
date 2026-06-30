@@ -168,9 +168,9 @@ body:has(.app--cockpit) {
   border: 1px solid var(--line-card); border-radius: 4px;
   background: var(--card); padding: 4px 11px; min-width: 0;
 }
-.lm-cell-k { font: 600 var(--fs-2xs) var(--cond); letter-spacing: .14em; color: var(--label); white-space: nowrap; }
+.lm-cell-k { font: 700 var(--fs-2xs) var(--sans); letter-spacing: .14em; color: var(--label); white-space: nowrap; }
 .lm-cell-v { font: 700 var(--fs-lg) var(--mono); color: var(--amber); margin-top: 2px; white-space: nowrap; }
-.pill-k { font: 600 var(--fs-xs) var(--cond); letter-spacing: .18em; color: var(--label); }
+.pill-k { font: 700 var(--fs-xs) var(--sans); letter-spacing: .18em; color: var(--label); }
 .pill-v { font: 700 var(--fs-2xl) var(--mono); color: var(--ink-2); margin-top: 2px; white-space: nowrap; }
 .pill-v .sub { color: var(--dim); font-weight: 400; }
 .pill-v.is-amber { color: var(--amber); }
@@ -276,12 +276,12 @@ body:has(.app--cockpit) {
 .kv-v { font: 600 var(--fs-md) var(--mono); }
 
 .attr-title { font: 600 var(--fs-xs) var(--cond); letter-spacing: .18em; color: var(--label); margin-bottom: 10px; }
-.attr { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.attr { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; }
 .attr:last-child { margin-bottom: 0; }
-.attr-k { width: 30px; font: 600 var(--fs-sm) var(--cond); letter-spacing: .1em; color: var(--label); }
-.attr-track { flex: 1; height: 5px; background: #16181d; }
-.attr-bar { height: 100%; background: #3a4150; }
-.attr-v { font: 600 var(--fs-md) var(--mono); color: var(--ink-2); width: 32px; text-align: right; }
+.attr-k { width: 38px; font: 700 var(--fs-md) var(--cond); letter-spacing: .1em; color: var(--label); }
+.attr-track { flex: 1; height: 9px; background: #16181d; border-radius: 2px; }
+.attr-bar { height: 100%; background: #3a4150; border-radius: 2px; }
+.attr-v { font: 700 var(--fs-lg) var(--mono); color: var(--ink-2); width: 46px; text-align: right; }
 
 /* lifetime metrics */
 .lm-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -327,9 +327,13 @@ body:has(.app--cockpit) {
   letter-spacing: .18em;
 }
 .transport .tbtn#run-btn { min-width: 240px; }
-/* LOGOUT pinned to the right of the transport bar (run/pause/stop stay centred) */
-.transport .transport-logout {
+/* INTERCEPT + LOGOUT pinned to the right of the transport bar (run/pause/stop stay centred) */
+.transport .transport-right {
   position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 10px;
+}
+.transport .transport-right #dev-intercept { padding: 10px 14px; }
+.transport .transport-logout {
   flex: none; width: auto; min-width: 110px; padding: 11px 18px; letter-spacing: .14em;
 }
 
@@ -370,7 +374,7 @@ body:has(.app--cockpit) {
 .log-target { font: 500 var(--fs-md) var(--mono); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .log-target.is-mut { color: var(--label); }
 .log-hp { font: 700 var(--fs-md) var(--mono); }
-.log-mood { font: 500 var(--fs-md) var(--mono); color: var(--label); }
+.log-mood { font: 700 var(--fs-md) var(--mono); color: var(--label); }
 
 /* reasoning column — grows to absorb the width freed by the compact Action Log */
 .reason { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -697,6 +701,50 @@ body:has(.app--cockpit) {
   padding: 6px 10px; font: 600 var(--fs-md) var(--mono); color: var(--ink-2);
 }
 .sparkchip .stars { color: var(--amber); letter-spacing: 1px; font-size: var(--fs-sm); }
+/* spark stars: gained = bright gold + glow; remaining = dim ghost (easy to read at a glance) */
+.sparkchip .stars-on { color: #ffd84a; text-shadow: 0 0 6px rgba(255, 205, 70, .6); }
+.sparkchip .stars-off { color: var(--ghost); }
+/* race-history mood badge (mirrors .hpbadge) */
+.moodbadge { display: inline-block; font: 700 var(--fs-2xs) var(--mono); padding: 1px 5px; border-radius: 3px; margin-right: 7px; letter-spacing: .04em; }
+.moodbadge.mood-g { background: #0e2418; color: var(--green); }
+.moodbadge.mood-a { background: var(--amber-dk); color: var(--amber); }
+.moodbadge.mood-r { background: #2a1416; color: var(--red); }
+/* --- v3 visual polish (2026-06-29, layout-safe: glow/transition only) --- */
+.rcard.is-current { box-shadow: 0 0 22px -8px var(--amber); }
+.log-row.is-current { box-shadow: inset 0 0 16px -10px var(--red); }
+.kpi-v.amber, .kpi-v.green, .kpi-v.cyan, .scard-v.amber, .prof-circle { text-shadow: 0 0 14px rgba(255, 255, 255, .07); }
+.abtn, .btn, .tog, .dev-btn, .seg { transition: border-color .14s ease, background .14s ease, color .14s ease, box-shadow .14s ease; }
+.statbox { transition: border-color .15s ease, box-shadow .15s ease; }
+.statbox:hover { border-color: var(--line-card); box-shadow: 0 6px 20px -10px rgba(0, 0, 0, .6); }
+/* #1 animated stat / attribute bars (ease width changes instead of snapping) */
+.attr-bar, .barmini > div, .hp-fill { transition: width .55s cubic-bezier(.4, 0, .2, 1), background .4s ease; }
+/* #5 current decision card gently breathes (0/100 endpoints identical -> seamless across the 1.5s poll re-render) */
+@keyframes cardbreathe { 0%, 100% { box-shadow: 0 0 12px -11px var(--amber); } 50% { box-shadow: 0 0 18px -9px var(--amber); } }
+.rcard.is-current { animation: cardbreathe 7s ease-in-out infinite; }
+/* #3 race-win highlight on the action-log row */
+.log-1st {
+  display: inline-block; margin-left: 7px; padding: 0 5px; border-radius: 3px;
+  font: 700 var(--fs-2xs) var(--mono); letter-spacing: .08em; vertical-align: middle;
+  color: var(--amber); background: rgba(242, 169, 0, .14);
+}
+
+/* Career History → per-row log icon (left list) */
+.listrow-right { display: flex; align-items: center; gap: 7px; flex: none; }
+.listrow-right .rowlog { font-size: var(--fs-sm); line-height: 1; text-decoration: none; opacity: .5; }
+.listrow-right .rowlog:hover { opacity: 1; }
+
+/* Career History → log viewer button (in the career profile header) */
+.prof-id .loglink {
+  display: inline-block; margin-top: 10px; padding: 6px 13px; border-radius: 5px;
+  font: 700 var(--fs-xs) var(--cond); letter-spacing: .12em; text-decoration: none;
+  color: var(--panel); background: var(--amber);
+}
+.prof-id .loglink:hover { filter: brightness(1.12); }
+/* #2 per-trainee accent wash on the vitals trainee block (uses the live themed --amber-bd set per trainee) */
+.vitals .vitals-block:first-child { background: linear-gradient(165deg, var(--amber-bd) -30%, transparent 55%); }
+/* #6 idle / empty-state placeholder for the live panels */
+.feed-idle { padding: 42px 24px; text-align: center; color: var(--dim); font: 500 var(--fs-md)/1.7 var(--mono); }
+.feed-idle b { color: var(--amber); }
 .sparkchip .pts { color: var(--green); font: 600 var(--fs-sm) var(--mono); }
 /* skills gained chips (career history) */
 .skillchip { display: inline-flex; align-items: center; background: var(--bar); border: 1px solid var(--line-card); border-radius: 4px; padding: 4px 9px; font: 600 var(--fs-sm) var(--mono); color: var(--ink-2); }

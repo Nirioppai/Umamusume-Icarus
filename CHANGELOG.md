@@ -1,5 +1,45 @@
 # Changelog
 
+## v3.2.5 (2026-06-29)
+
+A big visual pass: the dashboard, Career History, and Log Viewer gain real data-driven charts, an instrument-cockpit feel, and a batch of quality-of-life touches — all vanilla JS/CSS and offline-safe.
+
+**Added / Changed**
+- **Real telemetry chart** — the dashboard monitor's stat graph is now driven by your ACTUAL per-turn stat history (five live stat lines + a faint SP line, gridlines, a crosshair hover tooltip, draw-on animation), replacing the previous placeholder graphic.
+- **78-Turn Career Heatmap** (Log Viewer) — a GitHub-contribution-style mosaic of a whole career: 3 season rows × 26 turns, each cell tinted by stat-gain intensity, with rings on race wins/places/losses, an HP-critical pulse, and a star on skill-buy turns. In the Overview and All tabs.
+- **Race replay** — a flight-recorder / bar-chart-race replay of any finished race (a lane per horse animating to the finish line, then a 1st/2nd/3rd podium) — in both the Log Viewer's Races tab and on each Career History race row.
+- **Attribute radar** — a pentagon "radar" view of the five stats (toggle alongside the bars) on the dashboard and the Career History profile, with a faint target overlay (from your preset's stat targets, or a labeled cap reference).
+- **Head-to-head compare** (Career History) — a clear, guided two-pick flow (a COMPARE RUNS bar → click a second run) opens a VS overlay of two careers: mirrored radars, diverging bars, and a verdict.
+- **Holo trainee cards** — career profiles get a rarity border + a pointer-tilt foil sheen.
+- **Vitals instruments** — an optional ECG "heartline" for HP (beats faster as HP drops) plus a mood arc gauge, alongside the existing HP bar.
+- **Win-probability views** — a sweeping radar "scope" and a forecast→actual calibration gauge per race. (These populate once the win-probability model is wired to emit per-race odds.)
+- **Cockpit touches** — a typed boot sequence when you press RUN CAREER, and an optional CRT scanline/vignette veil (Off/Low/Med slider in the DISPLAY panel, off by default).
+- **Quality of life** — rolling-digit lifetime counters, a ⌘/Ctrl-K command palette (run/stop, navigate, switch theme, open DISPLAY, dev flags), toast notifications (skill bought / error / first-place win), a tiny confetti pop right at the "1ST" badge on a win, and live status dots on the tabs (with a ⚠ on DIAG when the model is unhealthy).
+
+## v3.2.4 (2026-06-29)
+
+Builds on v3.2.3 with the new Display panel on every page, opponent-aware win-probability that self-calibrates from your own races (and can backfill your entire log history), a fully wired AI / Diagnostics page, a Career Log Viewer wired into Career History, and a large round of dashboard & career-history fixes plus readability and visual polish.
+
+**Fixed**
+- The DISPLAY (appearance) button now appears on EVERY page, including the Dashboard and Setup where it was missing. LOGOUT moved down into the transport bar next to RUN / PAUSE / STOP, DISPLAY took its old navbar spot, and it now has a ⚙ gear like Tempt Fate / Retries.
+- Decision Reasoning now shows the Master Cleat Hammer on the FIRST climax race (it previously only appeared on later climaxes). The race row was recorded before the pre-race item fired, so each race showed the previous race's items — now patched to the items actually used that turn.
+- Every AI / Diagnostics action button is now wired to its (already-working) backend: Rebuild Dataset, Import Logs, Train Now, Download Model, View Post-Run, Backtest, and the Local LLM Test / Analyze Run; the Local LLM endpoint and model are now editable and saved. Previously these buttons did nothing.
+- The Diag/AI "Live API" stream now sits in a fixed, scrollable box instead of growing endlessly down the page, and its error / non-OK rows are colored correctly.
+- Decision Reasoning training lines no longer show the internal "trackblazer:" prefix.
+- Career History: the number in the top-right of each run now shows the career's grade/rank (it was the run's session number, mislabeled as a rating).
+
+**Added / Changed**
+- New DISPLAY appearance panel: scale the whole UI's text size (Small / Normal / Large / X-Large) and choose your own Body / Heading / Numeric fonts from a curated Google-Fonts list (including the high-legibility Atkinson Hyperlegible), plus the accent theme — all remembered per device. Under the hood every font size moved into one centralized CSS type-scale config.
+- New Career Log Viewer: every completed run in Career History now has a VIEW FULL LOG button (and a 📋 icon on each list row) that opens a dedicated, Icarus-themed viewer for that run — turn-by-turn actions, stats over time, shop / item / skill usage, full race results, and per-run metrics, all loaded straight from your saved logs. You can also browse every saved log from the viewer's Server Logs button, or drag in logs shared by others.
+- Opponent-aware race win-probability now SELF-CALIBRATES: after each career the bot fits its own model from your real race results (the full finishing order of the field) and automatically uses the calibrated value once enough races have accrued. A new "Win Probability Model" card on the Diag/AI page shows its live status — calibrated / learning, races logged, fitted scale, Brier vs baseline, and field concordance. A "Backfill from logs" button feeds your entire saved-career history into the model in one pass (including careers run before self-calibration existed), and it learns whole-field strength→finish data even from races without a named rival.
+- Removed the defunct "Style Adaptation" section from Diag/AI.
+- Dashboard Attributes are larger and easier to read — the SPD / STA / PWR / GUT / WIT / SP labels, bars, and values are all bigger — and the bars now animate smoothly when a stat goes up. The attribute glow now follows the stat you most recently trained (Skill Points keep their own amber glow) instead of always highlighting Speed.
+- Action Log: HP and MOOD now change color (green → amber → red) by percentage of the cap (so it stays accurate as the HP ceiling grows), and a 1st-place finish is marked with a small amber "1ST" tag on the race row.
+- The top navbar's metric labels (TP, Carrots, Gold, Clocks, Career, Fan Gain, …) are now bold and follow your selected Body font; "Career Fans" is now labeled "Current".
+- Setup: the slot labels (Trainee / Parent / Deck / Friend) are larger and bolder.
+- Career History: each run now shows its completion timestamp; gained spark stars are brighter and easier to read; and each race in the race history shows the trainee's mood.
+- Visual polish: a per-trainee accent wash on the portrait, a gently "breathing" current decision card (now slow and subtle), and clean idle states for the live panels before a run starts.
+
 ## v3.2.3 (2026-06-29)
 
 Adds a **Display** (appearance) panel — scale the whole interface's text size and pick your own fonts — plus a single centralized type-scale config under the hood.

@@ -1,0 +1,468 @@
+/* ============================================================
+   ICARUS · Command Console (v3) — Career History upgrades
+   Owned + lazy-injected by history.js (NOT loaded by any HTML).
+   Everything themes off the existing tokens in styles.css:
+     --amber (per-trainee accent) · --green/--red/--cyan
+     --panel/--bar/--card/--line/--label/--ink · --fs-* ramp
+   The place palette mirrors styles.css .pl-1/.pl-2/.pl-3:
+     1st = --amber  ·  2nd = #9fb4d8  ·  3rd = #d8a85a
+   Tasteful + understated; all motion degrades under
+   prefers-reduced-motion / no-pointer.
+   ============================================================ */
+
+/* place tones reused across heatmap / ribbon / scope (local aliases) */
+.ch-x {
+  --ch-p1: var(--amber);
+  --ch-p2: #9fb4d8;
+  --ch-p3: #d8a85a;
+}
+
+/* shared section wrapper inside the profile (mirrors .prof-sec rhythm) */
+.ch-sec { padding: 4px 18px 18px; }
+.ch-sec-hd { display: flex; align-items: baseline; gap: 12px; margin-bottom: 11px; }
+.ch-sec-t { font: 700 var(--fs-md) var(--cond); letter-spacing: .18em; color: var(--ink); }
+.ch-sec-note { font: 500 var(--fs-xs) var(--mono); color: var(--dim); }
+.ch-sec-spacer { flex: 1; }
+
+/* ============================================================
+   1) 78-TURN CAREER HEATMAP
+   ============================================================ */
+.ch-heat { display: flex; flex-direction: column; gap: 5px; }
+.ch-heat-yr { display: grid; grid-template-columns: 56px 1fr; align-items: center; gap: 10px; }
+.ch-heat-yk { font: 600 var(--fs-xs) var(--cond); letter-spacing: .12em; color: var(--label); white-space: nowrap; }
+.ch-heat-cells { display: grid; grid-template-columns: repeat(26, 1fr); gap: 3px; }
+.ch-cell {
+  position: relative; aspect-ratio: 1 / 1; min-height: 11px; border-radius: 2px;
+  background: var(--card); border: 1px solid var(--line-soft);
+  cursor: default; transition: transform .1s ease, box-shadow .1s ease;
+}
+.ch-cell:hover { transform: scale(1.18); box-shadow: 0 0 0 1px var(--ghost); z-index: 2; }
+.ch-cell.is-empty { opacity: .55; }
+/* training intensity (faint amber wash, 0..4 buckets) — used when stat-gain known */
+.ch-cell.t1 { background: color-mix(in srgb, var(--amber) 12%, var(--card)); border-color: var(--amber-dk); }
+.ch-cell.t2 { background: color-mix(in srgb, var(--amber) 24%, var(--card)); border-color: var(--amber-dk); }
+.ch-cell.t3 { background: color-mix(in srgb, var(--amber) 40%, var(--card)); border-color: var(--amber-bd); }
+.ch-cell.t4 { background: color-mix(in srgb, var(--amber) 58%, var(--card)); border-color: var(--amber-bd); }
+/* faint accent for training turns when NO stat-gain intensity is available */
+.ch-cell.is-train { background: color-mix(in srgb, var(--amber) 9%, var(--card)); border-color: var(--amber-dk); }
+.ch-cell.is-rest { background: color-mix(in srgb, var(--cyan) 14%, var(--card)); border-color: var(--cyan-bd); }
+/* race outcomes: win = green ring, placed (top3) = amber, also-ran = red-ish */
+.ch-cell.is-win { background: color-mix(in srgb, var(--green) 30%, var(--card)); box-shadow: inset 0 0 0 1.5px var(--green); border-color: var(--green-bd); }
+.ch-cell.is-placed { background: color-mix(in srgb, var(--amber) 36%, var(--card)); box-shadow: inset 0 0 0 1.5px var(--amber); border-color: var(--amber-bd); }
+.ch-cell.is-ran { background: color-mix(in srgb, var(--red) 22%, var(--card)); box-shadow: inset 0 0 0 1px var(--red-bd); border-color: var(--red-bd); }
+/* skill-buy star glyph (top-right corner pip) */
+.ch-cell.has-skill::after {
+  content: '\2605'; position: absolute; top: -3px; right: -2px;
+  font-size: var(--fs-2xs); line-height: 1; color: #ffd84a;
+  text-shadow: 0 0 4px rgba(255, 205, 70, .7); pointer-events: none;
+}
+.ch-heat-legend { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 10px; }
+.ch-heat-legend span { display: inline-flex; align-items: center; gap: 6px; font: 600 var(--fs-xs) var(--mono); color: var(--label); }
+.ch-heat-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.ch-heat-legend i.lg-win { background: color-mix(in srgb, var(--green) 30%, var(--card)); box-shadow: inset 0 0 0 1.5px var(--green); }
+.ch-heat-legend i.lg-placed { background: color-mix(in srgb, var(--amber) 36%, var(--card)); box-shadow: inset 0 0 0 1.5px var(--amber); }
+.ch-heat-legend i.lg-ran { background: color-mix(in srgb, var(--red) 22%, var(--card)); box-shadow: inset 0 0 0 1px var(--red-bd); }
+.ch-heat-legend i.lg-train { background: color-mix(in srgb, var(--amber) 40%, var(--card)); }
+.ch-heat-legend i.lg-rest { background: color-mix(in srgb, var(--cyan) 14%, var(--card)); }
+.ch-heat-legend i.lg-skill { background: none; box-shadow: none; color: #ffd84a; text-align: center; font-size: var(--fs-sm); }
+
+/* floating cell tooltip (single shared node) */
+.ch-tip {
+  position: fixed; z-index: 250; pointer-events: none;
+  max-width: 220px; padding: 7px 10px; border-radius: 5px;
+  background: rgba(8, 10, 14, .96); border: 1px solid var(--line-card);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .6);
+  font: 500 var(--fs-sm)/1.45 var(--mono); color: var(--ink-2);
+  opacity: 0; transform: translateY(3px); transition: opacity .1s ease;
+}
+.ch-tip.show { opacity: 1; transform: translateY(0); }
+.ch-tip b { color: var(--amber); font-weight: 700; }
+.ch-tip .win { color: var(--green); } .ch-tip .placed { color: var(--amber); } .ch-tip .ran { color: var(--red); }
+
+/* ============================================================
+   2) RACE TRACE RIBBON  (inline SVG)
+   ============================================================ */
+.ch-trace { border: 1px solid var(--line); border-radius: 6px; background: var(--bar); padding: 12px 14px 8px; }
+.ch-trace svg { width: 100%; height: auto; display: block; overflow: visible; }
+.ch-trace .tr-grid { stroke: var(--line-soft); stroke-width: 1; }
+.ch-trace .tr-grid-lbl { fill: var(--dim); font: 600 var(--fs-2xs) var(--mono); }
+.ch-trace .tr-line { fill: none; stroke: var(--amber); stroke-width: 1.6; opacity: .55; }
+.ch-trace .tr-area { fill: var(--amber); opacity: .05; }
+.ch-trace .tr-dot { stroke: var(--panel); stroke-width: 1; transition: r .12s ease; cursor: default; }
+.ch-trace .tr-dot:hover { r: 5.5; }
+.ch-trace .tr-dot.p1 { fill: var(--amber); }
+.ch-trace .tr-dot.p2 { fill: #9fb4d8; }
+.ch-trace .tr-dot.p3 { fill: #d8a85a; }
+.ch-trace .tr-dot.px { fill: var(--label); }
+.ch-trace-foot { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 6px; }
+.ch-trace-foot span { display: inline-flex; align-items: center; gap: 6px; font: 600 var(--fs-2xs) var(--mono); color: var(--label); }
+.ch-trace-foot i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.ch-trace-foot i.p1 { background: var(--amber); } .ch-trace-foot i.p2 { background: #9fb4d8; }
+.ch-trace-foot i.p3 { background: #d8a85a; } .ch-trace-foot i.px { background: var(--label); }
+@keyframes ch-trace-draw { to { stroke-dashoffset: 0; } }
+.ch-trace .tr-line.animate {
+  stroke-dasharray: var(--tr-len); stroke-dashoffset: var(--tr-len);
+  animation: ch-trace-draw 1s ease forwards;
+}
+
+/* ============================================================
+   3) HOLO TRAINEE CARD  (header + list-row rarity frame)
+   ============================================================ */
+/* rarity frame on the profile avatar — rarity tint set inline via --rar */
+.prof-av.ch-holo {
+  position: relative; isolation: isolate;
+  border: 2px solid var(--rar, var(--amber));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .4), 0 0 14px -4px var(--rar, var(--amber));
+}
+.prof-av.ch-holo .ch-foil {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit;
+  mix-blend-mode: color-dodge; opacity: .42;
+  background:
+    linear-gradient(115deg, transparent 28%, rgba(255,255,255,.5) 46%, transparent 60%),
+    conic-gradient(from var(--foil-a, 140deg) at var(--foil-x, 50%) var(--foil-y, 40%),
+      rgba(255,80,120,.5), rgba(255,210,90,.5), rgba(90,230,160,.5),
+      rgba(90,170,255,.5), rgba(200,120,255,.5), rgba(255,80,120,.5));
+  transition: opacity .18s ease;
+}
+.prof-av.ch-holo .ch-glare {
+  position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit;
+  mix-blend-mode: overlay; opacity: 0;
+  background: radial-gradient(160px circle at var(--foil-x, 50%) var(--foil-y, 40%), rgba(255,255,255,.55), transparent 55%);
+  transition: opacity .18s ease;
+}
+.prof-av.ch-holo.tilt .ch-foil { opacity: .6; }
+.prof-av.ch-holo.tilt .ch-glare { opacity: 1; }
+.prof-av.ch-holo { transition: transform .14s ease, box-shadow .14s ease; transform-style: preserve-3d; }
+/* tiny rarity tag pinned to the avatar corner */
+.prof-av.ch-holo .ch-rar-tag {
+  position: absolute; bottom: -1px; left: -1px; z-index: 5;
+  font: 700 var(--fs-2xs) var(--cond); letter-spacing: .1em;
+  padding: 1px 5px; border-radius: 0 4px 0 4px;
+  color: #0a0c10; background: var(--rar, var(--amber));
+}
+
+/* list-row rarity edge — recolours the existing left border per run rank */
+.listrow.ch-rar { border-left: 2px solid color-mix(in srgb, var(--rar, var(--line-card)) 60%, transparent); }
+.listrow.ch-rar.is-active { border-left-color: var(--rar, var(--amber)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .prof-av.ch-holo .ch-foil { opacity: .18; }
+  .prof-av.ch-holo .ch-glare { display: none; }
+  .prof-av.ch-holo { transform: none !important; }
+}
+/* no fine pointer (touch) → static flat card, no tilt */
+@media (hover: none), (pointer: coarse) {
+  .prof-av.ch-holo .ch-glare { display: none; }
+  .prof-av.ch-holo .ch-foil { opacity: .2; }
+}
+
+/* ============================================================
+   4) HEAD-TO-HEAD COMPARE
+   ============================================================ */
+/* "VS" affordance button (lives in the section header) */
+.ch-vsbtn {
+  font: 600 var(--fs-xs) var(--cond); letter-spacing: .14em; color: var(--cyan);
+  border: 1px solid var(--cyan-bd); background: none; padding: 5px 11px;
+  border-radius: 4px; cursor: pointer;
+}
+.ch-vsbtn:hover { border-color: var(--cyan); }
+.ch-vsbtn.is-on { color: var(--panel); background: var(--cyan); border-color: var(--cyan); }
+
+/* NOTE: the old per-row ".ch-pick" mini-button was replaced by the whole-row
+   "click to compare" affordance — see section 4b (.ch-pickable / .ch-row-tag). */
+
+/* VS overlay body (rendered inside Icarus.modal) */
+.ch-vs { display: flex; flex-direction: column; gap: 16px; }
+.ch-vs-hd { display: grid; grid-template-columns: 1fr 60px 1fr; align-items: center; gap: 12px; }
+.ch-vs-name { font: 700 var(--fs-2xl) var(--cond); letter-spacing: .04em; }
+.ch-vs-name.a { text-align: right; }
+.ch-vs-name.win { color: var(--amber); }
+.ch-vs-name.lose { color: var(--mut); }
+.ch-vs-sub { font: 500 var(--fs-xs) var(--mono); color: var(--label); margin-top: 2px; }
+.ch-vs-vs { text-align: center; font: 700 var(--fs-3xl) var(--cond); letter-spacing: .1em; color: var(--cyan); }
+/* twin radars */
+.ch-vs-radars { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ch-vs-radar { border: 1px solid var(--line); border-radius: 6px; background: var(--bar); padding: 8px; }
+.ch-vs-radar svg { width: 100%; height: auto; display: block; }
+.ch-vs-radar .rd-grid { fill: none; stroke: var(--line-soft); stroke-width: 1; }
+.ch-vs-radar .rd-axis { stroke: var(--line); stroke-width: 1; }
+.ch-vs-radar .rd-lbl { font: 600 var(--fs-2xs) var(--mono); }
+.ch-vs-radar.a .rd-poly { fill: var(--amber); fill-opacity: .22; stroke: var(--amber); stroke-width: 1.6; }
+.ch-vs-radar.b .rd-poly { fill: var(--cyan); fill-opacity: .22; stroke: var(--cyan); stroke-width: 1.6; }
+.ch-vs-radar.lose .rd-poly { fill: var(--label); fill-opacity: .12; stroke: var(--label); }
+.ch-vs-radar.lose { filter: saturate(.35); opacity: .82; }
+/* diverging bars from a centre zero line */
+.ch-vs-bars { display: flex; flex-direction: column; gap: 8px; }
+.ch-vs-bar { display: grid; grid-template-columns: 1fr 92px 1fr; align-items: center; gap: 10px; }
+.ch-vs-bar-k { grid-column: 2; text-align: center; font: 700 var(--fs-2xs) var(--cond); letter-spacing: .12em; color: var(--label); }
+.ch-vs-bar-side { height: 16px; position: relative; background: #16181d; border: 1px solid var(--line-soft); border-radius: 3px; overflow: hidden; }
+.ch-vs-bar-side .fill { position: absolute; top: 0; bottom: 0; }
+.ch-vs-bar-side.a .fill { right: 0; background: var(--amber); }
+.ch-vs-bar-side.b .fill { left: 0; background: var(--cyan); }
+.ch-vs-bar-side.lose .fill { filter: saturate(.3); opacity: .6; }
+.ch-vs-bar-v { position: absolute; top: 50%; transform: translateY(-50%); font: 700 var(--fs-2xs) var(--mono); color: var(--ink); padding: 0 5px; }
+.ch-vs-bar-side.a .ch-vs-bar-v { left: 5px; } .ch-vs-bar-side.b .ch-vs-bar-v { right: 5px; }
+/* verdict tally */
+.ch-vs-verdict { display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 4px; border-top: 1px solid var(--line); }
+.ch-vs-tally { font: 700 var(--fs-4xl) var(--mono); }
+.ch-vs-tally.win { color: var(--amber); } .ch-vs-tally.b.win { color: var(--cyan); } .ch-vs-tally.tie { color: var(--label); }
+.ch-vs-tally-k { font: 600 var(--fs-2xs) var(--cond); letter-spacing: .14em; color: var(--label); }
+.ch-vs-crown { font: 700 var(--fs-lg) var(--cond); letter-spacing: .08em; }
+
+/* ============================================================
+   5) WIN-PROBABILITY RADAR SCOPE
+   ============================================================ */
+/* compact scope appended to a race row's right column + popover */
+.ch-scope {
+  position: relative; width: 64px; height: 64px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--green) 8%, var(--panel)) 0%, var(--panel) 72%);
+  border: 1px solid var(--line-card); overflow: hidden; flex: none; cursor: default;
+}
+.ch-scope.sm { width: 52px; height: 52px; }
+.ch-scope .sc-ring { position: absolute; border: 1px solid var(--line-soft); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.ch-scope .sc-cross { position: absolute; background: var(--line-soft); }
+.ch-scope .sc-cross.h { left: 6%; right: 6%; top: 50%; height: 1px; }
+.ch-scope .sc-cross.v { top: 6%; bottom: 6%; left: 50%; width: 1px; }
+/* sweeping conic beam */
+.ch-scope .sc-sweep {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg, color-mix(in srgb, var(--green) 45%, transparent), transparent 38%);
+  animation: ch-sweep 3.4s linear infinite; opacity: .55;
+}
+@keyframes ch-sweep { to { transform: rotate(360deg); } }
+/* trainee pip (bright centre) */
+.ch-scope .sc-pip {
+  position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; border-radius: 50%;
+  transform: translate(-50%, -50%); background: var(--green);
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--green) 70%, transparent); z-index: 3;
+}
+.ch-scope.lowp .sc-pip { background: var(--amber); box-shadow: 0 0 8px 1px color-mix(in srgb, var(--amber) 70%, transparent); }
+.ch-scope.weakp .sc-pip { background: var(--red); box-shadow: 0 0 8px 1px color-mix(in srgb, var(--red) 70%, transparent); }
+/* rival blips (placed via inline top/left) */
+.ch-scope .sc-blip { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #9fb4d8; transform: translate(-50%, -50%); opacity: .85; z-index: 2; }
+/* centre readout */
+.ch-scope .sc-read {
+  position: absolute; left: 0; right: 0; bottom: 3px; text-align: center;
+  font: 700 var(--fs-2xs) var(--mono); color: var(--ink); z-index: 4;
+  text-shadow: 0 0 4px rgba(0, 0, 0, .9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ch-scope .sc-sweep { animation: none; opacity: .3; }
+}
+
+/* race-row scope wrapper so it nests cleanly into .race-right */
+.ch-scope-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.ch-scope-wrap .sc-cap { font: 600 var(--fs-2xs) var(--cond); letter-spacing: .1em; color: var(--label); }
+
+/* ============================================================
+   1b) FINAL-STATS ATTRIBUTE RADAR  (bars/radar toggle)
+   ============================================================ */
+.prof-sec-t.fs-head { display: flex; align-items: center; gap: 12px; }
+.fs-toggle { display: inline-flex; margin-left: auto; border: 1px solid var(--line-card); border-radius: 5px; overflow: hidden; }
+.fs-tab {
+  font: 700 var(--fs-2xs) var(--cond); letter-spacing: .12em; color: var(--label);
+  background: none; border: none; padding: 3px 10px; cursor: pointer; transition: background .12s, color .12s;
+}
+.fs-tab + .fs-tab { border-left: 1px solid var(--line-card); }
+.fs-tab:hover { color: var(--ink-2); }
+.fs-tab.is-on { color: #0a0c10; background: var(--amber); }
+.fs-view[hidden] { display: none; }
+.ch-statradar { display: flex; justify-content: center; padding: 4px 0 2px; }
+.ch-statradar svg { width: min(100%, 280px); height: auto; }
+.ch-statradar .rd-grid { fill: none; stroke: var(--line-soft); stroke-width: 1; }
+.ch-statradar .rd-cap { fill: none; stroke: var(--label); stroke-width: 1; stroke-dasharray: 3 3; opacity: .55; }
+.ch-statradar .rd-axis { stroke: var(--line); stroke-width: 1; }
+.ch-statradar .rd-poly { fill: var(--amber); fill-opacity: .2; stroke: var(--amber); stroke-width: 1.7; }
+.ch-statradar .rd-lbl { font: 700 var(--fs-2xs) var(--cond); letter-spacing: .1em; fill: var(--label); }
+.ch-statradar .rd-val { font: 700 var(--fs-xs) var(--mono); }
+.ch-statradar-lg { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 2px; }
+.ch-statradar-lg span { display: inline-flex; align-items: center; gap: 6px; font: 600 var(--fs-2xs) var(--mono); color: var(--label); }
+.ch-statradar-lg i { width: 14px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
+.ch-statradar-lg i.lg-poly { border-top-color: var(--amber); }
+.ch-statradar-lg i.lg-cap { border-top-color: var(--label); border-top-style: dashed; }
+
+/* ============================================================
+   3b) FORECAST → ACTUAL  (per-row gauge + career calibration)
+   ============================================================ */
+.ch-fc { display: flex; align-items: center; gap: 8px; margin-top: 7px; flex-wrap: wrap; }
+.ch-fc-k { font: 700 var(--fs-2xs) var(--cond); letter-spacing: .14em; color: var(--label); }
+.ch-fc-track {
+  position: relative; flex: 1; min-width: 120px; max-width: 240px; height: 13px;
+  background: #16181d; border: 1px solid var(--line-soft); border-radius: 3px; overflow: hidden;
+}
+.ch-fc-fill { position: absolute; top: 0; bottom: 0; left: 0; opacity: .5; }
+.ch-fc-fill.g { background: var(--green); } .ch-fc-fill.a { background: var(--amber); } .ch-fc-fill.r { background: var(--red); }
+/* predicted % tick (top of the bar) */
+.ch-fc-pred { position: absolute; top: -1px; bottom: -1px; width: 2px; background: var(--ink-2); transform: translateX(-1px); opacity: .8; }
+/* actual finishing-place marker overlaid on the bar */
+.ch-fc-actual {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  font: 700 var(--fs-2xs) var(--mono); line-height: 1; padding: 1px 3px; border-radius: 3px;
+  color: #0a0c10; white-space: nowrap; z-index: 2;
+}
+.ch-fc-actual.hit { background: var(--green); box-shadow: 0 0 6px -1px var(--green); }
+.ch-fc-actual.upset { background: var(--cyan); box-shadow: 0 0 6px -1px var(--cyan); }
+.ch-fc-actual.miss { background: var(--red); color: #fff; }
+.ch-fc-actual.near { background: var(--amber); }
+.ch-fc-actual.ok { background: var(--label); }
+.ch-fc-pct { font: 700 var(--fs-2xs) var(--mono); color: var(--ink-2); min-width: 28px; }
+.ch-fc-tag { font: 700 var(--fs-2xs) var(--cond); letter-spacing: .1em; }
+
+/* career-wide calibration read (sits above the race list) */
+.ch-cal { border: 1px solid var(--line); border-radius: 6px; background: var(--bar); padding: 11px 14px; margin: 4px 18px 12px; }
+.ch-cal-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 9px; }
+.ch-cal-t { font: 700 var(--fs-md) var(--cond); letter-spacing: .16em; color: var(--ink); }
+.ch-cal-sub { font: 500 var(--fs-xs) var(--mono); color: var(--dim); }
+.ch-cal-body { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.ch-cal-stat { text-align: center; }
+.ch-cal-v { font: 700 var(--fs-3xl) var(--mono); line-height: 1; }
+.ch-cal-k { font: 600 var(--fs-2xs) var(--cond); letter-spacing: .06em; color: var(--label); margin-top: 4px; }
+.ch-cal-strip { margin-left: auto; }
+.ch-cal-strip-k { font: 600 var(--fs-2xs) var(--cond); letter-spacing: .1em; color: var(--label); margin-bottom: 4px; text-align: right; }
+.ch-cal-pips { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.ch-cal-pip { width: 10px; height: 10px; border-radius: 2px; background: var(--label); display: inline-block; }
+.ch-cal-pip.hit { background: var(--green); }
+.ch-cal-pip.upset { background: var(--cyan); }
+.ch-cal-pip.miss { background: var(--red); }
+.ch-cal-pip.near { background: var(--amber); }
+.ch-cal-pip.ok { background: var(--ghost); border: 1px solid var(--line-card); }
+.ch-cal-note { font: 500 var(--fs-xs) var(--mono); color: var(--dim); margin-top: 9px; }
+
+/* ============================================================
+   2b) RACE REPLAY  (flight recorder modal)
+   ============================================================ */
+.ch-replay-btn {
+  font: 700 var(--fs-2xs) var(--cond); letter-spacing: .12em; color: var(--amber);
+  border: 1px solid var(--amber-bd); background: none; padding: 3px 8px; border-radius: 4px;
+  cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s;
+}
+.ch-replay-btn:hover { background: color-mix(in srgb, var(--amber) 14%, transparent); border-color: var(--amber); }
+
+.ch-rp { display: flex; flex-direction: column; gap: 14px; }
+.ch-rp-hd { display: flex; align-items: center; gap: 12px; }
+.ch-rp-meta { font: 600 var(--fs-sm) var(--mono); color: var(--label); flex: 1; }
+.ch-rp-play {
+  font: 700 var(--fs-xs) var(--cond); letter-spacing: .12em; color: var(--panel);
+  background: var(--amber); border: 1px solid var(--amber); padding: 5px 12px; border-radius: 4px; cursor: pointer;
+}
+.ch-rp-play:hover { filter: brightness(1.08); }
+.ch-rp-empty { font: 500 var(--fs-md)/1.5 var(--mono); color: var(--label); padding: 8px 2px; }
+
+/* lanes */
+.ch-rp-lanes { display: flex; flex-direction: column; gap: 5px; }
+.ch-rp-lane { display: grid; grid-template-columns: 34px 1fr 56px; align-items: center; gap: 8px; }
+.ch-rp-lane-k { font: 700 var(--fs-2xs) var(--mono); color: var(--label); text-align: right; }
+.ch-rp-lane.is-player .ch-rp-lane-k { color: var(--amber); }
+.ch-rp-track {
+  position: relative; height: 22px; border-radius: 4px;
+  background: linear-gradient(90deg, #0c0e12, #101319); border: 1px solid var(--line-soft);
+  overflow: hidden;
+}
+/* dashed finish line near the right edge */
+.ch-rp-track::after {
+  content: ''; position: absolute; top: 0; bottom: 0; right: 3%; width: 0;
+  border-left: 2px dashed color-mix(in srgb, var(--amber) 60%, transparent);
+}
+.ch-rp-runner {
+  position: absolute; top: 50%; left: 1%; transform: translate(-2px, -50%);
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  transition: left 1.25s cubic-bezier(.22,.61,.36,1);
+}
+.ch-rp.go .ch-rp-runner { left: var(--fx); }
+.ch-rp .ch-rp-runner { transition-delay: calc(var(--i) * 40ms); }
+.ch-rp-chip {
+  width: 14px; height: 14px; border-radius: 50%; flex: none; display: inline-flex;
+  align-items: center; justify-content: center; font-size: var(--fs-2xs);
+  background: #6b7280; box-shadow: 0 0 0 1px rgba(0,0,0,.5);
+}
+.ch-rp-lane.is-player .ch-rp-chip { background: var(--amber); color: #0a0c10; box-shadow: 0 0 8px -1px var(--amber); }
+.ch-rp-runner.pod1 .ch-rp-chip { box-shadow: 0 0 8px -1px var(--green); }
+.ch-rp-name { font: 600 var(--fs-2xs) var(--mono); color: var(--mut); }
+.ch-rp-name i { color: var(--dim); font-style: normal; }
+.ch-rp-lane.is-player .ch-rp-name { color: var(--ink); }
+.ch-rp-fin { font: 700 var(--fs-2xs) var(--mono); color: var(--label); text-align: left; }
+
+/* podium freeze-frame (hidden until the replay settles) */
+.ch-rp-podium {
+  display: flex; align-items: flex-end; justify-content: center; gap: 14px;
+  min-height: 92px; opacity: 0; transform: translateY(6px);
+  transition: opacity .4s ease, transform .4s ease;
+}
+.ch-rp.done .ch-rp-podium { opacity: 1; transform: translateY(0); }
+.ch-rp-pod { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.ch-rp-pod-medal { font-size: var(--fs-3xl); line-height: 1; }
+.ch-rp-pod-name { font: 700 var(--fs-xs) var(--cond); letter-spacing: .06em; color: var(--mut); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-rp-pod.is-player .ch-rp-pod-name { color: var(--amber); }
+.ch-rp-pod-block {
+  font: 700 var(--fs-2xs) var(--mono); color: var(--label);
+  background: var(--card); border: 1px solid var(--line-card); border-radius: 4px 4px 0 0; padding: 4px 12px;
+}
+.ch-rp-pod.p1 .ch-rp-pod-block { height: 48px; display: flex; align-items: flex-start; border-color: var(--amber-bd); }
+.ch-rp-pod.p2 .ch-rp-pod-block { height: 34px; display: flex; align-items: flex-start; }
+.ch-rp-pod.p3 .ch-rp-pod-block { height: 24px; display: flex; align-items: flex-start; }
+.ch-rp-pod.p1 { order: 2; } .ch-rp-pod.p2 { order: 1; } .ch-rp-pod.p3 { order: 3; }
+
+.ch-rp-foot { display: flex; gap: 16px; align-items: center; border-top: 1px solid var(--line); padding-top: 9px; }
+.ch-rp-foot span { display: inline-flex; align-items: center; gap: 6px; font: 600 var(--fs-2xs) var(--mono); color: var(--label); }
+.ch-rp-foot i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.ch-rp-foot i.pl { background: var(--amber); } .ch-rp-foot i.rv { background: #6b7280; }
+.ch-rp-note { margin-left: auto; color: var(--dim) !important; }
+
+/* reduced motion: no slide, jump straight to the final stringing + podium */
+.ch-rp.reduced .ch-rp-runner { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ch-rp .ch-rp-runner { transition: none !important; }
+  .ch-rp .ch-rp-podium { transition: none; }
+}
+
+/* ============================================================
+   4b) COMPARE CONTROL BAR  (persistent + armed banner)
+   ============================================================ */
+.ch-cmpbar { padding: 0 13px 9px; }
+.ch-cmp-go {
+  width: 100%; font: 700 var(--fs-sm) var(--cond); letter-spacing: .14em; color: var(--cyan);
+  border: 1px solid var(--cyan-bd); background: color-mix(in srgb, var(--cyan) 8%, transparent);
+  padding: 8px 10px; border-radius: 5px; cursor: pointer; transition: background .12s, border-color .12s;
+}
+.ch-cmp-go:hover { background: color-mix(in srgb, var(--cyan) 16%, transparent); border-color: var(--cyan); }
+.ch-cmp-hint { font: 500 var(--fs-2xs)/1.4 var(--mono); color: var(--dim); margin-top: 5px; }
+/* armed two-pick banner */
+.ch-cmpbar.armed { padding-bottom: 11px; }
+.ch-cmp-banner {
+  display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 6px;
+  background: color-mix(in srgb, var(--cyan) 10%, var(--card)); border: 1px solid var(--cyan-bd);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cyan) 18%, transparent);
+  animation: ch-cmp-pulse 1.8s ease-in-out infinite;
+}
+@keyframes ch-cmp-pulse { 0%,100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--cyan) 14%, transparent); } 50% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--cyan) 38%, transparent); } }
+.ch-cmp-step {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font: 700 var(--fs-md) var(--mono); color: #0a0c10; background: var(--cyan);
+}
+.ch-cmp-txt { flex: 1; min-width: 0; }
+.ch-cmp-lead { font: 600 var(--fs-sm) var(--cond); letter-spacing: .04em; color: var(--ink); }
+.ch-cmp-lead b { color: var(--cyan); }
+.ch-cmp-sub { font: 500 var(--fs-2xs)/1.35 var(--mono); color: var(--mut); margin-top: 2px; }
+.ch-cmp-sub b { color: var(--cyan); }
+.ch-cmp-cancel {
+  flex: none; font: 700 var(--fs-2xs) var(--cond); letter-spacing: .1em; color: var(--label);
+  border: 1px solid var(--line-card); background: none; padding: 4px 9px; border-radius: 4px; cursor: pointer;
+}
+.ch-cmp-cancel:hover { color: var(--red); border-color: var(--red-bd); }
+@media (prefers-reduced-motion: reduce) { .ch-cmp-banner { animation: none; } }
+
+/* row affordances while picking a rival */
+.ch-list.ch-picking .listrow.ch-pickable,
+#ch-list.ch-picking .listrow.ch-pickable { cursor: pointer; }
+.listrow.ch-pickable { border: 1px dashed transparent; }
+.listrow.ch-pickable:hover {
+  border-color: var(--cyan); background: color-mix(in srgb, var(--cyan) 8%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cyan) 25%, transparent);
+}
+.listrow.ch-anchor { outline: 1px solid var(--amber); outline-offset: -1px; }
+.listrow.ch-rival { box-shadow: 0 0 0 1px var(--cyan); }
+/* compact row tags shown in compare mode */
+.ch-row-tag { font: 700 var(--fs-2xs) var(--cond); letter-spacing: .08em; padding: 1px 6px; border-radius: 3px; }
+.ch-row-tag.anchor { color: #0a0c10; background: var(--amber); }
+.ch-row-tag.pick { color: var(--cyan); border: 1px solid var(--cyan-bd); }
+.listrow.ch-rival .ch-row-tag.pick { color: #0a0c10; background: var(--cyan); border-color: var(--cyan); }

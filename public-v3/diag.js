@@ -5,7 +5,7 @@
   const { api, fmtCompact, esc } = I;
   const $ = (id) => document.getElementById(id);
 
-  let ai = {}, diag = {};
+  let ai = {}, diag = {}, winprob = {};
 
   // ---- map the real (nested) backend responses to the flat shape this view
   //      renders. The AI dashboard returns success:false when the model hasn't
@@ -34,12 +34,6 @@
     const auto = d.auto_training || (status && status.auto_training) || {};
     const llm = d.local_llm || auto.local_llm || (status && status.local_llm) || {};
     const cfg = llm.config || {};
-    let style = [];
-    const sa = (d.style_adaptation && d.style_adaptation.report) || d.style || [];
-    if (Array.isArray(sa)) {
-      style = sa.slice(0, 5).map((r) => Array.isArray(r)
-        ? r : [r.name || r.style || r.label || '?', Math.round(Number(r.pct ?? r.percent ?? r.share ?? 0))]);
-    }
     const advice = advisor && (advisor.summary || advisor.advice || advisor.text || advisor.headline || advisor.message);
     const pct = (v) => (v != null ? Math.round(Number(v) * 100) : 0);
     return {
@@ -53,7 +47,6 @@
       auto_training: !!(auto.enabled ?? auto.running ?? auto.active),
       model_version: d.version || '',
       local_llm: { connected: !!(llm.connected || llm.enabled || llm.ok), endpoint: llm.endpoint || cfg.endpoint || '', model: llm.model || cfg.model || '' },
-      style,
     };
   }
 
@@ -73,11 +66,43 @@
     };
   }
 
+  function winProbCard() {
+    const w = winprob || {};
+    const n = Number(w.n_races || 0);
+    const min = Number(w.min_races || 25);
+    const defk = w.default_k != null ? w.default_k : 150;
+    const k = w.fitted_k != null ? w.fitted_k : defk;
+    const beats = !!w.beats_baseline;
+    const fp = Number(w.field_pairs || 0);
+    const fmt = (v) => (v == null ? '—' : v);
+    const status = w.healthy ? ['CALIBRATED', 'c-green']
+      : n > 0 ? ['LEARNING ' + n + '/' + min, 'c-amber']
+        : fp > 0 ? ['FIELD DATA ONLY', 'c-amber']
+          : ['AWAITING RACES', 'c-mut'];
+    // historical backfill: live progress, else last result, else a hint.
+    const bf = w.backfill || {}, lb = w.last_backfill || {};
+    let bfTxt;
+    if (bf.running) bfTxt = `scanning logs… ${bf.careers_used || 0} careers · ${bf.observations || 0} obs`;
+    else if (bf.error) bfTxt = 'backfill error — see server log';
+    else if (lb.careers_used != null) bfTxt = `last: ${lb.careers_used} careers · ${lb.observations} obs from ${lb.files_total} logs`;
+    else bfTxt = 'feed every past career log into the model';
+    return `
+      <div class="card" style="padding:13px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span class="card-title">WIN PROBABILITY MODEL</span><span class="col-meta ${status[1]}">${status[0]}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          <div class="statbox"><div class="statbox-k">RACES</div><div class="statbox-v">${n}</div><div class="statbox-sub c-mut">${min} to calibrate</div></div>
+          <div class="statbox"><div class="statbox-k">LOGISTIC k</div><div class="statbox-v" style="color:var(--cyan)">${fmt(k)}</div><div class="statbox-sub c-mut">default ${defk}</div></div>
+          <div class="statbox"><div class="statbox-k">BRIER</div><div class="statbox-v">${fmt(w.brier)}</div><div class="statbox-sub ${beats ? 'c-green' : 'c-mut'}">${beats ? 'beats' : 'vs'} base ${fmt(w.baseline_brier)}</div></div>
+          <div class="statbox"><div class="statbox-k">FIELD AUC</div><div class="statbox-v" style="color:var(--amber)">${fmt(w.field_concordance)}</div><div class="statbox-sub c-mut">${fp} pairs</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:11px">
+          <button class="abtn cyan" type="button" data-act="winprob-backfill"${bf.running ? ' disabled' : ''}>${bf.running ? 'BACKFILLING…' : 'BACKFILL FROM LOGS'}</button>
+          <span class="col-meta c-mut" style="font:500 var(--fs-sm) var(--mono)">${esc(bfTxt)}</span>
+        </div>
+      </div>`;
+  }
+
   function aiView() {
-    const statusColor = { online: 'green', authed: 'green', set: 'ink-2' };
-    const style = (ai.style || []).map(([k, v]) => `
-      <div style="flex:1"><div style="display:flex;justify-content:space-between;font:500 var(--fs-sm) var(--mono);margin-bottom:5px"><span style="color:var(--label)">${esc(k)}</span><span style="color:${v >= 40 ? 'var(--cyan)' : 'var(--ink-2)'}">${v}%</span></div>
-      <div class="barmini"><div class="${v >= 40 ? 'fill-cyan' : ''}" style="width:${v}%"></div></div></div>`).join('');
     const untrained = !ai.trained ? `
       <div class="card" style="border-color:var(--amber-dk)">
         <div class="card-body"><p class="rcard-text" style="margin:0;color:var(--amber)">${esc(ai.detail || 'AI model not trained yet — run Train Now or let auto-training build it. Dataset counts + system health below are live.')}</p></div>
@@ -90,13 +115,14 @@
         <div class="statbox"><div class="statbox-k">LAST TRAIN</div><div class="statbox-v">${esc(ai.last_train)}</div><div class="statbox-sub">auto-training</div></div>
         <div class="statbox"><div class="statbox-k">SHADOW WIN</div><div class="statbox-v" style="color:var(--amber)">${ai.shadow_win}%</div><div class="statbox-sub">vs live policy</div></div>
       </div>
+      ${winProbCard()}
       <div class="card">
         <div class="card-head"><span class="card-title">TRAINING PIPELINE</span><span class="col-meta c-green">auto-training ${ai.auto_training ? 'ON' : 'OFF'}</span></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:13px 14px">
-          <button class="abtn cyan" type="button">REBUILD DATASET</button>
-          <button class="abtn cyan" type="button">IMPORT LOGS</button>
-          <button class="abtn amber" type="button">TRAIN NOW</button>
-          <button class="abtn" type="button">DOWNLOAD MODEL</button>
+          <button class="abtn cyan" type="button" data-act="rebuild">REBUILD DATASET</button>
+          <button class="abtn cyan" type="button" data-act="import">IMPORT LOGS</button>
+          <button class="abtn amber" type="button" data-act="train">TRAIN NOW</button>
+          <button class="abtn" type="button" data-act="download">DOWNLOAD MODEL</button>
         </div>
       </div>
       <div style="display:flex;gap:14px">
@@ -104,21 +130,19 @@
           <div class="card-head"><span class="card-title">ADVISOR · LATEST</span></div>
           <div class="card-body">
             <p class="rcard-text" style="margin-bottom:10px">${esc(ai.advisor)}</p>
-            <div style="display:flex;gap:6px"><button class="abtn cyan" type="button">VIEW POST-RUN</button><button class="abtn cyan" type="button">BACKTEST</button></div>
+            <div style="display:flex;gap:6px"><button class="abtn cyan" type="button" data-act="postrun">VIEW POST-RUN</button><button class="abtn cyan" type="button" data-act="backtest">BACKTEST</button></div>
           </div>
         </div>
         <div class="card" style="flex:1">
           <div class="card-head"><span class="card-title">LOCAL LLM</span><span class="col-meta ${ai.local_llm && ai.local_llm.connected ? 'c-green' : 'c-mut'}">${ai.local_llm && ai.local_llm.connected ? 'connected' : 'off'}</span></div>
           <div class="card-body" style="display:flex;flex-direction:column;gap:8px">
-            <div style="display:flex;justify-content:space-between;font:500 var(--fs-sm) var(--mono)"><span class="c-mut">endpoint</span><span style="color:var(--ink-2)">${esc((ai.local_llm || {}).endpoint || '—')}</span></div>
-            <div style="display:flex;justify-content:space-between;font:500 var(--fs-sm) var(--mono)"><span class="c-mut">model</span><span class="c-amber">${esc((ai.local_llm || {}).model || '—')}</span></div>
-            <div style="display:flex;gap:6px;margin-top:4px"><button class="abtn cyan" type="button">TEST</button><button class="abtn cyan" type="button">ANALYZE RUN</button></div>
+            <label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">ENDPOINT
+              <input id="ai-llm-endpoint" class="numf" type="text" placeholder="http://127.0.0.1:11434" value="${esc((ai.local_llm || {}).endpoint || '')}"></label>
+            <label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">MODEL
+              <input id="ai-llm-model" class="numf" type="text" placeholder="llama3.1" value="${esc((ai.local_llm || {}).model || '')}"></label>
+            <div style="display:flex;gap:6px;margin-top:4px"><button class="abtn" type="button" data-act="llm-save">SAVE</button><button class="abtn cyan" type="button" data-act="llm-test">TEST</button><button class="abtn cyan" type="button" data-act="llm-analyze">ANALYZE RUN</button></div>
           </div>
         </div>
-      </div>
-      <div class="card" style="padding:13px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><span class="card-title">STYLE ADAPTATION</span><span class="col-meta">last 12 runs</span></div>
-        <div style="display:flex;gap:10px">${style}</div>
       </div>`;
   }
 
@@ -173,7 +197,7 @@
       <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--line-soft)">
         <span class="card-title">LIVE API</span><span class="col-meta" id="diag-stream-meta">/api/stream · SSE</span>
       </div>
-      <div class="monitor-rows" id="diag-stream-rows" style="max-height:170px"></div>`;
+      <div class="monitor-rows" id="diag-stream-rows" style="max-height:220px;overflow-y:auto;overflow-x:hidden"></div>`;
   }
 
   // Live game-API call feed via Server-Sent Events (/api/stream). Additive, isolated
@@ -187,7 +211,7 @@
       try { d = JSON.parse(e.data); } catch (_) { return; }
       const rows = $('diag-stream-rows');
       if (!rows || !d || d.dir === 'OPEN') return;
-      const tone = d.dir === 'ERR' ? 'error' : (d.rc && d.rc !== 1 ? 'warn' : 'mut');
+      const tone = d.dir === 'ERR' ? 'red' : (d.rc && d.rc !== 1 ? 'amber' : 'mut');
       const row = document.createElement('div');
       row.className = 'mrow';
       row.style.gridTemplateColumns = '54px 1fr 46px';
@@ -200,25 +224,99 @@
     _es.onerror = () => {};  // transient; EventSource reconnects on its own
   }
 
+
+  // ---- AI action wiring: buttons -> the existing /api/ai/* endpoints ----
+  let curSub = 'ai';
+  async function loadData() {
+    const [aiData, statusData, advisorData, diagData, wpData] = await Promise.all([
+      api('/api/ai/dashboard'), api('/api/ai/status'),
+      api('/api/ai/advisor/latest'), api('/api/diagnostics/summary'),
+      api('/api/race/win-prob-calibration'),
+    ]);
+    ai = adaptAi(aiData || {}, statusData || {}, advisorData || {});
+    diag = adaptDiag(diagData || {});
+    winprob = wpData || {};
+  }
+  async function aiCall(method, url, body) {
+    try {
+      const opts = { method };
+      if (body !== undefined) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(body); }
+      const r = await fetch(url, opts);
+      return await r.json();
+    } catch (e) { return { success: false, detail: String(e) }; }
+  }
+  function showResult(title, data) {
+    I.modal({ title: title, sub: 'AI', body: `<pre style="white-space:pre-wrap;word-break:break-word;font:500 var(--fs-sm)/1.6 var(--mono);color:var(--ink-2);margin:0;max-height:60vh;overflow:auto">${esc(JSON.stringify(data, null, 2))}</pre>` });
+  }
+  async function refreshAi() { await loadData(); render(curSub); }
+  // One-off historical backfill: kick the background job, then poll the
+  // calibration endpoint until the runner thread reports it's done.
+  let _bfPolling = false;
+  async function runWinProbBackfill() {
+    await aiCall('POST', '/api/race/win-prob-backfill');
+    if (_bfPolling) return;
+    _bfPolling = true;
+    let polls = 0;
+    const tick = async () => {
+      polls += 1;
+      await loadData();
+      render(curSub);
+      const bf = (winprob && winprob.backfill) || {};
+      if (bf.running && polls < 80) { setTimeout(tick, 2500); return; }
+      _bfPolling = false;
+    };
+    await loadData(); render(curSub);          // immediate "BACKFILLING…" state
+    setTimeout(tick, 2500);
+  }
+
+  async function handleAiAction(act, btn) {
+    if (act === 'winprob-backfill') { await runWinProbBackfill(); return; }
+    const label = btn.textContent;
+    btn.textContent = '…'; btn.disabled = true;
+    try {
+      let res;
+      if (act === 'rebuild') res = await aiCall('POST', '/api/ai/rebuild-dataset');
+      else if (act === 'train') res = await aiCall('POST', '/api/ai/train-now');
+      else if (act === 'postrun') res = await aiCall('GET', '/api/ai/post-run/latest');
+      else if (act === 'backtest') res = await aiCall('GET', '/api/ai/backtest/latest');
+      else if (act === 'llm-test') res = await aiCall('POST', '/api/ai/local-llm/test');
+      else if (act === 'llm-analyze') res = await aiCall('POST', '/api/ai/local-llm/analyze-latest-run', {});
+      else if (act === 'llm-save') res = await aiCall('POST', '/api/ai/local-llm/config', { endpoint: (($('ai-llm-endpoint') || {}).value || '').trim(), model: (($('ai-llm-model') || {}).value || '').trim() });
+      else if (act === 'download') { window.location.href = '/api/ai/model/download'; res = { success: true, detail: 'Model download started (404 if no model has been trained yet).' }; }
+      else if (act === 'import') {
+        const p = (window.prompt('Paste the path to an old build/runtime folder or a logs .zip:') || '').trim();
+        if (!p) return;
+        res = await aiCall('POST', '/api/ai/import-logs', { source_path: p, rebuild_dataset: true });
+      }
+      if (res) showResult(label, res);
+      if (['rebuild', 'train', 'import', 'llm-save', 'llm-analyze'].indexOf(act) >= 0) refreshAi();
+    } finally { btn.textContent = label; btn.disabled = false; }
+  }
+
   function render(sub) {
-    $('diag-left').innerHTML = sub === 'diag' ? diagView() : aiView();
+    curSub = sub;
+    // `typeof` guards keep this working in public builds where the raw-API panel
+    // (and its RAW API sub-tab) are stripped out.
+    let left;
+    if (sub === 'diag') left = diagView();
+    else if (sub === 'rawapi' && typeof rawApiView === 'function') left = rawApiView();
+    else left = aiView();
+    $('diag-left').innerHTML = left;
     $('diag-right').innerHTML = systemPanel();
     $('diag-model').innerHTML = '● model ' + (ai.model_version ? 'healthy' : 'untrained');
     $('diag-version').textContent = (ai.model_version || 'v—') + ' · ' + fmtCompact(ai.dataset) + ' samples';
+    if (sub === 'rawapi' && typeof wireRawApi === 'function') wireRawApi();
   }
 
   async function boot() {
     I.mountChrome();
     document.addEventListener('click', (e) => {
       const t = e.target.closest('[data-modal]');
-      if (t && I.Modals && I.Modals[t.dataset.modal]) I.Modals[t.dataset.modal]();
+      if (t && I.Modals && I.Modals[t.dataset.modal]) { I.Modals[t.dataset.modal](); return; }
+      const b = e.target.closest('[data-act]');
+      if (b) handleAiAction(b.dataset.act, b);
     });
-    const [aiData, statusData, advisorData, diagData] = await Promise.all([
-      api('/api/ai/dashboard'), api('/api/ai/status'),
-      api('/api/ai/advisor/latest'), api('/api/diagnostics/summary'),
-    ]);
-    ai = adaptAi(aiData || {}, statusData || {}, advisorData || {});
-    diag = adaptDiag(diagData || {});
+    await loadData();
     render('ai');
     startStream();
     document.querySelectorAll('.seg[data-sub]').forEach((s) => s.addEventListener('click', () => {

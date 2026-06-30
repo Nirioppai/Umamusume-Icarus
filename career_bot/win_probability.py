@@ -305,14 +305,27 @@ def chara_id_from_card(card_id):
 class WinProbModel:
     """Loaded data + a one-call query.  Built by load_model()."""
 
-    def __init__(self, rates, npc_by_id, rival_index):
+    def __init__(self, rates, npc_by_id, rival_index, base_dir=None):
         self.rates = rates or {}
         self.npc_by_id = npc_by_id or {}
         self.rival_index = rival_index or {}
+        self.base_dir = base_dir            # enables the auto-calibrated k (see effective_k)
+
+    def effective_k(self):
+        """The logistic scale to use: the auto-calibrated k once enough real
+        races have accrued (win_prob_calibration), else DEFAULT_K. Lazy import
+        avoids a circular dependency."""
+        if not self.base_dir:
+            return DEFAULT_K
+        try:
+            from career_bot import win_prob_calibration
+            return win_prob_calibration.calibrated_k(self.base_dir, DEFAULT_K)
+        except Exception:
+            return DEFAULT_K
 
     def compute(self, *, stats, distance_m, ground, distance_grade, surface_grade,
                 style_grade=None, motivation=3, trainee_chara_id=0, turn=0,
-                program_id=0, k=DEFAULT_K):
+                program_id=0, k=None):
         """Full P(win) result for the trainee in a race.
 
         Returns a dict; `available` is False when no named-rival field is known
@@ -328,6 +341,8 @@ class WinProbModel:
                               motivation=motivation, rates=self.rates)
         opp = [npc_strength(n, distance_m=distance_m, surface=ground, rates=self.rates)
                for n in field]
+        if k is None:
+            k = self.effective_k()      # auto-calibrated from real races, else DEFAULT_K
         result = win_probability(s_t, opp, k=k)
         result["available"] = bool(field)
         result["trainee_strength"] = round(s_t, 1)
@@ -362,4 +377,84 @@ def load_model(base_dir):
         except (TypeError, ValueError, AttributeError):
             continue
     return WinProbModel(rates if isinstance(rates, dict) else {}, npc_by_id,
-                        build_rival_index(rival_rows if isinstance(rival_rows, list) else []))
+                        build_rival_index(rival_rows if isinstance(rival_rows, list) else []),
+                        base_dir=base_dir)
+
+
+# --------------------------------------------------------------------------- #
+# Full-field calibration from a parsed race_scenario (see career_bot/race_scenario).
+#
+# Phase-1 Analysis C calibrates k on the binary did-the-player-win signal. The
+# race_scenario blob gives the ACTUAL finish order of EVERY horse, so we can test
+# the strength model directly: does a horse's strength predict where it finished,
+# across the whole field?  This is a far denser signal (every pair of horses, not
+# one win/loss per race) and needs no master-data NPC join -- it uses the stats
+# the race response already carries for each runner.  Still READ-ONLY / offline.
+# --------------------------------------------------------------------------- #
+
+def simple_field_strength(stats, distance_m):
+    """Aptitude-free distance-weighted strength proxy for one runner.
+
+    Mirrors runner_strength's base term WITHOUT the aptitude-rate multipliers,
+    because opponent runners in a race_scenario field expose raw stats but not
+    their aptitude grades. Used for whole-field concordance.
+    """
+    spd = _stat(stats, "speed")
+    sta = _stat(stats, "stamina")
+    pwr = _stat(stats, "power", "pow")
+    gut = _stat(stats, "guts")
+    wit = _stat(stats, "wit", "wiz")
+    _, w_sta = distance_bucket(distance_m)
+    return spd + 0.6 * pwr + w_sta * sta + 0.15 * gut + 0.15 * wit
+
+
+def field_concordance(field_results, distance_m):
+    """Rank concordance (AUC) between the strength proxy and the ACTUAL finish.
+
+    `field_results` is the list produced by race_scenario.field_results(); each
+    horse needs a `stats` dict and a `finish_order`. Returns (auc, n_horses):
+    auc 1.0 = strength perfectly predicts finishing order, 0.5 = no signal,
+    None = too few horses with stats to score.
+    """
+    horses = [(simple_field_strength(h.get("stats") or {}, distance_m),
+               int(h.get("finish_order") or 0))
+              for h in (field_results or []) if h.get("stats") and h.get("finish_order")]
+    if len(horses) < 2:
+        return None, len(horses)
+    concordant = total = 0
+    for i in range(len(horses)):
+        for j in range(i + 1, len(horses)):
+            (sa, fa), (sb, fb) = horses[i], horses[j]
+            if sa == sb or fa == fb:
+                continue
+            total += 1
+            # higher strength SHOULD finish earlier (lower finish_order)
+            if (sa > sb) == (fa < fb):
+                concordant += 1
+    if not total:
+        return None, len(horses)
+    return concordant / total, len(horses)
+
+
+def aggregate_field_concordance(races_with_fields):
+    """Pool concordance across many races. `races_with_fields` is an iterable of
+    (field_results, distance_m). Returns {auc, races_scored, horse_pairs}."""
+    cw = ct = scored = 0
+    for field, dist in races_with_fields:
+        horses = [(simple_field_strength(h.get("stats") or {}, dist), int(h.get("finish_order") or 0))
+                  for h in (field or []) if h.get("stats") and h.get("finish_order")]
+        if len(horses) < 2:
+            continue
+        local_pairs = False
+        for i in range(len(horses)):
+            for j in range(i + 1, len(horses)):
+                (sa, fa), (sb, fb) = horses[i], horses[j]
+                if sa == sb or fa == fb:
+                    continue
+                ct += 1
+                local_pairs = True
+                if (sa > sb) == (fa < fb):
+                    cw += 1
+        if local_pairs:
+            scored += 1
+    return {"auc": round(cw / ct, 4) if ct else None, "races_scored": scored, "horse_pairs": ct}

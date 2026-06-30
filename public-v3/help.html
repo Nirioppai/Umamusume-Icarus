@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=16">
 <style>
   .doc-main h3 { font: 600 var(--fs-lg) var(--cond); letter-spacing: .06em; color: var(--ink); margin: 18px 0 6px; }
   .doc-main ol, .doc-main ul { margin: 6px 0 14px; padding-left: 20px; color: #c4c9d2; }
@@ -52,7 +52,7 @@
         <div class="search"><span class="ic">⌕</span><input type="text" id="doc-search" placeholder="search documentation"></div>
         <div class="doc-nav-group">GETTING STARTED</div>
         <div class="doc-nav-item is-active" data-sec="overview">Overview</div>
-        <div class="doc-nav-item" data-sec="whatsnew">What's new in v3.2.3</div>
+        <div class="doc-nav-item" data-sec="whatsnew">What's new in v3.2.5</div>
         <div class="doc-nav-item" data-sec="first-run">First run &amp; login</div>
         <div class="doc-nav-item" data-sec="quick-start">Quick start</div>
         <div class="doc-nav-item" data-sec="userdata">Userdata folder</div>
@@ -88,8 +88,32 @@
         </div>
         <div class="doc-sec" data-sec="whatsnew" hidden>
           <div class="eyebrow">RELEASE NOTES</div>
-          <h1>What's new in v3.2.3</h1>
-          <p>v3.2.3 adds a <strong>Display</strong> (appearance) panel — scale the whole interface's text size and pick your own fonts — backed by a single centralized type-scale config under the hood.</p>
+          <h1>What's new in v3.2.5</h1>
+          <p>v3.2.5 is a big <strong>visual pass</strong>: the dashboard, Career History, and Log Viewer gain real data-driven charts, an instrument-cockpit feel, and a batch of quality-of-life touches — all vanilla and offline.</p>
+          <div class="deflist">
+            <div><b>Real telemetry chart</b><span>The dashboard monitor's stat graph is now driven by your ACTUAL per-turn stat history — five live stat lines + SP, gridlines, a crosshair hover tooltip — replacing the old placeholder squiggles.</span></div>
+            <div><b>78-Turn Career Heatmap</b><span>In the <span class="kw">Log Viewer</span> (Overview + All tabs): a contribution-graph mosaic of a whole career — 3 season rows × 26 turns, cells tinted by stat-gain intensity, rings on race wins/places/losses, an HP-critical pulse, and a star on skill-buy turns.</span></div>
+            <div><b>Race replay</b><span>A flight-recorder / bar-chart replay of any finished race — lanes per horse animating to the finish, then a podium — in the Log Viewer's Races tab AND on each Career History race row (look for ▶ REPLAY).</span></div>
+            <div><b>Attribute radar</b><span>A pentagon radar of the five stats (toggle beside the bars) on the dashboard and the Career History profile, with a faint target / cap-reference overlay.</span></div>
+            <div><b>Head-to-head compare</b><span>On <span class="kw">Career History</span>, click <span class="kw">⇄ COMPARE RUNS</span> then click a second run — opens a VS overlay (mirrored radars, diverging bars, a verdict). A clear, guided two-pick flow.</span></div>
+            <div><b>Holo trainee cards & vitals instruments</b><span>Career profiles get a rarity border + pointer-tilt foil sheen; the dashboard vitals gain an optional ECG "heartline" for HP (beats faster as HP drops) and a mood arc gauge.</span></div>
+            <div><b>Win-probability views</b><span>A sweeping radar "scope" and a forecast→actual calibration gauge per race. (These light up once the win-probability model is wired to emit per-race odds.)</span></div>
+            <div><b>Cockpit touches</b><span>A typed boot sequence when you press RUN CAREER, and an optional CRT scanline/vignette veil (Off/Low/Med slider in the DISPLAY panel, off by default).</span></div>
+            <div><b>Quality of life</b><span>Rolling-digit lifetime counters, a <span class="kw">⌘/Ctrl-K</span> command palette (run/stop, navigate, switch theme, DISPLAY, dev flags), toast notifications (skill bought / error / first-place win), a tiny confetti pop at the "1ST" badge, and live status dots on the tabs (⚠ on DIAG when the model is unhealthy).</span></div>
+          </div>
+          <h3>Earlier in v3.2.4</h3>
+          <p>v3.2.4 brought the DISPLAY panel on every page, opponent-aware win-probability that self-calibrates from your own races (and can backfill your entire log history), a fully wired AI / Diagnostics page, a full <strong>Career Log Viewer</strong> wired into Career History, and a big round of dashboard &amp; career-history fixes plus readability and visual polish.</p>
+          <div class="deflist">
+            <div><b>Career Log Viewer</b><span>Every completed run in <span class="kw">Career History</span> now has a <span class="kw">VIEW FULL LOG</span> button (and a 📋 icon on each row) that opens a dedicated, Icarus-themed viewer for that run — turn-by-turn actions, stats over time, shop / item / skill usage, full race results, and per-run metrics, loaded straight from your saved logs. The viewer's <span class="kw">Server Logs</span> button browses every saved log, and you can still drag in logs others share.</span></div>
+            <div><b>Win-probability backfill</b><span>A new <span class="kw">Backfill from logs</span> button on the Win Probability Model card (Diag/AI) feeds <em>every</em> past career log into the model in one pass — including careers run before self-calibration existed — so it has far more data to fit on. It now also learns whole-field strength→finish data even from races without a named rival.</span></div>
+            <div><b>Bigger, animated Attributes</b><span>The dashboard SPD / STA / PWR / GUT / WIT / SP labels, bars, and values are larger and easier to read, and the bars now glide up smoothly when a stat increases.</span></div>
+            <div><b>Glow follows what you trained</b><span>The attribute highlight now tracks the stat you most recently <em>trained</em> (Skill Points keep their own amber glow), instead of always highlighting Speed.</span></div>
+            <div><b>Action Log readability</b><span>HP / MOOD color is now by percentage of the cap (accurate as the HP ceiling grows), and a 1st-place finish is marked with a small amber <span class="kw">1ST</span> tag on the race row.</span></div>
+            <div><b>Navbar labels</b><span>The top-bar metric labels (TP, Carrots, Gold, Clocks, Career, Fan Gain, …) are now bold and follow your selected <span class="kw">Body</span> font; "Career Fans" is now labeled <span class="kw">Current</span>.</span></div>
+            <div><b>Quieter visuals</b><span>The current decision-card glow is much slower and subtler, and the per-trainee accent wash on the portrait is more visible.</span></div>
+            <div><b>Diag/AI &amp; fixes</b><span>The AI / Diagnostics action buttons are all wired up, the first-climax Master Cleat Hammer shows in Decision Reasoning, the Live API stream sits in a fixed scrollable box, the defunct "Style Adaptation" section was removed, and Career History shows each run's completion timestamp, race mood, and brighter spark stars. The DISPLAY panel now appears on every page (LOGOUT moved to the transport bar to make room).</span></div>
+          </div>
+          <p>The DISPLAY (appearance) panel — scale the whole interface's text size and pick your own fonts — is backed by a single centralized type-scale config under the hood:</p>
           <div class="deflist">
             <div><b>New DISPLAY button &amp; panel</b><span>A <span class="kw">DISPLAY</span> button (with a ⚙ gear, like Tempt Fate / Retries) now sits in the top-right of the navbar on every page. It opens an Appearance panel for text size, fonts, and the accent theme. Choices apply instantly and are remembered per device.</span></div>
             <div><b>Font size scaling</b><span>Pick <span class="kw">Small / Normal / Large / X-Large</span> to scale every font in the interface at once — handy if the dense UI is hard to read. Nothing changes size at the Normal setting.</span></div>
@@ -1150,7 +1174,7 @@
 
   </div>
 </div>
-<script src="core.js?v=14"></script>
+<script src="core.js?v=18"></script>
 <script>
   Icarus.mountChrome();
   const docMain = document.querySelector('.doc-main');

@@ -1,0 +1,147 @@
+/* ============================================================
+   ICARUS · Command Console (v3) — cool-dash add-ons
+   Owned by app.js (lazy-injected at init). Vanilla, no build step.
+   Theme everything off the existing tokens (var(--amber), --green,
+   --red, --cyan, --label, --line, etc). All animation degrades to
+   static under prefers-reduced-motion.
+   ============================================================ */
+
+/* ---------- shared keyframes ---------- */
+@keyframes cd-spin360 { to { transform: rotate(360deg); } }
+@keyframes cd-ecgblink { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+@keyframes cd-caret { 0%,100% { opacity:1; } 50% { opacity:0; } }
+
+/* ============================================================
+   1) ATTRIBUTE RADAR  — toggle next to the ATTRIBUTES title
+   ============================================================ */
+.attr-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.attr-title-row .attr-title { margin-bottom:0; }
+.cd-radar-toggle {
+  font: 700 var(--fs-2xs) var(--cond); letter-spacing:.14em; color: var(--label);
+  background: none; border: 1px solid var(--line-card); border-radius: 3px;
+  padding: 3px 8px; cursor: pointer; line-height: 1;
+  transition: color .14s ease, border-color .14s ease;
+}
+.cd-radar-toggle:hover { color: var(--ink-3); border-color: var(--ghost); }
+.cd-radar-toggle.on { color: var(--amber); border-color: var(--amber-bd); }
+
+.cd-radar-wrap { display:flex; justify-content:center; padding: 2px 0 4px; }
+.cd-radar { width: 100%; max-width: 256px; height: auto; display:block; overflow:visible; }
+.cd-radar .cd-ring   { fill:none; stroke: var(--line-card); stroke-width:1; }
+.cd-radar .cd-spoke  { stroke: var(--line-soft); stroke-width:1; }
+.cd-radar .cd-poly   { fill: var(--amber); fill-opacity:.16; stroke: var(--amber); stroke-width:1.6;
+                       stroke-linejoin:round; transition: d .55s cubic-bezier(.4,0,.2,1), points .55s cubic-bezier(.4,0,.2,1); }
+.cd-radar .cd-vtx    { fill: var(--amber); transition: cx .55s cubic-bezier(.4,0,.2,1), cy .55s cubic-bezier(.4,0,.2,1); }
+.cd-radar .cd-axis-k { font: 700 var(--fs-2xs) var(--cond); letter-spacing:.1em; fill: var(--label); }
+.cd-radar .cd-axis-v { font: 700 var(--fs-sm) var(--mono); fill: var(--ink-2); }
+/* TARGET-GHOST: faint pentagon behind the current polygon (per-stat target / cap ref) */
+.cd-radar .cd-ghost  { fill: var(--label); fill-opacity:.05; stroke: var(--label); stroke-width:1;
+                       stroke-dasharray:3 3; stroke-linejoin:round; opacity:.55;
+                       transition: points .55s cubic-bezier(.4,0,.2,1); }
+.cd-radar-legend { display:flex; justify-content:center; gap:14px; margin-top:2px; }
+.cd-radar-legend .cd-lg { display:inline-flex; align-items:center; gap:5px;
+  font: 700 var(--fs-2xs) var(--cond); letter-spacing:.1em; color: var(--label); }
+.cd-radar-legend .cd-lg i { width:11px; height:0; border-top:2px solid currentColor; display:inline-block; }
+.cd-radar-legend .cd-lg-cur { color: var(--amber); }
+.cd-radar-legend .cd-lg-tgt.is-real { color: var(--cyan); }
+.cd-radar-legend .cd-lg-tgt.is-ref  { color: var(--label); }
+.cd-radar-legend .cd-lg-tgt i { border-top-style: dashed; }
+
+/* ============================================================
+   2) VITALS GAUGES + ECG HEARTLINE
+   ============================================================ */
+.cd-instr-toggle {
+  font: 700 var(--fs-2xs) var(--cond); letter-spacing:.14em; color: var(--label);
+  background: none; border: 1px solid var(--line-card); border-radius: 3px;
+  padding: 2px 7px; cursor: pointer; line-height: 1;
+  margin-left: 8px; margin-right: auto;   /* tuck beside the HP label; push HP num to the right */
+  transition: color .14s ease, border-color .14s ease;
+}
+.cd-instr-toggle:hover { color: var(--ink-3); border-color: var(--ghost); }
+.cd-instr-toggle.on { color: var(--amber); border-color: var(--amber-bd); }
+
+.cd-ecg {
+  margin-top: 9px; height: 38px;
+  border: 1px solid var(--line-card); border-radius: 4px;
+  background:
+    linear-gradient(transparent 49%, var(--line-soft) 49%, var(--line-soft) 51%, transparent 51%),
+    var(--inset);
+  overflow: hidden; position: relative; display: none;
+}
+.cd-ecg.on { display: block; }
+.cd-ecg svg { width: 100%; height: 100%; display: block; }
+.cd-ecg .cd-ecg-line { fill: none; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.cd-ecg .cd-ecg-line.t-green { stroke: var(--green); }
+.cd-ecg .cd-ecg-line.t-amber { stroke: var(--amber); }
+.cd-ecg .cd-ecg-line.t-red   { stroke: var(--red); }
+.cd-ecg .cd-ecg-sweep { animation: cd-ecg-sweep var(--cd-ecg-beat, 1.4s) linear infinite; }
+@keyframes cd-ecg-sweep { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+/* a soft glow on the trace that intensifies as the beat quickens */
+.cd-ecg.crit .cd-ecg-line { filter: drop-shadow(0 0 3px var(--red)); animation: cd-ecgblink var(--cd-ecg-beat, .7s) ease-in-out infinite; }
+
+.cd-gauge { display:flex; align-items:center; gap:10px; margin-top:10px; }
+.cd-gauge svg { width: 46px; height: 46px; flex:none; }
+.cd-gauge .cd-gauge-track { fill:none; stroke: var(--line-card); stroke-width: 4; }
+.cd-gauge .cd-gauge-arc   { fill:none; stroke-width: 4; stroke-linecap: round;
+                            transition: stroke-dashoffset .5s ease, stroke .4s ease; }
+.cd-gauge-meta { min-width:0; }
+.cd-gauge-k { font: 600 var(--fs-sm) var(--cond); letter-spacing:.16em; color: var(--label); }
+.cd-gauge-v { font: 700 var(--fs-md) var(--mono); margin-top:2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cd-ecg .cd-ecg-sweep, .cd-ecg.crit .cd-ecg-line { animation: none !important; }
+}
+
+/* ============================================================
+   4) WIN POP  — tiny localized canvas burst at the 1ST badge
+   ============================================================ */
+.cd-winpop {
+  position: fixed; pointer-events: none; z-index: 9000;
+}
+
+/* ============================================================
+   5) CAREER BOOT SEQUENCE  — typed terminal overlay in the feed
+   ============================================================ */
+.cd-boot {
+  position: absolute; inset: 0; z-index: 6; cursor: pointer;
+  background: var(--panel);
+  padding: 18px 18px 14px; overflow: hidden;
+  font: 500 var(--fs-md)/1.7 var(--mono); color: var(--ink-3);
+}
+.cd-boot-line { white-space: pre-wrap; word-break: break-word; }
+.cd-boot-line .ok    { color: var(--green); }
+.cd-boot-line .warn  { color: var(--amber); }
+.cd-boot-line .acc   { color: var(--amber); }
+.cd-boot-line .dim   { color: var(--label); }
+.cd-boot-caret {
+  display: inline-block; width: 8px; height: 1.05em; vertical-align: -2px;
+  background: var(--amber); margin-left: 2px;
+  animation: cd-caret 1s step-end infinite;
+}
+@media (prefers-reduced-motion: reduce) { .cd-boot-caret { animation: none; } }
+/* the feed column anchors the absolutely-positioned boot overlay */
+.feed { position: relative; }
+
+/* ============================================================
+   TOAST (only if window.Icarus.toast is absent — minimal local fallback)
+   ============================================================ */
+.cd-toast-host {
+  position: fixed; right: 18px; bottom: 64px; z-index: 9100;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.cd-toast {
+  pointer-events: auto; min-width: 200px; max-width: 320px;
+  background: rgba(12,14,19,.92);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border: 1px solid var(--amber-bd); border-left: 3px solid var(--amber);
+  border-radius: 5px; padding: 10px 13px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.6);
+  font: 600 var(--fs-sm) var(--mono); color: var(--ink-2);
+  opacity: 0; transform: translateY(8px); transition: opacity .25s ease, transform .25s ease;
+}
+.cd-toast.show { opacity: 1; transform: translateY(0); }
+.cd-toast.t-red { border-color: var(--red-bd); border-left-color: var(--red); }
+.cd-toast.t-cyan { border-color: var(--cyan); border-left-color: var(--cyan); }
+.cd-toast .cd-toast-t { color: var(--amber); letter-spacing:.06em; }
+.cd-toast.t-red .cd-toast-t { color: var(--red); }
+.cd-toast.t-cyan .cd-toast-t { color: var(--cyan); }

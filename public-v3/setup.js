@@ -214,7 +214,7 @@
   function slotCard(role, accent, inner, attrs) {
     return `<div ${attrs || ''} style="background:var(--card);border:1px solid var(--line-card);${accent ? 'border-left:2px solid var(--amber);' : ''}border-radius:5px;padding:11px${attrs ? ';cursor:pointer' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
-        <span style="font:600 var(--fs-xs) var(--cond);letter-spacing:.16em;color:${accent ? 'var(--amber)' : 'var(--label)'}">${role}</span>
+        <span style="font:700 var(--fs-sm) var(--cond);letter-spacing:.16em;color:${accent ? 'var(--amber)' : 'var(--label)'}">${role}</span>
         <span style="font:500 var(--fs-2xs) var(--cond);letter-spacing:.1em;color:var(--dim)">CLEAR</span>
       </div>${inner}</div>`;
   }

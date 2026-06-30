@@ -4692,7 +4692,7 @@ def api_race_win_probability(req: WinProbabilityRequest):
 
         stats = {"speed": req.speed, "stamina": req.stamina, "power": req.power,
                  "guts": req.guts, "wit": req.wit}
-        k = float(req.k) if req.k else _wp.DEFAULT_K
+        k = float(req.k) if req.k else None   # None -> model uses the auto-calibrated k
         result = model.compute(
             stats=stats, distance_m=distance_m, ground=ground,
             distance_grade=distance_grade, surface_grade=surface_grade,
@@ -4703,9 +4703,65 @@ def api_race_win_probability(req: WinProbabilityRequest):
         result.update({"success": True, "program_id": int(req.program_id or 0),
                        "race_name": prog.get("name", ""), "distance_m": distance_m,
                        "ground": ground})
+        try:    # surface the auto-calibration status (so it's visible without a report)
+            from career_bot import win_prob_calibration as _wpc
+            result["calibration"] = _wpc.load_calibration(base_dir)
+        except Exception:
+            result["calibration"] = {}
         return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/race/win-prob-calibration")
+def api_win_prob_calibration():
+    """Auto win-probability self-calibration status (read-only) for the Diag/AI page."""
+    try:
+        from career_bot import win_prob_calibration as _wpc
+        data = dict(_wpc.load_calibration(base_dir) or {})
+        data.setdefault("default_k", _wpc.wp.DEFAULT_K)
+        data.setdefault("min_races", _wpc._MIN_RACES)
+        data.setdefault("n_races", 0)
+        data["backfill"] = dict(_WINPROB_BACKFILL)
+        data["last_backfill"] = _wpc.last_backfill(base_dir)
+        data["success"] = True
+        return data
+    except Exception as exc:
+        return {"success": False, "detail": str(exc)}
+
+
+# Live status of the (background-threaded) historical backfill, polled by the
+# Diag/AI win-prob card. Persisted result lives in win_prob/backfill.json.
+_WINPROB_BACKFILL = {"running": False, "done": False}
+
+
+@app.post("/api/race/win-prob-backfill")
+def api_win_prob_backfill():
+    """Rebuild win-prob calibration from ALL persisted career logs.
+
+    One-off data migration: ingests careers that finished BEFORE auto-calibration
+    existed (whole-field concordance + any named-rival races). Runs in a background
+    thread so the request returns immediately; poll /api/race/win-prob-calibration
+    (the `backfill` block) for progress.
+    """
+    if _WINPROB_BACKFILL.get("running"):
+        return {"success": True, "running": True, "detail": "Backfill already in progress."}
+    from career_bot import win_prob_calibration as _wpc
+    _WINPROB_BACKFILL.clear()
+    _WINPROB_BACKFILL.update({"running": True, "done": False, "scanned": 0,
+                              "careers_used": 0, "started_at": time.time()})
+
+    def _run():
+        try:
+            _wpc.backfill_from_logs(base_dir, status=_WINPROB_BACKFILL)
+        except Exception as exc:               # backfill_from_logs is best-effort, but be safe
+            _WINPROB_BACKFILL.update({"done": True, "error": str(exc)})
+        finally:
+            _WINPROB_BACKFILL["running"] = False
+            _WINPROB_BACKFILL["finished_at"] = time.time()
+
+    threading.Thread(target=_run, name="winprob-backfill", daemon=True).start()
+    return {"success": True, "running": True, "started": True}
 
 
 @app.post("/api/smart-solver/config")
@@ -7163,6 +7219,69 @@ async def career_history():
     }
 
 
+@app.get("/api/career/logs")
+def api_career_logs():
+    """List saved career-log files (newest first) for the log viewer. Cheap:
+    only stats files, never parses them."""
+    logs_dir = Path(RUNTIME_DIR) / "bot_logs"
+    out = []
+    if logs_dir.exists():
+        try:
+            files = sorted(logs_dir.glob("career_log_*.json"),
+                           key=lambda f: f.stat().st_mtime, reverse=True)
+        except OSError:
+            files = []
+        for f in files[:300]:
+            try:
+                st = f.stat()
+            except OSError:
+                continue
+            out.append({"file": f.name, "size": st.st_size, "mtime": st.st_mtime})
+    return {"success": True, "logs": out, "count": len(out)}
+
+
+@app.get("/api/career/log")
+def api_career_log(run_id: str = "", file: str = ""):
+    """Serve one career log (already redacted on disk) for the log viewer.
+
+    By exact `file` (fast) or by `run_id` (newest-first scan, capped — the run a
+    Career History box links to is always recent so the match is found quickly)."""
+    import re as _re
+    logs_dir = Path(RUNTIME_DIR) / "bot_logs"
+    if not logs_dir.exists():
+        return {"success": False, "detail": "no bot_logs directory yet"}
+    if file:
+        name = os.path.basename(file)
+        if not name.endswith(".json") or not (name.startswith("career_log_") or name == "latest_career_log.json"):
+            return {"success": False, "detail": "invalid log filename"}
+        p = logs_dir / name
+        if not p.exists():
+            return {"success": False, "detail": "log not found"}
+        try:
+            return {"success": True, "file": name, "log": json.loads(p.read_text(encoding="utf-8"))}
+        except (OSError, ValueError) as exc:
+            return {"success": False, "detail": f"parse error: {exc}"}
+    if not run_id:
+        return {"success": False, "detail": "run_id or file required"}
+    try:
+        files = sorted(logs_dir.glob("career_log_*.json"),
+                       key=lambda f: f.stat().st_mtime, reverse=True)[:120]
+    except OSError:
+        files = []
+    pat = _re.compile(r'"run_id"\s*:\s*"([^"]+)"')
+    for p in files:
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if run_id in pat.findall(text):
+            try:
+                return {"success": True, "file": p.name, "log": json.loads(text)}
+            except ValueError as exc:
+                return {"success": False, "detail": f"parse error: {exc}"}
+    return {"success": False, "detail": "no saved log matched that run"}
+
+
 @app.post("/api/career/runner/stop")
 async def stop_career_runner():
     global backend_loop_stop
@@ -8050,12 +8169,6 @@ def check_saved_auth():
                 c = UmaClient(saved_cfg, trace_enabled=False)
                 res = c.login()
                 if res and res.get("data"):
-                    # FORK: sync the (possibly refreshed) ticket back so the
-                    # pre-load step doesn't reuse a consumed ticket (→ 394).
-                    if getattr(c, "steam_ticket", None):
-                        saved_cfg["steam_session_ticket"] = c.steam_ticket
-                    if getattr(c, "steam_id", None):
-                        saved_cfg["steam_id"] = str(c.steam_id)
                     print("[+] Headless bypass successful!", flush=True)
                     return saved_cfg
                 else:
