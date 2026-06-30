@@ -1882,8 +1882,8 @@ function nirioEffectiveness(nirio,turns,last){
     // Check classic bootcamp (T37) and senior bootcamp (T61) entry
     const classicEntry=turns.find(t=>t.turn===37);
     const seniorEntry=turns.find(t=>t.turn===61);
-    const classicInv=classicEntry?(classicEntry.inventory||[]):[null];
-    const seniorInv=seniorEntry?(seniorEntry.inventory||[]):[null];
+    const classicInv=classicEntry?(classicEntry.inventory||[]):null;
+    const seniorInv=seniorEntry?(seniorEntry.inventory||[]):null;
     const countStrong=(inv)=>inv===null?null:inv.filter(i=>i.item_id===8002||i.item_id===8003).reduce((s,i)=>s+(i.current_num||i.num||1),0);
     const classicStrong=countStrong(classicInv);
     const seniorStrong=countStrong(seniorInv);
@@ -1895,7 +1895,7 @@ function nirioEffectiveness(nirio,turns,last){
       const parts=[];
       if(classicStrong!==null)parts.push('T37: '+classicStrong+'×');
       if(seniorStrong!==null)parts.push('T61: '+seniorStrong+'×');
-      rate('pass','Bootcamp Mega Reserve','Target '+target+' met at bootcamp entries'+(parts.length?' ('+parts.join(', ')+')')+'.');
+      rate('pass','Bootcamp Mega Reserve','Target '+target+' met at bootcamp entries'+(parts.length?' ('+parts.join(', ')+')':'')+'.');
     }
     // Check for wasted megaphone (stacking bug indicator): used on same turn as already-active
     let stackedMegaTurns=0;
