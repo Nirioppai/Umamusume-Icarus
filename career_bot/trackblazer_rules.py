@@ -293,4 +293,10 @@ DEFAULT_NIRIO_WHISTLE_DUMP_SCORE = 20
 
 DEFAULT_NIRIO_MCH_RESERVE = 3
 
+# FORK: (nirio) reverse-priority final Climax hammer allocation (T78 > T76 > T74).
+# final_mch_required: how many MCH to keep protected for later races; with 2, T74 only
+# gets a MCH if 3+ are available. final_artisan_reserve: Artisan fallback protection.
+DEFAULT_NIRIO_FINAL_MCH_REQUIRED = 2
+DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE = 1
+
 DEFAULT_NIRIO_CHAIN_MOOD_FLOOR = 2

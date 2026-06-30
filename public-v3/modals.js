@@ -1117,7 +1117,9 @@
               slider('nr-cdg', 'Charm Dump Min Gain', 1, 20, 8, 1, '', 'Minimum stat gain for charm in dump window.', 'mant.nirio_charm_dump_min_gain'),
               slider('nr-cdf', 'Charm Dump Failure Rate', 1, 30, 10, 1, '', 'Min failure rate to trigger charm in dump window.', 'mant.nirio_charm_dump_failure_rate'),
               slider('nr-wdt', 'Whistle Dump Turn', 40, 72, 60, 1, '', 'Allow whistle usage after this turn.', 'mant.nirio_whistle_dump_turn'),
-              slider('nr-mcr', 'MCH Climax Reserve', 0, 5, 3, 1, '', 'Master Cleat Hammers reserved for climax races.', 'mant.nirio_mch_reserve'))}
+              slider('nr-mcr', 'MCH Climax Reserve', 0, 5, 3, 1, '', 'Master Cleat Hammers reserved for climax races (non-Climax G1 logic).', 'mant.nirio_mch_reserve'),
+              slider('nr-fmr', 'Final MCH Required', 0, 3, 2, 1, '', 'MCH to protect for later Climax races. With 2: T74 uses MCH only if 3+ owned; T76 if 2+; T78 always.', 'mant.nirio_final_mch_required'),
+              slider('nr-far', 'Final Artisan Reserve', 0, 3, 1, 1, '', 'Artisan hammers kept for later Climax races as fallback when MCH is tight.', 'mant.nirio_final_artisan_reserve'))}
 `,
         onMount: (o) => { wireSave(o); Promise.resolve(initSettingsModal(o)).then(() => armUnsavedGuard(o)); },
       });
