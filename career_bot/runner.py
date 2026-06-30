@@ -643,6 +643,13 @@ class CareerRunner:
                         "enable_live_smart_replan": bool(_tss.get("enable_live_smart_replan", True)),
                         "replan_on_events_only": bool(_tss.get("replan_on_events_only", True)),
                         "preferred_distances": list((preset or {}).get("preferred_distances") or []),
+                        # FORK: running style settings were missing from the snapshot, making the AI
+                        # summary and log viewer blind to junior/original strategy configuration.
+                        "running_style": (preset or {}).get("running_style"),
+                        "junior_running_style": _mc_start.get("junior_running_style"),
+                        "original_running_style": _mc_start.get("original_running_style"),
+                        "enable_per_distance_strategy": bool(_mc_start.get("enable_per_distance_strategy", False)),
+                        "per_race_style_overrides": list(_mc_start.get("per_race_style_overrides") or []),
                     },
                     "scenario": {
                         "energy_recovery_threshold": int(_mc_start.get("energy_recovery_threshold") or 40),

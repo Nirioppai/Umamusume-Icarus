@@ -30,6 +30,21 @@ For collision entries (where we chose between our fix and upstream's), add:
 
 ## Change Log
 
+### 2026-07-01 — Reorder shop tiers: Vita 65/40 promoted, Glow Sticks demoted
+**Commit:** `(pending)` **File(s):** `career_bot/trackblazer_rules.py`
+**Context:** Guide audit showed Glow Sticks at Tier 1 (same as MCH) could crowd out hammers or megaphones when coins were tight (~70-90 coin scenarios where buying a 15-coin Glow Stick left too little for a 70-coin Empowering Megaphone). Vita 65/40 were at Tier 3, below glow sticks, despite guides rating Vita as the #1 buy priority. Moved Glow Sticks to Tier 5 (fan-farming only; usage logic still gates by 20k fan floor and reserve). Promoted Vita 65/40 to Tier 2 alongside scrolls/manuals.
+**Status:** ACTIVE
+
+### 2026-07-01 — Fix Coaching Megaphone bought despite buy_coaching_mega=OFF
+**Commit:** `(pending)` **File(s):** `career_bot/items.py`
+**Context:** When `save_items_lategame=OFF` and turn > 64 the late-game dump window set `_lift_conservation=True`, which bypassed the `buy_coaching_mega` flag check entirely. Coaching Megaphones were purchased in the final turns even when the flag was explicitly OFF. The flag is a capability gate ("never buy these") not a conservation rule, so it must not be overridden by the dump window.
+**Status:** ACTIVE
+
+### 2026-07-01 — Running style fields added to runtime_settings snapshot
+**Commit:** `(pending)` **File(s):** `career_bot/runner.py`, `log_viewer.html`
+**Context:** `runtime_settings.racing` did not capture `running_style`, `junior_running_style`, `original_running_style`, `enable_per_distance_strategy`, or `per_race_style_overrides`. The AI Summary and log viewer settings panel were completely blind to running strategy configuration. Added all five fields to the backend snapshot and updated `copyAISummary()` to render them under `[Racing]`.
+**Status:** ACTIVE
+
 ### 2026-07-01 — Fix `original_running_style` silently ignored post-Junior
 **Commit:** `(pending)` **File(s):** `career_bot/running_style.py`
 **Context:** `resolve_running_style_for_race` evaluated `preset.running_style or cfg.original_running_style`. Since `preset.running_style` is typically a truthy integer (1), Python's `or` short-circuited and `original_running_style` was never reached. The "Long Pace V3 Fix" preset had `junior_running_style: 'front'` and `original_running_style: 'pace'` correctly set, but the bot used Front Runner for every race post-Junior because `preset.running_style = 1` blocked it. Fixed by checking `cfg.original_running_style` first.

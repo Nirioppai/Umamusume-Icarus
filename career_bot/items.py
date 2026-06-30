@@ -2375,8 +2375,12 @@ class MantItemManager:
         # FORK: (nirio) nirio_buy_coaching_mega replaces the upstream trackblazer_buy_small_megaphone
         # flag as a user-tunable nirio knob.  Both flags are checked so existing presets
         # that use the upstream flag still work.
+        # FORK: _lift_conservation must NOT bypass this check — it is a capability flag ("never buy
+        # these") not a conservation rule.  When save_items_lategame=OFF and turn>64 the dump window
+        # sets _lift_conservation=True, which previously caused Coaching Megaphones to be purchased
+        # during the late-game dump even when buy_coaching_mega was explicitly OFF.
         _buy_coaching = cfg.get("nirio_buy_coaching_mega", False) or cfg.get("trackblazer_buy_small_megaphone", False)
-        if name == "Coaching Megaphone" and not _lift_conservation and not _buy_coaching:
+        if name == "Coaching Megaphone" and not _buy_coaching:
             return "skip_mega_surplus"  # FORK: granular skip reason for log_viewer.html
         if name == "Motivating Megaphone" and not _lift_conservation:
             big_target = _cfg_num(cfg, "megaphone_big_summer_target", 2)

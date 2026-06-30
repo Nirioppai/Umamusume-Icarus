@@ -2025,6 +2025,15 @@ function generateAISummary(){
     o+='  Live Replan: '+(_rac.enable_live_smart_replan?'ON':'OFF')+'\n';
     o+='  Event-Only Replan: '+(_rac.replan_on_events_only?'ON':'OFF')+'\n';
     o+='  Distances: '+(_rac.preferred_distances||[]).join(', ')||'(auto)'; o+='\n';
+    const STYLE_NAMES={1:'Front Runner',2:'Pace Chaser',3:'Late Surger',4:'End Closer',front:'Front Runner',pace:'Pace Chaser',late:'Late Surger',end:'End Closer'};
+    const _styleMain=_rac.running_style!=null?STYLE_NAMES[_rac.running_style]||('ID '+_rac.running_style):null;
+    const _styleJunior=_rac.junior_running_style?STYLE_NAMES[_rac.junior_running_style]||_rac.junior_running_style:null;
+    const _styleOrig=_rac.original_running_style?STYLE_NAMES[_rac.original_running_style]||_rac.original_running_style:null;
+    if(_styleJunior)o+='  Junior Style: '+_styleJunior+'\n';
+    if(_styleOrig)o+='  Original Style: '+_styleOrig+'\n';
+    else if(_styleMain)o+='  Running Style: '+_styleMain+'\n';
+    if(_rac.enable_per_distance_strategy)o+='  Per-Distance Strategy: ON\n';
+    if((_rac.per_race_style_overrides||[]).length)o+='  Race Overrides: '+_rac.per_race_style_overrides.map(r=>r.match+'='+r.style+(r.stamina_below?'<'+r.stamina_below:'')).join(', ')+'\n';
     o+='[Scenario]\n';
     o+='  Energy Threshold: '+(_scn.energy_recovery_threshold||40)+'\n';
     o+='  Force-Train Floor: '+(_scn.force_train_energy_floor||20)+'\n';

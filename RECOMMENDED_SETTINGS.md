@@ -94,6 +94,63 @@ Referenced by [CLAUDE.md](CLAUDE.md) (auto-update rule).
 
 Newest first. Each entry documents what changed and why.
 
+### 2026-07-01 — Long Pace V3 Fix, final_inventory cleanup + hammer allocation pass
+
+**Source:** Long Pace V3 Fix preset, Make a New Track scenario, 77/77 turns
+**Classification:** MIXED — do not update Current Recommended Settings
+
+**⚠ Context:** This run was generated BEFORE the `original_running_style` fix (2026-07-01).
+The bot raced as **Front Runner for all turns** — Pace Chaser for Year 2+ was silently ignored due
+to a short-circuit bug in `resolve_running_style_for_race`. These metrics reflect all-Front-Runner
+strategy, not the intended Junior=Front/Year2+=Pace behavior. Future runs will differ.
+
+Settings active (nirio):
+- nirio_buy_coaching_mega: false
+- nirio_bootcamp_mega_target: 2
+- nirio_final_mch_required: 2
+- nirio_final_artisan_reserve: 1
+- (all other nirio values at current recommended)
+
+Result:
+- Final stats: 3797
+- Win rate: 93.8% (excellent)
+- G1 win rate: 92%
+- Climax: 2/2 wins
+- SP remaining: 1
+- Final coins: 0
+- Mood: Good avg 4.3, Climax mood Normal
+- Items left: 12 (from final_inventory — much cleaner accounting)
+- Good-Luck Charms: 0 left
+- Reset Whistles: 0 left
+- Hammer allocation: PASS (2 MCH + 1 Artisan remaining within policy)
+
+Trade-offs vs baseline (4030 stats, 92.1% win rate):
+- Stats (3797) below baseline (4030).
+- Win rate (93.8%) slightly better than baseline (92.1%).
+- G1 win rate (92%) better than baseline (89%).
+- Climax mood Normal vs baseline Great — worse.
+- SP remaining 1 — excellent (vs prior runs that hoarded 23–105+).
+- Coins 0 — excellent (vs baseline 54 remaining).
+- Items 12 vs 29 (provisional) — accounting now trustworthy via final_inventory.
+
+Decision:
+Do not promote. Stats below baseline despite strong race quality. Climax mood Normal is a regression.
+Additionally, this run has a known confound: the running style bug meant all races used Front Runner
+instead of the intended Pace Chaser for Year 2+. Do not tune based on these race numbers until a
+corrected run is available.
+
+Known bugs surfaced by this run:
+1. **Coaching Megaphone ×2 bought despite nirio_buy_coaching_mega=false.** Either a separate upstream
+   purchase path bypasses the nirio filter, or the item classifier doesn't recognize Coaching Mega as
+   covered by `buy_coaching_mega`. Investigate before next run.
+2. **Bootcamp mega reserve PARTIAL (T37: 1 strong mega, target 2).** Check whether the bot had
+   buyable Motivating/Empowering Megaphones available before T37 and skipped them. Do not lower
+   target yet.
+
+Do not change: hammer allocation, skill settings, mood settings, charm/whistle settings.
+
+---
+
 ### 2026-06-30 — Long Pace V3 Fix, nirio_chain_mood_floor=4, MCH reserve-2
 
 **Source:** Long Pace V3 Fix preset, Make a New Track scenario, 77/77 turns

@@ -10,13 +10,16 @@ TRACKBLAZER_SHOP_TIERS = {
     "good-luck_charm": 1,
     "master_cleat_hammer": 1,
     "artisan_cleat_hammer": 1,
-    "glow_sticks": 1,
     "royal_kale_juice": 1,
     "grilled_carrots": 1,
     "rich_hand_cream": 1,
     "miracle_cure": 1,
 
-    # Tier 2: direct stats, with scrolls/manuals above low-value notepads.
+    # Tier 2: direct stats + high-value Vita (guide rates Vita as #1 buy priority;
+    # Vita 65/40 are promoted here so they are never crowded out by hammers/glow sticks
+    # on a tight-coin turn). Scrolls/manuals remain here for instant-stat value.
+    "vita_65": 2,
+    "vita_40": 2,
     "speed_scroll": 2,
     "stamina_scroll": 2,
     "power_scroll": 2,
@@ -28,9 +31,7 @@ TRACKBLAZER_SHOP_TIERS = {
     "guts_manual": 2,
     "wit_manual": 2,
 
-    # Tier 3: recovery/mood stabilizers.
-    "vita_65": 3,
-    "vita_40": 3,
+    # Tier 3: remaining recovery/mood stabilizers.
     "vita_20": 3,
     "berry_sweet_cupcake": 3,
     "plain_cupcake": 3,
@@ -45,7 +46,10 @@ TRACKBLAZER_SHOP_TIERS = {
     "power_ankle_weights": 4,
     "guts_ankle_weights": 4,
 
-    # Tier 5: condition cures other than the Trackblazer-critical ones above.
+    # Tier 5: condition cures + glow sticks (fan-farming only; guide rates as skip/
+    # lowest priority — moved from Tier 1 to stop them crowding out hammers/megaphones
+    # on tight-coin turns; usage logic already gates them by fan count and reserve).
+    "glow_sticks": 5,
     "fluffy_pillow": 5,
     "pocket_planner": 5,
     "smart_scale": 5,

@@ -46,7 +46,7 @@
       advisor: advice || (trained ? 'No advisor note for the latest run.' : (d.detail || 'AI not trained yet.')),
       auto_training: !!(auto.enabled ?? auto.running ?? auto.active),
       model_version: d.version || '',
-      local_llm: { connected: !!(llm.connected || llm.enabled || llm.ok), endpoint: llm.endpoint || llm.base_url || cfg.endpoint || cfg.base_url || '', model: llm.model || cfg.model || '' },
+      local_llm: { connected: !!(llm.connected || llm.enabled || llm.ok), endpoint: llm.endpoint || llm.base_url || cfg.endpoint || cfg.base_url || '', model: llm.model || cfg.model || '', provider: llm.provider || cfg.provider || 'lmstudio' },
     };
   }
 
@@ -136,6 +136,12 @@
         <div class="card" style="flex:1">
           <div class="card-head"><span class="card-title">LOCAL LLM</span><span class="col-meta ${ai.local_llm && ai.local_llm.connected ? 'c-green' : 'c-mut'}">${ai.local_llm && ai.local_llm.connected ? 'connected' : 'off'}</span></div>
           <div class="card-body" style="display:flex;flex-direction:column;gap:8px">
+            <label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">PROVIDER
+              <select id="ai-llm-provider" class="numf">
+                <option value="lmstudio" ${!(ai.local_llm||{}).provider||(ai.local_llm||{}).provider==='lmstudio'?'selected':''}>LM STUDIO</option>
+                <option value="ollama" ${(ai.local_llm||{}).provider==='ollama'?'selected':''}>OLLAMA</option>
+                <option value="custom" ${(ai.local_llm||{}).provider==='custom'?'selected':''}>CUSTOM</option>
+              </select></label>
             <label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">ENDPOINT
               <input id="ai-llm-endpoint" class="numf" type="text" placeholder="http://127.0.0.1:11434" value="${esc((ai.local_llm || {}).endpoint || '')}"></label>
             <label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">MODEL
@@ -288,7 +294,7 @@
         res = await aiCall('POST', '/api/ai/local-llm/test', Object.keys(body).length ? body : undefined);
       }
       else if (act === 'llm-analyze') res = await aiCall('POST', '/api/ai/local-llm/analyze-latest-run', {});
-      else if (act === 'llm-save') res = await aiCall('POST', '/api/ai/local-llm/config', { base_url: (($('ai-llm-endpoint') || {}).value || '').trim(), model: (($('ai-llm-model') || {}).value || '').trim() });
+      else if (act === 'llm-save') res = await aiCall('POST', '/api/ai/local-llm/config', { base_url: (($('ai-llm-endpoint') || {}).value || '').trim(), model: (($('ai-llm-model') || {}).value || '').trim(), provider: (($('ai-llm-provider') || {}).value || 'lmstudio').trim() });
       else if (act === 'download') { window.location.href = '/api/ai/model/download'; res = { success: true, detail: 'Model download started (404 if no model has been trained yet).' }; }
       else if (act === 'import') {
         const p = (window.prompt('Paste the path to an old build/runtime folder or a logs .zip:') || '').trim();
@@ -322,6 +328,12 @@
       if (t && I.Modals && I.Modals[t.dataset.modal]) { I.Modals[t.dataset.modal](); return; }
       const b = e.target.closest('[data-act]');
       if (b) handleAiAction(b.dataset.act, b);
+    });
+    const PROVIDER_DEFAULTS = { lmstudio: 'http://localhost:1234/v1', ollama: 'http://localhost:11434/v1' };
+    document.addEventListener('change', (e) => {
+      if (e.target.id !== 'ai-llm-provider') return;
+      const ep = $('ai-llm-endpoint');
+      if (ep && !ep.value.trim() && PROVIDER_DEFAULTS[e.target.value]) ep.value = PROVIDER_DEFAULTS[e.target.value];
     });
     await loadData();
     render('ai');
