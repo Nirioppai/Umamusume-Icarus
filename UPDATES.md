@@ -240,6 +240,11 @@ Same collisions as v3.2.2 — no new fork changes superseded. One new upstream f
 **Context:** Applied upstream v3.2.3. Key additions: Display/Appearance panel (font size, body/heading/numeric fonts, accent theme), centralized CSS type-scale (all font sizes via variables), whistle dump-late short-circuit fix (whistle no longer blocks other item dumps in late game). All active fork changes silently reverted again.
 **Status:** N/A (upstream snapshot)
 
+### 2026-06-30 — (nirio) reverse-priority Climax hammer allocation
+**Commit:** (pending) **File(s):** `career_bot/trackblazer_rules.py`, `career_bot/items.py`, `public-v3/modals.js`
+**Context:** The flat "swing best hammer unconditionally" Climax logic was forward-greedy: T74 spent MCH first, T78 hoped one remained. The last Climax race has the highest stat value (T78 > T76 > T74). Replaced with reverse-priority allocation: protect `nirio_final_mch_required` (default 2) MCH for later races, so T74 only gets a Master Hammer if 3+ are owned. Added `nirio_final_artisan_reserve` (default 1) for the same Artisan fallback protection. With defaults: T74 uses Artisan if tight; T76 uses MCH if 2+ owned; T78 always gets the best available. Two new sliders added to the nirio UI section.
+**Status:** ACTIVE
+
 ### 2026-06-30 — Integrate fork fixes after v3.2.3
 **Commit:** (pending) **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`
 **Context:** v3.2.3 is primarily a UI/display overhaul (CSS type-scale). One new upstream behavior fix: whistle dump-late short-circuit (accepted). All fork changes identical to v3.2.2 integration re-applied. No new superseded knobs.

@@ -960,12 +960,20 @@ class MantItemManager:
         is_final_race = turn >= tb_rules.TRACKBLAZER_FINAL_RACE_TURN
         conservation = turn >= tb_rules.RACE_ITEM_CONSERVATION_START_TURN
 
-        # P0: CLIMAX/finale race -> swing the best hammer unconditionally.  This is
-        # the payoff for the conservation reserves enforced on regular G1s below.
+        # P0: CLIMAX/finale race — reverse-priority allocation.
+        # FORK: (nirio) protect MCH for later Climax races first (T78 > T76 > T74).
+        # remaining_after = future Climax races not yet reached. With nirio_final_mch_required=2:
+        # T74 (remaining_after=2): use MCH only if 3+; T76 (remaining_after=1): use if 2+;
+        # T78 (remaining_after=0): use if any. Artisan fallback protected the same way.
         if is_climax or grade == "CLIMAX":
-            if master_qty > 0:
+            remaining_after = sum(1 for ct in tb_rules.TRACKBLAZER_FINALE_RACE_TURNS if turn < ct)
+            nirio_final_mch_req = _cfg_num(cfg, "nirio_final_mch_required", tb_rules.DEFAULT_NIRIO_FINAL_MCH_REQUIRED)
+            nirio_final_artisan = _cfg_num(cfg, "nirio_final_artisan_reserve", tb_rules.DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE)
+            mch_for_future = min(nirio_final_mch_req, remaining_after)
+            artisan_for_future = min(nirio_final_artisan, remaining_after)
+            if master_qty > mch_for_future:
                 return "Master Cleat Hammer"
-            if artisan_qty > 0:
+            if artisan_qty > artisan_for_future:
                 return "Artisan Cleat Hammer"
             return None
 
@@ -1447,6 +1455,8 @@ class MantItemManager:
         cfg.setdefault("nirio_whistle_dump_turn", tb_rules.DEFAULT_NIRIO_WHISTLE_DUMP_TURN)
         cfg.setdefault("nirio_whistle_dump_score", tb_rules.DEFAULT_NIRIO_WHISTLE_DUMP_SCORE)
         cfg.setdefault("nirio_mch_reserve", tb_rules.DEFAULT_NIRIO_MCH_RESERVE)
+        cfg.setdefault("nirio_final_mch_required", tb_rules.DEFAULT_NIRIO_FINAL_MCH_REQUIRED)
+        cfg.setdefault("nirio_final_artisan_reserve", tb_rules.DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE)
         cfg.setdefault("nirio_chain_mood_floor", tb_rules.DEFAULT_NIRIO_CHAIN_MOOD_FLOOR)
         return cfg
 
