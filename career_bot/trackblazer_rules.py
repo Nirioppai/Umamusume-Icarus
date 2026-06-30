@@ -315,3 +315,9 @@ DEFAULT_NIRIO_CHAIN_MOOD_FLOOR = 2
 DEFAULT_NIRIO_BOOTCAMP_MEGA_TARGET = 2
 DEFAULT_NIRIO_SECOND_BOOTCAMP_TURN = 61
 DEFAULT_NIRIO_BUY_COACHING_MEGA = False
+
+# FORK: (nirio) late-game hammer buy cap. After this turn, stop buying MCH/Artisan
+# once the final reserve is already satisfied — prevents overbuy that strands coins
+# that could buy Vita/megaphones instead. Surplus hammers already in inventory are
+# still spent on G1/G2 races by the usage logic; only NEW purchases are blocked.
+DEFAULT_NIRIO_MCH_BUY_CAP_TURN = 65

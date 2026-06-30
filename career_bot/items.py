@@ -1462,6 +1462,7 @@ class MantItemManager:
         cfg.setdefault("nirio_bootcamp_mega_target", tb_rules.DEFAULT_NIRIO_BOOTCAMP_MEGA_TARGET)
         cfg.setdefault("nirio_second_bootcamp_turn", tb_rules.DEFAULT_NIRIO_SECOND_BOOTCAMP_TURN)
         cfg.setdefault("nirio_buy_coaching_mega", tb_rules.DEFAULT_NIRIO_BUY_COACHING_MEGA)
+        cfg.setdefault("nirio_mch_buy_cap_turn", tb_rules.DEFAULT_NIRIO_MCH_BUY_CAP_TURN)
         return cfg
 
     def _owned_map(self, free):
@@ -2359,6 +2360,19 @@ class MantItemManager:
                 return "skip_notepad"  # FORK: granular skip reason for log_viewer.html
         if int(owned.get(name, 0) or 0) >= self._item_cap(name, preset):
             return "skip_inv_cap"  # FORK: granular skip reason for log_viewer.html
+        # FORK: (nirio) late-game MCH/Artisan buy cap. After nirio_mch_buy_cap_turn,
+        # stop buying hammers once the final reserve is already satisfied. Surplus
+        # hammers in inventory continue to fire on G1/G2 races via the usage logic;
+        # this only blocks new purchases so coins go to Vita/megaphones instead.
+        if name in {"Master Cleat Hammer", "Artisan Cleat Hammer"}:
+            _mch_cap_t = _cfg_num(cfg, "nirio_mch_buy_cap_turn", tb_rules.DEFAULT_NIRIO_MCH_BUY_CAP_TURN)
+            if int(turn or 0) >= _mch_cap_t:
+                _final_mch = _cfg_num(cfg, "nirio_final_mch_required", tb_rules.DEFAULT_NIRIO_FINAL_MCH_REQUIRED)
+                _final_art = _cfg_num(cfg, "nirio_final_artisan_reserve", tb_rules.DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE)
+                if name == "Master Cleat Hammer" and int((owned or {}).get("Master Cleat Hammer", 0) or 0) >= _final_mch + 1:
+                    return "skip_mch_buy_cap"  # FORK: granular skip reason for log_viewer.html
+                if name == "Artisan Cleat Hammer" and int((owned or {}).get("Artisan Cleat Hammer", 0) or 0) >= _final_art + 1:
+                    return "skip_mch_buy_cap"  # FORK: granular skip reason for log_viewer.html
         # v2.1 R2: during the late-summer window (turns 60-64) lift the
         # stock-conservation caps so anklets/megaphones are bought freely and the
         # use logic has stock to spend.  Past turn 64 (R6) conservation is off
@@ -2429,6 +2443,25 @@ class MantItemManager:
             # Example: 3 Speed / 2 Power / 1 Stamina / 0 Guts → Speed first, Power second, Stamina third, Guts skipped.
             if count < 1:
                 return "skip_low_deck"  # FORK: granular skip reason for log_viewer.html
+            # FORK: (nirio) off-priority anklet gate. When deck support for this stat
+            # is exactly 1 card AND the stat is not in the top-N training priorities,
+            # skip it — a weak-deck off-priority anklet typically lands in inventory
+            # unused (wrong stat for the training pattern). Configurable: raise
+            # nirio_anklet_priority_cutoff to allow more stats; set
+            # nirio_anklet_min_deck_for_low_priority to 1 to restore old behavior.
+            _min_deck = _cfg_num(cfg, "nirio_anklet_min_deck_for_low_priority", 2)
+            if count < _min_deck:
+                _stat_by_idx = {0: "speed", 1: "stamina", 2: "power", 3: "guts", 4: "wit"}
+                _anklet_stat = _stat_by_idx.get(type_idx, "")
+                _priority = self._training_stat_priority(preset)
+                _cutoff = _cfg_num(cfg, "nirio_anklet_priority_cutoff", 2)
+                if _anklet_stat and _priority:
+                    try:
+                        _rank = _priority.index(_anklet_stat)
+                    except ValueError:
+                        _rank = 99
+                    if _rank >= _cutoff:
+                        return "skip_low_deck"  # FORK: granular skip reason for log_viewer.html
             return None  # FORK: granular skip reason for log_viewer.html
         if name in ONE_TIME_BUFF_ITEMS and name in self.used_buffs:
             return "skip_buff_used"  # FORK: granular skip reason for log_viewer.html

@@ -55,6 +55,36 @@ For collision entries (where we chose between our fix and upstream's), add:
 **Context:** The LOCAL LLM card only had ENDPOINT and MODEL inputs — no way to select provider. The `local_llm_config.json` already had a `provider` field (`lmstudio`, `ollama`, `custom`) but nothing in the UI or test path read or wrote it. Added a PROVIDER select to the card. SAVE and TEST now forward `provider` to the backend. `test_connection` accepts `provider` in its override dict so the test result reflects what the user selected, not what's saved. Auto-fills the endpoint when switching providers if the field is empty (`http://localhost:1234/v1` for LM Studio, `http://localhost:11434/v1` for Ollama).
 **Status:** ACTIVE
 
+### 2026-07-01 — Phase-aware optional-race override in decide()
+**Commit:** `(pending)` **File(s):** `career_bot/scenarios/mant_trackblazer.py`
+**Context:** The irregular_training gate only trained over a race when `main_gain >= thr` (default 30). Sub-threshold but genuinely high-value training opportunities — bond-building turns before classic summer, pre-camp megaphone dump windows — were always sacrificed to optional races even when training was the correct conversion play. Added two nirio override paths inside the existing `if bcmd is not None:` block, evaluated only after the main-gain gate fails so the original threshold path is unchanged: (1) bond-critical window — turns 25-36 with 2+ training partners below green (bond < 60), fires at 55% of thr minimum; (2) pre-camp mega pressure — turns 33-36 or 57-60 when strong megas (Motivating/Empowering) in inventory exceed the bootcamp target, fires at 55% of thr. Both paths are configurable via `nirio_enable_bond_irregular_train`, `nirio_enable_precamp_mega_override`, `nirio_override_min_main_gain`, and `nirio_bootcamp_mega_target`. Mandatory/forced/marquee races are unaffected — override only touches the optional race waterfall path.
+**Status:** ACTIVE
+
+### 2026-07-01 — Expose new nirio knobs in Settings UI
+**Commit:** `(pending)` **File(s):** `public-v3/modals.js`
+**Context:** New knobs added this session (`nirio_mch_buy_cap_turn`, `nirio_override_min_main_gain`, `nirio_enable_bond_irregular_train`, `nirio_enable_precamp_mega_override`, `nirio_anklet_priority_cutoff`, `nirio_anklet_min_deck_for_low_priority`) were code-only — no UI control, defaults only. Added them to the NIRIO FORK TUNING section alongside the existing hammer/megaphone knobs. Two are toggles (bond-rush override, pre-camp mega override), five are sliders. Existing presets without these keys will still read from code defaults.
+**Status:** ACTIVE
+
+### 2026-07-01 — Extend early-game bond incentive into pre-classic-summer window
+**Commit:** `(pending)` **File(s):** `career_bot/scenarios/mant_trackblazer.py`
+**Context:** `_relationship_score()` applied `REL_EARLY_GAME = 1.3x` only in Junior year (turns 1-24), then dropped to 1.0x for all of Classic year. But the bond-building window is most critical in turns 25-36 (pre-classic-summer): friendship reaching orange unlocks rainbow probability for the T37-40 camp and beyond. After classic camp starts (T37+) bonds are more established and the elevated incentive is wasted. Added a 1.15x multiplier for year=1 and turn<37 (`bond_pre_summer_bonus`, configurable) so the bot keeps pursuing bond-positive clicks in the pre-camp prep window without overshooting into the camp itself.
+**Status:** ACTIVE
+
+### 2026-07-01 — Late-game MCH/Artisan buy cap in _skip_buy
+**Commit:** `(pending)` **File(s):** `career_bot/items.py`, `career_bot/trackblazer_rules.py`
+**Context:** After `nirio_final_mch_required` and `nirio_final_artisan_reserve` are satisfied, the bot continued buying MCH/Artisan through the late game. Surplus hammers strained coin budgets that should have gone to Vita/megaphones, and they typically ended the run unused. Added a buy cap at `nirio_mch_buy_cap_turn` (default T65): once inventory exceeds final_required+1 for each type, new purchases return `skip_mch_buy_cap`. Existing surplus hammers in inventory still fire on G1/G2 races via usage logic; only new purchases are blocked. `DEFAULT_NIRIO_MCH_BUY_CAP_TURN = 65` added to `trackblazer_rules.py`; default wired in `_mant_cfg`.
+**Status:** ACTIVE
+
+### 2026-07-01 — Off-priority anklet purchase gate
+**Commit:** `(pending)` **File(s):** `career_bot/items.py`
+**Context:** Anklets for stats with only 1 support card in the deck were being bought as Tier 4 items, then sitting unused because the training pattern never aligned with a weak-deck off-priority stat. Added a `nirio_anklet_min_deck_for_low_priority` check (default 2): if deck count for the anklet's stat is < 2 AND the stat ranks below `nirio_anklet_priority_cutoff` (default 2nd) in training priority order, skip the purchase with reason `skip_low_deck`. Raise `nirio_anklet_min_deck_for_low_priority` to 1 to restore old behavior. Returns granular `skip_low_deck` reason for log_viewer.html's `friendlySkipReason()`.
+**Status:** ACTIVE
+
+### 2026-07-01 — Expand AI Summary promotion criteria to multi-metric gate
+**Commit:** `(pending)` **File(s):** `CLAUDE.md`
+**Context:** The feedback loop promotion rule ("higher total stats AND better win rate AND fewer leftover items") was too simple — a run could score higher on stats by burning all hammers on mid-career G1s and still promote. Replaced the single gate with a full multi-metric check: total stats competitive (within ~50), win rate stable (≤2% lower), Climax wins preserved, SP spent, final inventory waste low, no protected-item policy violated, support/bond setup not obviously worse. Added a "Metrics to compare" subsection covering G1 win rate, Climax mood, SP remaining, summer execution, hammer policy correctness, and bond/friendship readiness, so the feedback loop has a concrete checklist rather than a three-metric heuristic.
+**Status:** ACTIVE
+
 ### 2026-07-01 — Reorder shop tiers: Vita 65/40 promoted, Glow Sticks demoted
 **Commit:** `(pending)` **File(s):** `career_bot/trackblazer_rules.py`
 **Context:** Guide audit showed Glow Sticks at Tier 1 (same as MCH) could crowd out hammers or megaphones when coins were tight (~70-90 coin scenarios where buying a 15-coin Glow Stick left too little for a 70-coin Empowering Megaphone). Vita 65/40 were at Tier 3, below glow sticks, despite guides rating Vita as the #1 buy priority. Moved Glow Sticks to Tier 5 (fan-farming only; usage logic still gates by 20k fan floor and reserve). Promoted Vita 65/40 to Tier 2 alongside scrolls/manuals.

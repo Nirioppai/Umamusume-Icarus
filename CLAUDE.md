@@ -133,8 +133,17 @@ recommendation in [RECOMMENDED_SETTINGS.md](RECOMMENDED_SETTINGS.md):
 1. **Extract** the settings snapshot and performance metrics from the summary.
 2. **Compare** against the current recommended values: total stats, win rate,
    Climax mood, item leftovers, SP remaining, coin efficiency.
-3. **If the run outperforms** (higher total stats AND better win rate AND fewer
-   leftover items), **auto-update** RECOMMENDED_SETTINGS.md:
+3. **If the run outperforms**, **auto-update** RECOMMENDED_SETTINGS.md. Do NOT
+   promote a run only because total stats are higher. Promote only if ALL of:
+   - Final total stats improve or remain competitive (within ~50 points)
+   - Win rate stays stable (not more than 2% lower)
+   - Climax wins are preserved (same or better Climax result/mood)
+   - SP is spent (SP remaining not significantly higher than baseline)
+   - Final inventory waste is low (no unused megaphones/anklets/Vita past turn 70)
+   - No major protected item policy violated (e.g. coaching mega bought when OFF)
+   - Support/bond setup is not obviously worse (friendship not clearly left unbuilt)
+
+   When promoting, update RECOMMENDED_SETTINGS.md:
    - Update the "Current Recommended Settings" tables with the new values.
    - For any setting whose value changed from the previous recommendation, append
      **(changed)** to its name in the table.
@@ -145,6 +154,15 @@ recommendation in [RECOMMENDED_SETTINGS.md](RECOMMENDED_SETTINGS.md):
      is different from the last promoted run.
    - Add a dated entry to "Settings History" with the evidence (metrics).
    - Note which specific settings changed and the measured improvement.
+
+   **Metrics to compare** (extract from the AI summary):
+   - Final total stats, Win rate, G1 win rate
+   - Climax result, Climax mood, SP remaining
+   - Final inventory value, Unused high-value items (megas/anklets/Vita)
+   - Summer execution (items spent during bootcamp vs hoarded past it)
+   - Support bond/friendship readiness (friendship status before summer)
+   - Hammer policy correctness (MCH count at T73, finale allocation)
+
 4. **If the run is mixed** (better in some metrics, worse in others), note the
    trade-off in a History entry but do NOT update the recommended values.
 5. **If the run underperforms**, add a History entry documenting what was tried

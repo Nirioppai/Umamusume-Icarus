@@ -353,6 +353,62 @@ class MantTrackblazerCore:
                                           tb_rules.DEFAULT_IRREGULAR_TRAINING_MIN_MAIN_GAIN))
                         if main_gain >= thr:
                             return self._as_command(bcmd, chara, f"trackblazer: irregular training (gain {main_gain} >= {thr}, train over race)")
+                        # FORK: (nirio) optional-race override — break racing for high-value
+                        # training opportunities that the main_gain gate misses. RacePlanner
+                        # still owns the race schedule; this only overrides OPTIONAL races when
+                        # one of the following conversion opportunities beats generic racing:
+                        #
+                        # 1. Bond-critical (turns 25-36, pre-classic-summer): 2+ partners below
+                        #    green bond. Building friendship now unlocks rainbow by summer camp.
+                        # 2. Pre-camp megaphone pressure (turns 33-36 / 57-60): strong megas in
+                        #    inventory need training turns to spend them before bootcamp lock.
+                        #    Break a race to create a spending window rather than arriving at
+                        #    bootcamp still holding unused stock.
+                        _nirio_override = False
+                        _nirio_reason = ""
+                        _override_min_gain = int(cfg.get("nirio_override_min_main_gain",
+                                                          max(1, int(thr * 0.55))))
+                        if main_gain >= _override_min_gain:
+                            # Criterion 1: bond-critical window (year 1, pre-classic-summer)
+                            if (turn < 37
+                                    and cfg.get("nirio_enable_bond_irregular_train", True)):
+                                try:
+                                    _bonds = self.ref._bond_map(chara)
+                                    _partners = bcmd.get("training_partner_array") or []
+                                    _low_bond = sum(
+                                        1 for _pid in _partners
+                                        if int(_bonds.get(int(_pid), 0) or 0) < 60
+                                    )
+                                    if _low_bond >= 2:
+                                        _nirio_override = True
+                                        _nirio_reason = f"nirio bond-rush ({_low_bond} partners <60 bond, turn {turn})"
+                                except Exception:
+                                    pass
+                            # Criterion 2: pre-camp megaphone inventory pressure.
+                            # Turns 33-36 (before classic camp T37) and 57-60 (before senior
+                            # camp T61): if strong megaphones are already stocked above the
+                            # bootcamp target, creating training windows now is better than
+                            # racing and arriving at camp still needing to spend them.
+                            if (not _nirio_override
+                                    and cfg.get("nirio_enable_precamp_mega_override", True)
+                                    and (33 <= turn <= 36 or 57 <= turn <= 60)):
+                                try:
+                                    _nirio_bt = int(cfg.get("nirio_bootcamp_mega_target",
+                                                             tb_rules.DEFAULT_NIRIO_BOOTCAMP_MEGA_TARGET))
+                                    _strong_owned = (
+                                        int((data.get("free_data_set") or {}).get("user_item_info_array") and
+                                            sum(int(r.get("num") or r.get("current_num") or 0)
+                                                for r in ((data.get("free_data_set") or {}).get("user_item_info_array") or [])
+                                                if int(r.get("item_id") or 0) in (8002, 8003)) or 0)
+                                    )
+                                    if _strong_owned > _nirio_bt:
+                                        _nirio_override = True
+                                        _nirio_reason = f"nirio pre-camp mega pressure ({_strong_owned} strong megas > target {_nirio_bt})"
+                                except Exception:
+                                    pass
+                        if _nirio_override:
+                            return self._as_command(bcmd, chara,
+                                f"trackblazer: {_nirio_reason}, train over race)")
                 # Manual picks are forced -> no prediction gate (the runner only
                 # backs out + rejects when _trackblazer_prediction_gate is set).
                 race_payload = {"program_id": program_id, "current_turn": chara["turn"], "_strategy": self.ref}
@@ -640,7 +696,18 @@ class MantTrackblazerCore:
         v_orange, v_green, v_blue = self._bond_values(cfg)
         score = 0.0
         max_score = 0.0
-        early = REL_EARLY_GAME if year == 0 else 1.0
+        # FORK: (nirio) extend early-game bond incentive into pre-classic-summer window.
+        # Junior (year=0, turns<=24): 1.3x — same as original REL_EARLY_GAME.
+        # Pre-classic-summer (year=1, turns 25-36): 1.15x — bond setup is most critical
+        # here: friendship not yet at orange blocks rainbow, and summer camp is imminent.
+        # After classic summer starts (turn>=37): revert to 1.0x (bonds more established).
+        turn = int(chara.get("turn") or 0)
+        if year == 0:
+            early = REL_EARLY_GAME
+        elif year == 1 and turn < 37:
+            early = float((cfg or {}).get("bond_pre_summer_bonus", 1.15))
+        else:
+            early = 1.0
         for pid in partners:
             try:
                 bond = int(bonds.get(int(pid), 0) or 0)
