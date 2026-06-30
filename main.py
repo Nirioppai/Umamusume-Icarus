@@ -6432,8 +6432,10 @@ async def ai_local_llm_config_post(req: dict):
 
 
 @app.post("/api/ai/local-llm/test")
-async def ai_local_llm_test():
-    return local_llm.test_connection(base_dir)
+async def ai_local_llm_test(req: dict = None):
+    override = {k: str((req or {}).get(k, "")).strip() for k in ("base_url", "model")}
+    override = {k: v for k, v in override.items() if v}
+    return local_llm.test_connection(base_dir, override=override or None)
 
 
 @app.post("/api/ai/local-llm/analyze-latest-run")

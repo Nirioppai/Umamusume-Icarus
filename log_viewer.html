@@ -790,7 +790,8 @@ function renderOverview(){
   const topItems=Object.entries(shopItems).sort((a,b)=>b[1]-a[1]).slice(0,10);
   html+=`<div class="ov-card"><h3>Top Items — Bought / Used</h3>`;
   if(topItems.length){
-    html+=topItems.map(([n,c])=>{const u=usedItems[n]||0;const leftover=c-u;const leftC=leftover>0?'var(--orange)':'var(--green)';return`<div class="ov-row"><span class="ov-lbl">${esc(fmtItem(n))}</span><span class="ov-val" style="font-size:11px"><span style="color:var(--yellow)">${c}×</span> <span style="color:var(--text3)">/</span> <span style="color:var(--blue)">${u}×</span>${leftover>0?` <span style="color:${leftC};font-size:10px">(${leftover} left)</span>`:''}</span></div>`}).join('');
+    // FORK: suppress orange leftover for instant-use items (ledger drift expected)
+    html+=topItems.map(([n,c])=>{const u=usedItems[n]||0;const leftover=c-u;const isInstant=INSTANT_USE_ITEM_NAMES.has(n);const leftC=leftover>0&&!isInstant?'var(--orange)':'var(--text3)';return`<div class="ov-row"><span class="ov-lbl">${esc(fmtItem(n))}</span><span class="ov-val" style="font-size:11px"><span style="color:var(--yellow)">${c}×</span> <span style="color:var(--text3)">/</span> <span style="color:var(--blue)">${u}×</span>${leftover>0?` <span style="color:${leftC};font-size:10px">${isInstant?'(~'+leftover+')':'('+leftover+' left)'}</span>`:''}</span></div>`}).join('');
   }else html+=`<div class="ov-sub">No items purchased</div>`;
   html+=`</div>`;
 
@@ -1358,9 +1359,14 @@ function renderItemsTab(){
     <th>Skip Reasons</th>
     </tr></thead><tbody>
     ${unified.map(it=>{
-      const leftColor=it.remaining>0?'var(--orange)':'var(--green)';
+      const isInstant=INSTANT_USE_ITEM_NAMES.has(it.name);
+      // FORK: instant-use items always show ledger drift; use neutral color + tilde prefix
+      // instead of orange to avoid false alarm.  Non-instant-use leftovers stay orange.
+      const leftColor=it.remaining>0&&!isInstant?'var(--orange)':'var(--text3)';
+      const leftDisplay=it.remaining>0?(isInstant?'~'+it.remaining:it.remaining):'—';
+      const leftTitle=isInstant&&it.remaining>0?' title="Instant-use: consumed on purchase; ledger drift expected — check final_inventory for true count"':'';
       const tags=Object.entries(it.reasons).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<span class="reason-tag" title="${esc(r)}">${esc(friendlySkipReason(r))}: ${c}</span>`).join('');
-      return`<tr><td>${esc(fmtItem(it.name))}</td><td class="r" style="color:var(--yellow);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:var(--blue);font-weight:600">${it.used||'—'}</td><td class="r" style="color:${leftColor};font-weight:600">${it.remaining>0?it.remaining:'—'}</td><td class="r cost-cell">${it.cost?'🪙'+it.cost:'—'}</td><td class="r" style="font-weight:600;color:var(--text2)">${it.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
+      return`<tr><td>${esc(fmtItem(it.name))}</td><td class="r" style="color:var(--yellow);font-weight:600">${it.bought||'—'}</td><td class="r" style="color:var(--blue);font-weight:600">${it.used||'—'}</td><td class="r" style="color:${leftColor};font-weight:600"${leftTitle}>${leftDisplay}</td><td class="r cost-cell">${it.cost?'🪙'+it.cost:'—'}</td><td class="r" style="font-weight:600;color:var(--text2)">${it.skipped||'—'}</td><td><div class="reason-tags">${tags||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></td></tr>`;
     }).join('')}
     </tbody></table></div></div>`;
 
@@ -2019,17 +2025,36 @@ function generateAISummary(){
   const _aiInvLeftover=_aiFinvItems.reduce((s,i)=>s+(i.current_num||i.num||1),0);
   const _aiLedgerLeftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
   const leftover=_aiFinvItems.length?_aiInvLeftover:_aiLedgerLeftover;
-  const _aiAcctMismatch=_aiFinvItems.length&&Math.abs(_aiInvLeftover-_aiLedgerLeftover)>2;
+  // FORK: compute mismatch only on NON-instant-use items; instant-use always drifts (buy+use same turn).
+  const _aiNonIULedgerLeft=Object.entries(ie.bought).reduce((s,[n,c])=>INSTANT_USE_ITEM_NAMES.has(n)?s:s+Math.max(0,c-(ie.used[n]||0)),0);
+  const _aiFinvMap={};for(const it of _aiFinvItems){const nm=it.name||(ITEM&&ITEM[it.item_id])||'';if(nm)_aiFinvMap[nm]=(_aiFinvMap[nm]||0)+(it.current_num||it.num||1);}
+  const _aiNonIUFinvLeft=Object.entries(_aiFinvMap).reduce((s,[n,c])=>INSTANT_USE_ITEM_NAMES.has(n)?s:s+c,0);
+  const _aiAcctMismatch=_aiFinvItems.length&&Math.abs(_aiNonIUFinvLeft-_aiNonIULedgerLeft)>2;
   o+='Total Items Bought: '+ie.boughtCount+'\n';
   o+='Total Items Used: '+ie.usedCount+'\n';
   o+='Items Left Over: '+leftover+(_aiFinvItems.length?' (from final_inventory)':' (from ledger)')+'\n';
-  if(_aiAcctMismatch)o+='  ⚠ Accounting Warning: ledger says '+_aiLedgerLeftover+', final_inventory says '+_aiInvLeftover+'. Per-item table below uses ledger for economy analysis; treat per-item "left" column as approximate.\n';
+  if(_aiAcctMismatch)o+='  ⚠ Accounting Warning: non-instant-use ledger says '+_aiNonIULedgerLeft+', final_inventory says '+_aiNonIUFinvLeft+'. Per-item table below uses final_inventory for instant-use items and ledger for others.\n';
   o+='Total Coins Spent: '+ie.spent+'\n\n';
 
+  // FORK: build final_inventory map for per-item leftover resolution.
+  // Instant-use items (scrolls, manuals, carrots, etc.) are consumed on the same turn they are bought,
+  // so the ledger (bought - used) always drifts when buy + use land in the same turn.  The game's
+  // final_inventory snapshot is the ground truth: it correctly shows 0 for all instant-use items.
+  // Use it as the authoritative "left" count for instant-use items; fall back to ledger for others.
+  const _perItemFinvMap={};
+  for(const it of _aiFinvItems){const nm=it.name||(ITEM&&ITEM[it.item_id])||'';if(nm)_perItemFinvMap[nm]=(_perItemFinvMap[nm]||0)+(it.current_num||it.num||1)}
+  const _hasFinalInv=_aiFinvItems.length>0;
   const allNames=new Set([...Object.keys(ie.bought),...Object.keys(ie.used)]);
-  const itemRows=[...allNames].map(nm=>({name:nm,b:ie.bought[nm]||0,u:ie.used[nm]||0,l:(ie.bought[nm]||0)-(ie.used[nm]||0)})).sort((a,b)=>b.b-a.b||b.u-a.u);
+  const itemRows=[...allNames].map(nm=>{
+    const _iiu=INSTANT_USE_ITEM_NAMES.has(nm);
+    const ledgerLeft=(ie.bought[nm]||0)-(ie.used[nm]||0);
+    // For instant-use items: use final_inventory (0 = all consumed, correct) when available.
+    // For regular items: use ledger but note final_inventory count if it differs.
+    const effectiveLeft=(_iiu&&_hasFinalInv)?(_perItemFinvMap[nm]||0):Math.max(0,ledgerLeft);
+    return{name:nm,b:ie.bought[nm]||0,u:ie.used[nm]||0,l:effectiveLeft,ledgerL:ledgerLeft,isIU:_iiu};
+  }).sort((a,b)=>b.b-a.b||b.u-a.u);
   o+='Per Item (bought / used / left):\n';
-  for(const it of itemRows){o+='  '+fmtItem(it.name)+': '+it.b+' / '+it.u+' / '+Math.max(0,it.l)+(it.l>0?' ⚠':'')+'\n'}
+  for(const it of itemRows){o+='  '+fmtItem(it.name)+': '+it.b+' / '+it.u+' / '+it.l+(!it.isIU&&it.l>0?' ⚠':'')+'\n'}
   o+='\n';
 
   // Skip reasons
@@ -2042,7 +2067,7 @@ function generateAISummary(){
   }
 
   // Unused permanent stat value estimate
-  o+=aiUnusedStatEstimate(ie);
+  o+=aiUnusedStatEstimate(ie, last.inventory||[]);
 
   // Summer bootcamp
   o+='--- SUMMER BOOTCAMP ---\n';
@@ -2254,13 +2279,35 @@ const STAT_ITEM_VALUES={
   'Speed Manual':15,'Stamina Manual':15,'Power Manual':15,'Guts Manual':15,'Wit Manual':15,
   'Speed Notepad':5,'Stamina Notepad':5,'Power Notepad':5,'Guts Notepad':5,'Wit Notepad':5
 };
+// FORK: items consumed immediately on purchase — buy/use events land on the same turn so
+// the ledger (bought-used) always drifts.  Suppress orange ⚠ leftover warnings for these;
+// use final_inventory (which correctly shows 0) as the authoritative leftover count instead.
+const INSTANT_USE_ITEM_NAMES=new Set([
+  'Grilled Carrots','Yummy Cat Food','Energy Drink MAX EX','Pretty Mirror',
+  "Scholar's Hat","Reporter's Binoculars",'Master Practice Guide',
+  'Speed Notepad','Stamina Notepad','Power Notepad','Guts Notepad','Wit Notepad',
+  'Speed Manual','Stamina Manual','Power Manual','Guts Manual','Wit Manual',
+  'Speed Scroll','Stamina Scroll','Power Scroll','Guts Scroll','Wit Scroll',
+  'Speed Training Application','Stamina Training Application',
+  'Power Training Application','Guts Training Application','Wit Training Application'
+]);
 
-function aiUnusedStatEstimate(ie){
+// FORK: accept finalInv so instant-use items (scrolls/manuals/etc.) are counted from
+// final_inventory (always 0 — correct) rather than the ledger (bought-used, always wrong
+// for instant-use because buy and use land on the same turn).
+function aiUnusedStatEstimate(ie, finalInv){
+  // Build a map of what's actually in final inventory
+  const finvMap={};
+  for(const it of (finalInv||[])){
+    const nm=it.name||(ITEM&&ITEM[it.item_id])||'';
+    if(nm)finvMap[nm]=(finvMap[nm]||0)+(it.current_num||it.num||1);
+  }
+  const hasFinalInv=(finalInv||[]).length>0;
   const unused=[];let totalLost=0;
   for(const[nm,sv]of Object.entries(STAT_ITEM_VALUES)){
-    const bought=ie.bought[nm]||0;
-    const used=ie.used[nm]||0;
-    const left=bought-used;
+    // Prefer final_inventory: instant-use items correctly show 0 there.
+    // Fall back to ledger only when final_inventory is absent.
+    const left=hasFinalInv?(finvMap[nm]||0):Math.max(0,(ie.bought[nm]||0)-(ie.used[nm]||0));
     if(left>0){unused.push({name:fmtItem(nm),count:left,value:left*sv});totalLost+=left*sv}
   }
   if(!unused.length)return'';
@@ -2322,10 +2369,13 @@ function aiCashOut(turns,last,ie,rr){
   const achLeft=finalInv.filter(i=>i.item_id===11001).reduce((s,i)=>s+(i.current_num||i.num||1),0);
   const finalCoins=last.mant_coin!=null?last.mant_coin:0;
 
-  // Count unused stat items
+  // Count unused stat items — use final_inventory so instant-use items (scrolls/manuals)
+  // correctly show 0 instead of ledger drift.  finalInv is already built above.
   let unusedStatVal=0;
+  const _cashoutFinvMap={};
+  for(const it of finalInv){const nm=it.name||(ITEM&&ITEM[it.item_id])||'';if(nm)_cashoutFinvMap[nm]=(_cashoutFinvMap[nm]||0)+(it.current_num||it.num||1)}
   for(const[nm,sv]of Object.entries(STAT_ITEM_VALUES)){
-    const left=(ie.bought[nm]||0)-(ie.used[nm]||0);
+    const left=finalInv.length?(_cashoutFinvMap[nm]||0):Math.max(0,(ie.bought[nm]||0)-(ie.used[nm]||0));
     if(left>0)unusedStatVal+=left*sv;
   }
 

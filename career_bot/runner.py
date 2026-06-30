@@ -2357,7 +2357,11 @@ class CareerRunner:
             elif rejected:
                 skip_reason = "rejected"
             elif skip_buy:
-                skip_reason = "skip_buy"
+                # FORK: pass through the actual granular reason from _skip_buy instead
+                # of collapsing everything to the generic "skip_buy" string.  This makes
+                # skip_anklet_cap, skip_inv_cap, skip_low_deck, etc. visible in the log
+                # viewer's per-item skip breakdown (previously all showed as "Low priority").
+                skip_reason = skip_buy
             elif cost > budget:
                 skip_reason = "unaffordable"
             result.append({

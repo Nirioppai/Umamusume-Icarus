@@ -94,6 +94,60 @@ Referenced by [CLAUDE.md](CLAUDE.md) (auto-update rule).
 
 Newest first. Each entry documents what changed and why.
 
+### 2026-06-30 — Long Pace V3 Fix, nirio_chain_mood_floor=4, MCH reserve-2
+
+**Source:** Long Pace V3 Fix preset, Make a New Track scenario, 77/77 turns
+**Classification:** MIXED — do not update Current Recommended Settings
+
+Settings tested:
+- nirio_chain_mood_floor: 4
+- nirio_charm_dump_failure_rate: 10
+- nirio_charm_dump_min_gain: 8
+- nirio_charm_dump_turn: 60
+- nirio_final_artisan_reserve: 1
+- nirio_final_mch_required: 2
+- nirio_mch_reserve: 2
+- nirio_mood_critical_turn: 65
+- nirio_mood_floor: 4
+- nirio_mood_repair_turn: 50
+- nirio_skill_force_turn: 60
+- nirio_skill_hoard_threshold: 1600
+- nirio_skill_sp_floor: 1500
+- nirio_whistle_dump_turn: 60
+
+Result:
+- Final stats: 3709 (Speed 973, Stamina 816, Power 1009, Guts 480, Wit 431)
+- Win rate: 100% (29/29 races), G1 14/14
+- Climax mood: Great (T76)
+- SP remaining: 105 (CRITICAL — 0 skills purchased, all SP wasted)
+- Final coins: 7
+- Real leftovers per final_inventory: MCH ×2, Ankle Weights (Power) ×3, Vita (65) ×1 (7 total)
+- Unused stat items (corrected via final_inventory): 0 (ledger drift from instant-use items resolved)
+- Note: previous log viewer per-item table showed ~165 stats lost from scrolls/manuals; this was
+  ledger drift — those items were consumed on the same turn they were bought (instant-use).
+  After the log viewer fix, final_inventory correctly shows 0 leftover stat items.
+
+Trade-offs vs baseline (4030 stats, 92.1% win rate):
+- Stats (3709) significantly below baseline (4030).
+- Win rate (100%) better than baseline (92.1%).
+- G1 win rate (100%) better than baseline (89%).
+- Climax mood Great — matches baseline.
+- SP: CRITICAL — skill buying completely failed. nirio_skill_force_turn=60 with
+  nirio_skill_sp_floor=1500 did not trigger because SP threshold wasn't reached early enough.
+- Power Ankle Weights ×3 unused — bought too early (T46-T47) before conservation lifted.
+- Vita (65) ×1 unused — bought at T74 finale but no turns remaining to use it.
+
+Decision:
+Do not promote. Stats significantly below baseline. Skill buying failure is a critical regression —
+the combination of nirio_skill_hoard_threshold=1600 and nirio_skill_sp_floor=1500 creates a
+catch-22: the bot accumulates SP above the hoard threshold but the force turn hasn't triggered, and
+by force turn 60 the threshold is still too high for the bot to act. Lower nirio_skill_sp_floor to
+500 (recommended default) or lower nirio_skill_hoard_threshold back to 1000.
+Power Ankle Weights leftover: bot bought 4 but only used 1. Ankle weight conservation gates
+(trackblazer_anklet_max_stock=3) may need lowering to 2 for this preset.
+
+---
+
 ### 2026-06-30 — Long Pace V3 Fix, reserve-2 hammer policy test
 
 **Source:** Long Pace V3 Fix preset, Make a New Track scenario

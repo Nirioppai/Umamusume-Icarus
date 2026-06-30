@@ -550,8 +550,13 @@ def _run_summary(rows: List[Mapping[str, Any]], summaries: List[Mapping[str, Any
     }
 
 
-def test_connection(base_dir: Any, *, post_fn: Optional[Callable[..., Any]] = None) -> Dict[str, Any]:
+def test_connection(base_dir: Any, *, post_fn: Optional[Callable[..., Any]] = None, override: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     cfg = load_config(base_dir)
+    if override:
+        if override.get("base_url"):
+            cfg["base_url"] = str(override["base_url"]).strip().rstrip("/")
+        if override.get("model") is not None:
+            cfg["model"] = str(override["model"]).strip()
     if not cfg.get("base_url"):
         return {"success": False, "detail": "Base URL is required.", "config": _redact_config(cfg)}
     messages = [

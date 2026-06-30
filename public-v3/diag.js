@@ -46,7 +46,7 @@
       advisor: advice || (trained ? 'No advisor note for the latest run.' : (d.detail || 'AI not trained yet.')),
       auto_training: !!(auto.enabled ?? auto.running ?? auto.active),
       model_version: d.version || '',
-      local_llm: { connected: !!(llm.connected || llm.enabled || llm.ok), endpoint: llm.endpoint || cfg.endpoint || '', model: llm.model || cfg.model || '' },
+      local_llm: { connected: !!(llm.connected || llm.enabled || llm.ok), endpoint: llm.endpoint || llm.base_url || cfg.endpoint || cfg.base_url || '', model: llm.model || cfg.model || '' },
     };
   }
 
@@ -279,9 +279,16 @@
       else if (act === 'train') res = await aiCall('POST', '/api/ai/train-now');
       else if (act === 'postrun') res = await aiCall('GET', '/api/ai/post-run/latest');
       else if (act === 'backtest') res = await aiCall('GET', '/api/ai/backtest/latest');
-      else if (act === 'llm-test') res = await aiCall('POST', '/api/ai/local-llm/test');
+      else if (act === 'llm-test') {
+        const ep = (($('ai-llm-endpoint') || {}).value || '').trim();
+        const mdl = (($('ai-llm-model') || {}).value || '').trim();
+        const body = {};
+        if (ep) body.base_url = ep;
+        if (mdl) body.model = mdl;
+        res = await aiCall('POST', '/api/ai/local-llm/test', Object.keys(body).length ? body : undefined);
+      }
       else if (act === 'llm-analyze') res = await aiCall('POST', '/api/ai/local-llm/analyze-latest-run', {});
-      else if (act === 'llm-save') res = await aiCall('POST', '/api/ai/local-llm/config', { endpoint: (($('ai-llm-endpoint') || {}).value || '').trim(), model: (($('ai-llm-model') || {}).value || '').trim() });
+      else if (act === 'llm-save') res = await aiCall('POST', '/api/ai/local-llm/config', { base_url: (($('ai-llm-endpoint') || {}).value || '').trim(), model: (($('ai-llm-model') || {}).value || '').trim() });
       else if (act === 'download') { window.location.href = '/api/ai/model/download'; res = { success: true, detail: 'Model download started (404 if no model has been trained yet).' }; }
       else if (act === 'import') {
         const p = (window.prompt('Paste the path to an old build/runtime folder or a logs .zip:') || '').trim();

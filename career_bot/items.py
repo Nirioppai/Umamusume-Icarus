@@ -2354,7 +2354,11 @@ class MantItemManager:
         # P1: anklet over-buy guard.  Keep only ~2 anklets in stock total (main +
         # sub); once we hold that many across all types, stop buying more.
         if name in set(TRAINING_TYPE_ANKLET.values()) and not _lift_conservation:
-            anklet_max = _cfg_num(cfg, "trackblazer_anklet_max_stock", 2)
+            # FORK: default raised from 2 to 3 (matching comment intent "~2 main +1 sub")
+            # so the bot can stock one diverse anklet type (e.g. Guts) alongside two main types
+            # before conservation kicks in.  Per-type cap of 3 (ITEM_INVENTORY_CAPS) still limits
+            # hoarding; this only opens up early-game diversity.
+            anklet_max = _cfg_num(cfg, "trackblazer_anklet_max_stock", 3)
             total_anklets = sum(int(owned.get(a, 0) or 0) for a in set(TRAINING_TYPE_ANKLET.values()))
             if total_anklets >= anklet_max:
                 return "skip_anklet_cap"  # FORK: granular skip reason for log_viewer.html
