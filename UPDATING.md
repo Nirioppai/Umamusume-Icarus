@@ -28,6 +28,20 @@ bug — note it but don't fix it in the integration commit.
 
 ---
 
+## Step 1.5: Read the upstream CHANGELOG
+
+```
+git show <UPDATE_COMMIT> -- CHANGELOG.md | head -80
+```
+
+Read the top of CHANGELOG.md for the new version heading. This tells you what
+upstream INTENDED to change. Any collision that upstream's changelog doesn't
+mention is an accidental revert of our fork work (restore ours). Any collision
+that the changelog explicitly addresses is a deliberate upstream change — compare
+both versions against the evidence before deciding.
+
+---
+
 ## Step 2: Run the audit prompt
 
 Copy-paste the block below into Claude Code. Replace `PREV_COMMIT` with the hash

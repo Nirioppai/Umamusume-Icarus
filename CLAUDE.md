@@ -1,10 +1,14 @@
 # CLAUDE.md — Icarus Fork Rules
 
 This is a fork of the Icarus bot. Upstream updates arrive as whole-commit drops
-that silently revert our changes. Three companion files track the details:
+that silently revert our changes. Four companion files track the details:
 
+- **[CHANGELOG.md](CHANGELOG.md)** — Upstream's own release notes. **Read this
+  first on every update** to understand what upstream intended before diffing files.
+  Version headings tell you whether a collision is an intentional upstream fix or
+  an accidental revert of our work.
 - **[UPDATES.md](UPDATES.md)** — What this fork changed, what's active vs superseded,
-  version-by-version collision history. **Read this first when auditing an update.**
+  version-by-version collision history. Read after CHANGELOG.md.
 - **[UPDATING.md](UPDATING.md)** — Step-by-step process and copy-paste prompt for
   running a post-update audit. Use this every time a new v3.x is applied.
 - **[PIRATING.md](PIRATING.md)** — Process for pulling better features from other
