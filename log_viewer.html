@@ -106,6 +106,7 @@ header h1{font-size:16px;font-weight:700;color:var(--accent2);white-space:nowrap
 .turn-row.bootcamp{border-left:3px solid var(--cyan)!important}
 .turn-row.bootcamp .turn-hdr{background:var(--cyan-dim)}
 .turn-hdr{display:grid;grid-template-columns:42px 80px 1fr auto auto;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;user-select:none}
+.t-details{user-select:text}
 .t-num{font-size:16px;font-weight:800;color:var(--text3);text-align:center}
 .t-time{font-size:10px;color:var(--text3);font-family:monospace}
 .t-action{display:flex;flex-direction:column;gap:2px}
@@ -119,6 +120,7 @@ header h1{font-size:16px;font-weight:700;color:var(--accent2);white-space:nowrap
 .chip.buy{background:var(--yellow-dim);border:1px solid rgba(251,191,36,0.3);color:var(--yellow)}
 .chip.use{background:var(--blue-dim);border:1px solid rgba(96,165,250,0.3);color:var(--blue)}
 .chip.skill{background:var(--accent-dim);border:1px solid rgba(155,138,251,0.3);color:var(--accent2)}
+.chip.restock{background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.25);color:var(--cyan);cursor:pointer}
 .bootcamp-chip{background:var(--cyan-dim);border:1px solid rgba(34,211,238,0.3);color:var(--cyan);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;white-space:nowrap}
 .t-stats{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .sm{font-size:11px;font-weight:600}
@@ -338,6 +340,8 @@ const MOOD_NAME={1:'Awful',2:'Bad',3:'Normal',4:'Good',5:'Great'};
 function fmtMood(v){const n=Math.min(5,Math.max(1,parseInt(v)||3));return MOOD_NAME[n]||String(v);}
 function fmtMoodFull(v){const n=Math.min(5,Math.max(1,parseInt(v)||3));return MOTIV_ICON[n]+' '+MOOD_NAME[n];}
 const BOOTCAMP_RANGES=[[37,40],[61,64]];
+const RUNNING_STYLE={1:'Front Runner',2:'Pace Chaser',3:'Late Surger',4:'End Closer'};
+function getRaceStyle(t){for(const c of(t.api_calls||[])){if(c.endpoint==='single_mode_free/race_entry'&&c.direction==='RES'){const ci=((c.data||{}).data||{}).chara_info||{};if(ci.race_running_style)return ci.race_running_style;}}return null;}
 const STAT_KEYS=[{k:'speed',l:'Speed',c:'spd',cv:'var(--speed-c)'},{k:'stamina',l:'Stamina',c:'sta',cv:'var(--stamina-c)'},{k:'power',l:'Power',c:'pow',cv:'var(--power-c)'},{k:'guts',l:'Guts',c:'gut',cv:'var(--guts-c)'},{k:'wit',l:'Wit',c:'wit',cv:'var(--wit-c)'}];
 
 let logData=null, activeFilter='all', activeTab='all';
@@ -976,12 +980,14 @@ function applyFilters(){
   const prevMap={};
   const all=(logData&&logData.turns)||[];
   for(let i=1;i<all.length;i++)prevMap[all[i].turn]=all[i-1].stats;
+  const restockByStartTurn={};
+  for(const b of buildRestocks(all))restockByStartTurn[b.startTurn]=b;
   const list=document.getElementById('turnsList');
   list.innerHTML='';
-  turns.forEach(t=>list.appendChild(buildRow(t,prevMap[t.turn]||null)));
+  turns.forEach(t=>list.appendChild(buildRow(t,prevMap[t.turn]||null,restockByStartTurn[t.turn]||null)));
 }
 
-function buildRow(t,prev){
+function buildRow(t,prev,restock){
   const bought=t.bot_shop_selected||[];
   const preRaceUsed=t.bot_pre_race_use_selected||[];
   const preRaceNames=new Set(preRaceUsed.map(i=>i.name));
@@ -996,6 +1002,9 @@ function buildRow(t,prev){
   const s=t.stats||{}, p=prev||{};
   const motiv=t.motivation||s.motivation||3;
 
+  const restockChip=restock?`<span class="chip restock">📦 Shop Restock (${(restock.newItems||[]).length} new)</span>`:'';
+  const raceStyle=getRaceStyle(t);
+  const styleChip=raceStyle?`<span class="chip" style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);color:var(--red)">🏃 ${esc(RUNNING_STYLE[raceStyle]||'Style '+raceStyle)}</span>`:'';
   const chipsHtml=[
     ...bought.map(i=>`<span class="chip buy">Bought: ${esc(fmtItem(i.name))}</span>`),
     ...used.map(i=>`<span class="chip use">Used: ${esc(fmtItem(i.name))}${i.use_num>1?' ×'+i.use_num:''}</span>`),
@@ -1012,7 +1021,7 @@ function buildRow(t,prev){
       <div class="t-time">${esc(timeStr)}</div>
       <div class="t-action">
         <span class="t-label ${cls}">${esc(label)}</span>
-        ${(bootcampChip||chipsHtml)?`<div class="t-chips">${bootcampChip}${chipsHtml}</div>`:''}
+        ${(bootcampChip||restockChip||styleChip||chipsHtml)?`<div class="t-chips">${bootcampChip}${restockChip}${styleChip}${chipsHtml}</div>`:''}
       </div>
       <div class="t-stats">
         ${smTag('hp',s.hp,p.hp,'HP')}
@@ -1027,12 +1036,12 @@ function buildRow(t,prev){
       </div>
       <div class="t-arrow">▾</div>
     </div>
-    <div class="t-details">${buildDetails(t,prev)}</div>`;
+    <div class="t-details">${buildDetails(t,prev,restock)}</div>`;
   row.querySelector('.turn-hdr').addEventListener('click',()=>row.classList.toggle('open'));
   return row;
 }
 
-function buildDetails(t,prev){
+function buildDetails(t,prev,restock){
   const s=t.stats||{}, p=prev||{};
   const bought=t.bot_shop_selected||[];
   const preRaceUsed=t.bot_pre_race_use_selected||[];
@@ -1062,14 +1071,20 @@ function buildDetails(t,prev){
   </div>`;
 
   // Turn info
+  const detailRaceStyle=getRaceStyle(t);
   html+=`<div class="ds"><h4>Turn Info</h4>
     ${ir('Action',`<span class="${cls}">${esc(label)}</span>`)}
+    ${detailRaceStyle?ir('Running Style',`<span style="color:var(--red)">🏃 ${esc(RUNNING_STYLE[detailRaceStyle]||'Style '+detailRaceStyle)}</span>`):''}
     ${ir('Motivation',fmtMoodFull(motiv))}
     ${ir('Coin',t.mant_coin!=null?`<span style="color:var(--yellow)">🪙${t.mant_coin}</span>`:'—')}
     ${ir('Event',esc(t.event||'—'))}
   </div>`;
 
-  // Shop this turn
+  // Shop + Inventory side-by-side (shop on all turns that have shop data)
+  // Policy-skip reasons (rule_rejected, skip_notepad, skip_wasteful) stay full opacity --
+  // these are deliberate bot choices worth reading. Hard blocks (limit_reached, expired,
+  // unaffordable, failed_snapshot) are faded since they weren't actionable.
+  const HARD_SKIP=new Set(['limit_reached','expired','unaffordable','failed_snapshot','user_excluded']);
   if(shopOpts.length){
     html+=`<div class="ds"><h4>Shop ${fmtRes(buyRes)}</h4>`;
     html+=shopOpts.map(o=>{
@@ -1077,15 +1092,26 @@ function buildDetails(t,prev){
       const cost=o.cost??o.coin_num??0;
       const orig=o.original_cost??cost;
       const sale=orig>cost;
+      const dimmed=!picked&&HARD_SKIP.has(o.skip_reason||'');
       const costS=sale?`<span style="color:var(--green)">🪙${cost}</span><span style="text-decoration:line-through;color:var(--text3);font-size:10px;margin-left:2px">🪙${orig}</span>`:`<span style="color:var(--yellow)">🪙${cost}</span>`;
       const reason=o.skip_reason?`<span style="color:var(--text3);font-size:10px" title="${esc(o.skip_reason)}"> ⊘ ${esc(friendlySkipReason(o.skip_reason))}</span>`:(picked?`<span style="color:var(--green);font-size:10px"> ✓</span>`:'');
-      return`<div class="il-row" style="${picked?'':'opacity:0.5'}"><span>${esc(o.name||ITEM[o.item_id]||'id:'+o.item_id)}</span><span>${costS}${reason}</span></div>`;
+      return`<div class="il-row" style="${dimmed?'opacity:0.45':''}"><span>${esc(fmtItem(o.name||ITEM[o.item_id]||'id:'+o.item_id))}</span><span>${costS}${reason}</span></div>`;
     }).join('');
     html+=`</div>`;
   }else if(bought.length){
     html+=`<div class="ds"><h4>Bought ${fmtRes(buyRes)}</h4>`;
     html+=bought.map(i=>`<div class="il-row"><span>${esc(fmtItem(i.name))}</span><span class="il-cost">🪙${i.cost}</span></div>`).join('');
     html+=`</div>`;
+  }
+
+  // Inventory (shown on every turn, placed alongside the shop panel)
+  if(inv.length){
+    html+=`<div class="ds"><h4>Inventory</h4><div class="inv-wrap">`;
+    html+=inv.map(it=>{
+      const nm=it.name||ITEM[it.item_id]||'id:'+it.item_id;
+      return`<span class="inv-chip">${esc(fmtItem(nm))} ×${it.current_num||it.num||1}</span>`;
+    }).join('');
+    html+=`</div></div>`;
   }
 
   // Items used
@@ -1103,14 +1129,18 @@ function buildDetails(t,prev){
     html+=`</div>`;
   }
 
-  // Inventory
-  if(inv.length){
-    html+=`<div class="ds"><h4>Inventory</h4><div class="inv-wrap">`;
-    html+=inv.map(it=>{
-      const nm=it.name||ITEM[it.item_id]||'id:'+it.item_id;
-      return`<span class="inv-chip">${esc(fmtItem(nm))} ×${it.current_num||it.num||1}</span>`;
-    }).join('');
-    html+=`</div></div>`;
+  // Restock breakdown (only on the turn where the new shop batch starts)
+  if(restock){
+    html+=`<div class="ds" style="grid-column:1/-1"><h4>📦 Shop Restock</h4>`;
+    const mkList=(label,color,items)=>{
+      if(!items||!items.length)return'';
+      return`<div style="margin-bottom:6px"><div style="font-size:10px;color:${color};font-weight:600;margin-bottom:3px">${esc(label)}</div><div style="display:flex;flex-wrap:wrap;gap:3px">${items.map(n=>`<span class="inv-chip" style="border-color:${color}">${esc(fmtItem(n))}</span>`).join('')}</div></div>`;
+    };
+    html+=mkList('New this cycle',  'var(--green)',  restock.newItems);
+    html+=mkList('Carried over',    'var(--text3)',  restock.carriedItems);
+    html+=mkList('Sold out (bought last cycle)', 'var(--cyan)',   restock.droppedBought);
+    html+=mkList('Expired unsold',  'var(--red)',    restock.droppedMissed);
+    html+=`</div>`;
   }
 
   // API calls
@@ -1223,7 +1253,24 @@ function buildRestocks(turns){
     const key=JSON.stringify(rows.map(r=>[r.shop_item_id,r.item_id]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]));
     if(key!==prevKey){
       if(current)batches.push(current);
-      current={startTurn:turn.turn,endTurn:turn.turn,turns:[turn.turn],snapshot:rows.map(r=>Object.assign({},r)),itemStatus:{}};
+      // Compare with previous (now-complete) batch to classify items as new vs carried
+      const prevBatch=batches.length?batches[batches.length-1]:null;
+      const prevItemIds=prevBatch?new Set(prevBatch.snapshot.map(r=>r.item_id)):new Set();
+      const currItemIds=new Set(rows.map(r=>r.item_id));
+      const newItems=rows.filter(r=>!prevItemIds.has(r.item_id)).map(r=>r.name||ITEM[r.item_id]||'id:'+r.item_id);
+      const carriedItems=rows.filter(r=>prevItemIds.has(r.item_id)).map(r=>r.name||ITEM[r.item_id]||'id:'+r.item_id);
+      // Items that were in prev batch but dropped this cycle — split by whether they were bought out
+      const droppedBought=prevBatch?prevBatch.snapshot.filter(r=>{
+        if(currItemIds.has(r.item_id))return false;
+        const st=prevBatch.itemStatus[r.shop_item_id]||{};
+        return st.limit_reached||st.bought;
+      }).map(r=>r.name||ITEM[r.item_id]||'id:'+r.item_id):[];
+      const droppedMissed=prevBatch?prevBatch.snapshot.filter(r=>{
+        if(currItemIds.has(r.item_id))return false;
+        const st=prevBatch.itemStatus[r.shop_item_id]||{};
+        return !(st.limit_reached||st.bought);
+      }).map(r=>r.name||ITEM[r.item_id]||'id:'+r.item_id):[];
+      current={startTurn:turn.turn,endTurn:turn.turn,turns:[turn.turn],snapshot:rows.map(r=>Object.assign({},r)),itemStatus:{},newItems,carriedItems,droppedBought,droppedMissed};
       prevKey=key;
     }else{current.endTurn=turn.turn;current.turns.push(turn.turn)}
     for(const row of rows){
