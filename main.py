@@ -6431,21 +6431,62 @@ async def ai_local_llm_config_post(req: dict):
     return {"success": True, "config": latest.get("config", {}), "saved_config": {k: v for k, v in cfg.items() if k != "api_key"}}
 
 
+# FORK: def (not async def) — requests.post is blocking I/O; async def would seize the event loop
+#       for the full Ollama timeout (up to 30s) and trip the offline banner on the dashboard
 @app.post("/api/ai/local-llm/test")
-async def ai_local_llm_test(req: dict = None):
-    override = {k: str((req or {}).get(k, "")).strip() for k in ("base_url", "model")}
+def ai_local_llm_test(req: dict = None):
+    override = {k: str((req or {}).get(k, "")).strip() for k in ("base_url", "model", "provider")}
     override = {k: v for k, v in override.items() if v}
     return local_llm.test_connection(base_dir, override=override or None)
 
 
+# FORK: test + conditional profile save — only writes to profiles list on success
+@app.post("/api/ai/local-llm/test-and-save")
+def ai_local_llm_test_and_save(req: dict = None):
+    payload = req or {}
+    override = {k: str(payload.get(k, "")).strip() for k in ("base_url", "model", "provider")}
+    override = {k: v for k, v in override.items() if v}
+    result = local_llm.test_connection(base_dir, override=override or None)
+    if result.get("success"):
+        local_llm.add_verified_profile(
+            base_dir,
+            provider=result.get("provider") or override.get("provider") or "custom",
+            base_url=result.get("base_url") or override.get("base_url") or "",
+            model=result.get("model") or override.get("model") or "",
+        )
+    return result
+
+
+# FORK: switch active config to a previously verified profile without re-testing
+@app.post("/api/ai/local-llm/profile/activate")
+async def ai_local_llm_profile_activate(req: dict = None):
+    idx = int((req or {}).get("index", -1))
+    cfg = local_llm.load_config(base_dir)
+    profiles = list(cfg.get("profiles") or [])
+    if idx < 0 or idx >= len(profiles):
+        return {"success": False, "detail": f"Profile index {idx} out of range."}
+    profile = profiles[idx]
+    mode = cfg.get("mode") or "offline"
+    local_llm.save_config(base_dir, {
+        "provider": profile.get("provider") or "custom",
+        "base_url": profile.get("base_url") or "",
+        "model": profile.get("model") or "",
+        "enabled": True,
+        "mode": "offline" if mode == "off" else mode,
+    })
+    return {"success": True, "activated": profile}
+
+
+# FORK: def (not async def) — same blocking I/O reason as /test above
 @app.post("/api/ai/local-llm/analyze-latest-run")
-async def ai_local_llm_analyze_latest_run(req: dict = None):
+def ai_local_llm_analyze_latest_run(req: dict = None):
     force = bool((req or {}).get("force"))
     return local_llm.analyze_latest_run(base_dir, force=force)
 
 
+# FORK: def (not async def) — same blocking I/O reason as /test above
 @app.post("/api/ai/local-llm/shadow-advice")
-async def ai_local_llm_shadow_advice(req: dict = None):
+def ai_local_llm_shadow_advice(req: dict = None):
     payload = req or {}
     force = bool(payload.get("force"))
     limit = int(payload.get("limit") or 12)

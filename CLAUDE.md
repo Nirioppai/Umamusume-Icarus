@@ -28,8 +28,14 @@ cohesive system — never bolt one on top as a bypass.
 
 ## Coding Rules
 
+> **These rules are non-negotiable and apply to every session, every task, every
+> change — without the user needing to ask. They are not a reminder checklist;
+> they are standing operating procedure. Complete both Rule 1 and Rule 7 before
+> considering any task done.**
+
 1. **Every fork change to bot logic must include a `# FORK: <reason>` comment** (Python)
-   or `// FORK: <reason>` (JS). Explains WHY, not what.
+   or `// FORK: <reason>` (JS). Explains WHY, not what. Do this at the point of
+   change, not after the fact.
 2. **Never silently accept either version during a merge.** Compare both against
    the problem documented in UPDATES.md AND run evidence before choosing. Bias
    toward neither — the better fix wins regardless of origin.
@@ -45,7 +51,8 @@ cohesive system — never bolt one on top as a bypass.
 7. **Every fork change must be logged in [UPDATES.md](UPDATES.md).** Use the exact
    entry format defined at the top of that file. Include date, commit hash, file(s),
    context (the WHY), and status. This is mandatory — if it's not in UPDATES.md,
-   it doesn't exist for future audits.
+   it doesn't exist for future audits. Log it in the same response where the code
+   change lands, not as a follow-up.
 8. **Run the test suite after every merge.** Fork changes that break upstream tests
    must either fix the root cause or adapt the test to the new correct behavior
    (with a `# FORK:` comment explaining why). Silent test regressions are not

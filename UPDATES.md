@@ -30,6 +30,26 @@ For collision entries (where we chose between our fix and upstream's), add:
 
 ## Change Log
 
+### 2026-07-01 — Local LLM: multi-model profile persistence with TEST & SAVE gate
+**Commit:** `(pending)` **File(s):** `career_bot/local_llm.py`, `main.py`, `public-v3/diag.js`
+**Context:** Users with multiple Ollama endpoints or models had no way to save more than one config entry. Every switch required manually retyping endpoint + model and re-testing. Added a `profiles` array to `local_llm_config.json` that stores verified model entries (provider, base_url, model, label, verified_at). Entries are only written on `test_connection` success — never from a manual SAVE — so the list is a verified-only allowlist. The DIAG/AI page gains a SAVED MODELS dropdown (appears once any profile exists) that populates fields and activates the config on selection without re-testing. TEST & SAVE replaces the old separate SAVE + TEST buttons. Profiles survive server restarts (file-backed). Capped at 10 entries; re-testing the same endpoint+model refreshes `verified_at` and moves it to the top rather than creating a duplicate.
+**Status:** ACTIVE
+
+### 2026-07-01 — Local LLM: fix async routes blocking FastAPI event loop
+**Commit:** `(pending)` **File(s):** `main.py`
+**Context:** `/api/ai/local-llm/test`, `/api/ai/local-llm/analyze-latest-run`, and `/api/ai/local-llm/shadow-advice` were `async def` but called `requests.post` (synchronous). When Ollama takes 20-30 seconds to respond, the FastAPI event loop was seized for the full duration. The core.js 12-second polling timeout fired, setting `mockMode = true` and showing the OFFLINE banner even though the server was healthy. Changed all three routes to plain `def` so FastAPI runs them in its thread pool executor — the event loop stays free to serve polling requests during long Ollama calls.
+**Status:** ACTIVE
+
+### 2026-07-01 — Local LLM: fix cached dashboard returning stale local_llm config
+**Commit:** `(pending)` **File(s):** `career_bot/ai_trainer.py`
+**Context:** `latest_dashboard()` returns a cached JSON file when a trained model exists. That cached file was written at training time and contains a frozen snapshot of `local_llm` — so provider, model, endpoint, and profiles never updated in the UI after a SAVE, showing stale values (e.g. provider always "lmstudio" even after switching to ollama). Fixed by always injecting a fresh `local_llm.dashboard_summary()` call into the returned payload, overriding any cached value.
+**Status:** ACTIVE
+
+### 2026-07-01 — Local LLM: OLLAMA provider dropdown + provider field in config
+**Commit:** `(pending)` **File(s):** `career_bot/local_llm.py`, `main.py`, `public-v3/diag.js`
+**Context:** The LOCAL LLM card only had ENDPOINT and MODEL inputs — no way to select provider. The `local_llm_config.json` already had a `provider` field (`lmstudio`, `ollama`, `custom`) but nothing in the UI or test path read or wrote it. Added a PROVIDER select to the card. SAVE and TEST now forward `provider` to the backend. `test_connection` accepts `provider` in its override dict so the test result reflects what the user selected, not what's saved. Auto-fills the endpoint when switching providers if the field is empty (`http://localhost:1234/v1` for LM Studio, `http://localhost:11434/v1` for Ollama).
+**Status:** ACTIVE
+
 ### 2026-07-01 — Reorder shop tiers: Vita 65/40 promoted, Glow Sticks demoted
 **Commit:** `(pending)` **File(s):** `career_bot/trackblazer_rules.py`
 **Context:** Guide audit showed Glow Sticks at Tier 1 (same as MCH) could crowd out hammers or megaphones when coins were tight (~70-90 coin scenarios where buying a 15-coin Glow Stick left too little for a 70-coin Empowering Megaphone). Vita 65/40 were at Tier 3, below glow sticks, despite guides rating Vita as the #1 buy priority. Moved Glow Sticks to Tier 5 (fan-farming only; usage logic still gates by 20k fan floor and reserve). Promoted Vita 65/40 to Tier 2 alongside scrolls/manuals.

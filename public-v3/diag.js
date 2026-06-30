@@ -46,7 +46,16 @@
       advisor: advice || (trained ? 'No advisor note for the latest run.' : (d.detail || 'AI not trained yet.')),
       auto_training: !!(auto.enabled ?? auto.running ?? auto.active),
       model_version: d.version || '',
-      local_llm: { connected: !!(llm.connected || llm.enabled || llm.ok), endpoint: llm.endpoint || llm.base_url || cfg.endpoint || cfg.base_url || '', model: llm.model || cfg.model || '', provider: llm.provider || cfg.provider || 'lmstudio' },
+      // FORK: adds provider, profiles list, and activeProfileIdx for SAVED MODELS dropdown and TEST & SAVE flow
+      local_llm: (() => {
+        const ep = llm.endpoint || llm.base_url || cfg.endpoint || cfg.base_url || '';
+        const mdl = llm.model || cfg.model || '';
+        const prov = llm.provider || cfg.provider || 'lmstudio';
+        const profs = Array.isArray(llm.profiles) ? llm.profiles : (Array.isArray(cfg.profiles) ? cfg.profiles : []);
+        const normUrl = (s) => String(s || '').toLowerCase().replace(/\/$/, '');
+        const activeProfileIdx = profs.findIndex((p) => normUrl(p.base_url) === normUrl(ep) && String(p.model || '').toLowerCase() === mdl.toLowerCase());
+        return { connected: !!(llm.connected || llm.enabled || llm.ok), endpoint: ep, model: mdl, provider: prov, profiles: profs, activeProfileIdx };
+      })(),
     };
   }
 
@@ -134,8 +143,13 @@
           </div>
         </div>
         <div class="card" style="flex:1">
-          <div class="card-head"><span class="card-title">LOCAL LLM</span><span class="col-meta ${ai.local_llm && ai.local_llm.connected ? 'c-green' : 'c-mut'}">${ai.local_llm && ai.local_llm.connected ? 'connected' : 'off'}</span></div>
+          <div class="card-head"><span class="card-title">LOCAL LLM</span><span class="col-meta ${(ai.local_llm||{}).connected?'c-green':'c-mut'}">${(ai.local_llm||{}).connected?'connected':'off'}</span></div>
           <div class="card-body" style="display:flex;flex-direction:column;gap:8px">
+            ${((ai.local_llm||{}).profiles||[]).length ? `<label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">SAVED MODELS
+              <select id="ai-llm-profile" class="numf">
+                <option value="-1" ${(ai.local_llm||{}).activeProfileIdx===-1?'selected':''}>— new config —</option>
+                ${((ai.local_llm||{}).profiles||[]).map((p,i)=>`<option value="${i}" ${(ai.local_llm||{}).activeProfileIdx===i?'selected':''}>${esc(p.label||p.model||'unnamed')}</option>`).join('')}
+              </select></label>` : ''}
             <label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">PROVIDER
               <select id="ai-llm-provider" class="numf">
                 <option value="lmstudio" ${!(ai.local_llm||{}).provider||(ai.local_llm||{}).provider==='lmstudio'?'selected':''}>LM STUDIO</option>
@@ -143,10 +157,10 @@
                 <option value="custom" ${(ai.local_llm||{}).provider==='custom'?'selected':''}>CUSTOM</option>
               </select></label>
             <label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">ENDPOINT
-              <input id="ai-llm-endpoint" class="numf" type="text" placeholder="http://127.0.0.1:11434" value="${esc((ai.local_llm || {}).endpoint || '')}"></label>
+              <input id="ai-llm-endpoint" class="numf" type="text" placeholder="http://127.0.0.1:11434" value="${esc((ai.local_llm||{}).endpoint||'')}"></label>
             <label style="display:flex;flex-direction:column;gap:4px;font:600 var(--fs-2xs) var(--cond);letter-spacing:.14em;color:var(--label)">MODEL
-              <input id="ai-llm-model" class="numf" type="text" placeholder="llama3.1" value="${esc((ai.local_llm || {}).model || '')}"></label>
-            <div style="display:flex;gap:6px;margin-top:4px"><button class="abtn" type="button" data-act="llm-save">SAVE</button><button class="abtn cyan" type="button" data-act="llm-test">TEST</button><button class="abtn cyan" type="button" data-act="llm-analyze">ANALYZE RUN</button></div>
+              <input id="ai-llm-model" class="numf" type="text" placeholder="llama3.1" value="${esc((ai.local_llm||{}).model||'')}"></label>
+            <div style="display:flex;gap:6px;margin-top:4px"><button class="abtn amber" type="button" data-act="llm-test-save">TEST &amp; SAVE</button><button class="abtn cyan" type="button" data-act="llm-analyze">ANALYZE RUN</button></div>
           </div>
         </div>
       </div>`;
@@ -285,16 +299,17 @@
       else if (act === 'train') res = await aiCall('POST', '/api/ai/train-now');
       else if (act === 'postrun') res = await aiCall('GET', '/api/ai/post-run/latest');
       else if (act === 'backtest') res = await aiCall('GET', '/api/ai/backtest/latest');
-      else if (act === 'llm-test') {
+      else if (act === 'llm-analyze') res = await aiCall('POST', '/api/ai/local-llm/analyze-latest-run', { force: true });
+      else if (act === 'llm-test-save') {
         const ep = (($('ai-llm-endpoint') || {}).value || '').trim();
         const mdl = (($('ai-llm-model') || {}).value || '').trim();
+        const prov = (($('ai-llm-provider') || {}).value || '').trim();
         const body = {};
         if (ep) body.base_url = ep;
         if (mdl) body.model = mdl;
-        res = await aiCall('POST', '/api/ai/local-llm/test', Object.keys(body).length ? body : undefined);
+        if (prov) body.provider = prov;
+        res = await aiCall('POST', '/api/ai/local-llm/test-and-save', Object.keys(body).length ? body : undefined);
       }
-      else if (act === 'llm-analyze') res = await aiCall('POST', '/api/ai/local-llm/analyze-latest-run', {});
-      else if (act === 'llm-save') res = await aiCall('POST', '/api/ai/local-llm/config', { base_url: (($('ai-llm-endpoint') || {}).value || '').trim(), model: (($('ai-llm-model') || {}).value || '').trim(), provider: (($('ai-llm-provider') || {}).value || 'lmstudio').trim() });
       else if (act === 'download') { window.location.href = '/api/ai/model/download'; res = { success: true, detail: 'Model download started (404 if no model has been trained yet).' }; }
       else if (act === 'import') {
         const p = (window.prompt('Paste the path to an old build/runtime folder or a logs .zip:') || '').trim();
@@ -302,7 +317,7 @@
         res = await aiCall('POST', '/api/ai/import-logs', { source_path: p, rebuild_dataset: true });
       }
       if (res) showResult(label, res);
-      if (['rebuild', 'train', 'import', 'llm-save', 'llm-analyze'].indexOf(act) >= 0) refreshAi();
+      if (['rebuild', 'train', 'import', 'llm-test-save', 'llm-analyze'].indexOf(act) >= 0) refreshAi();
     } finally { btn.textContent = label; btn.disabled = false; }
   }
 
@@ -331,9 +346,25 @@
     });
     const PROVIDER_DEFAULTS = { lmstudio: 'http://localhost:1234/v1', ollama: 'http://localhost:11434/v1' };
     document.addEventListener('change', (e) => {
-      if (e.target.id !== 'ai-llm-provider') return;
-      const ep = $('ai-llm-endpoint');
-      if (ep && !ep.value.trim() && PROVIDER_DEFAULTS[e.target.value]) ep.value = PROVIDER_DEFAULTS[e.target.value];
+      if (e.target.id === 'ai-llm-provider') {
+        const ep = $('ai-llm-endpoint');
+        if (ep && !ep.value.trim() && PROVIDER_DEFAULTS[e.target.value]) ep.value = PROVIDER_DEFAULTS[e.target.value];
+        return;
+      }
+      if (e.target.id === 'ai-llm-profile') {
+        const idx = parseInt(e.target.value, 10);
+        if (idx < 0) return;
+        const profs = (ai.local_llm || {}).profiles || [];
+        const p = profs[idx];
+        if (!p) return;
+        const provEl = $('ai-llm-provider');
+        const epEl = $('ai-llm-endpoint');
+        const mdlEl = $('ai-llm-model');
+        if (provEl) provEl.value = p.provider || 'custom';
+        if (epEl) epEl.value = p.base_url || '';
+        if (mdlEl) mdlEl.value = p.model || '';
+        aiCall('POST', '/api/ai/local-llm/profile/activate', { index: idx }).then(refreshAi);
+      }
     });
     await loadData();
     render('ai');

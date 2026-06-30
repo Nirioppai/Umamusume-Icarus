@@ -1537,6 +1537,8 @@ def latest_dashboard(base_dir: Any) -> Dict[str, Any]:
             "local_llm": local_llm.dashboard_summary(base_dir),
         }
     payload["success"] = True
+    # FORK: cached dashboard has stale local_llm data; always inject fresh so provider/profiles reflect current config
+    payload["local_llm"] = local_llm.dashboard_summary(base_dir)
     return payload
 
 

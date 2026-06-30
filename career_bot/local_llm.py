@@ -44,6 +44,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "max_tokens": 900,
     "allow_live_override": False,
     "require_json": True,
+    "profiles": [],  # FORK: verified model list; entries added only on successful test_connection
 }
 
 
@@ -148,6 +149,9 @@ def _normalize_config(payload: Mapping[str, Any]) -> Dict[str, Any]:
     cfg["max_tokens"] = max(128, min(4096, safe_int(cfg.get("max_tokens"), 900)))
     cfg["allow_live_override"] = False  # Deliberately pinned off in this build.
     cfg["require_json"] = True
+    # FORK: type-validate and cap profiles array so corrupt entries don't break the UI
+    raw_profiles = cfg.get("profiles")
+    cfg["profiles"] = [p for p in (raw_profiles if isinstance(raw_profiles, list) else []) if isinstance(p, dict)][:10]
     return cfg
 
 
@@ -550,6 +554,39 @@ def _run_summary(rows: List[Mapping[str, Any]], summaries: List[Mapping[str, Any
     }
 
 
+# FORK: multi-model profile persistence — saves a verified entry only after test_connection succeeds
+def add_verified_profile(base_dir: Any, provider: str, base_url: str, model: str) -> Dict[str, Any]:
+    """Add (or refresh) a verified model entry and activate it as the current config.
+
+    Deduplicates by (base_url, model). New entries go to the front of the list.
+    Capped at 10 profiles. Persists to the config file.
+    """
+    current = load_config(base_dir)
+    profiles = list(current.get("profiles") or [])
+    norm_url = str(base_url or "").strip().rstrip("/").lower()
+    norm_model = str(model or "").strip().lower()
+    profiles = [p for p in profiles
+                if not (str(p.get("base_url") or "").strip().rstrip("/").lower() == norm_url
+                        and str(p.get("model") or "").strip().lower() == norm_model)]
+    label = f"{provider.upper()} · {model}" if model else provider.upper()
+    profiles.insert(0, {
+        "label": label,
+        "provider": str(provider or "custom").strip().lower(),
+        "base_url": str(base_url or "").strip().rstrip("/"),
+        "model": str(model or "").strip(),
+        "verified_at": now_iso(),
+    })
+    mode = current.get("mode") or "offline"
+    return save_config(base_dir, {
+        "profiles": profiles[:10],
+        "provider": provider,
+        "base_url": base_url,
+        "model": model,
+        "enabled": True,
+        "mode": "offline" if mode == "off" else mode,
+    })
+
+
 def test_connection(base_dir: Any, *, post_fn: Optional[Callable[..., Any]] = None, override: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     cfg = load_config(base_dir)
     if override:
@@ -557,6 +594,10 @@ def test_connection(base_dir: Any, *, post_fn: Optional[Callable[..., Any]] = No
             cfg["base_url"] = str(override["base_url"]).strip().rstrip("/")
         if override.get("model") is not None:
             cfg["model"] = str(override["model"]).strip()
+        if override.get("provider"):
+            # FORK: test result must reflect the provider selected in the UI, not what's stored in config
+            prov = str(override["provider"]).strip().lower()
+            cfg["provider"] = prov if prov in {"lmstudio", "ollama", "custom"} else cfg["provider"]
     if not cfg.get("base_url"):
         return {"success": False, "detail": "Base URL is required.", "config": _redact_config(cfg)}
     messages = [
@@ -730,4 +771,5 @@ def dashboard_summary(base_dir: Any) -> Dict[str, Any]:
         "risk_flags": (analysis.get("risk_flags") or analysis.get("risks") or [])[:6] if isinstance(analysis, Mapping) and isinstance((analysis.get("risk_flags") or analysis.get("risks") or []), list) else [],
         "candidate_rules": (analysis.get("candidate_rules") or analysis.get("suggested_rules") or [])[:5] if isinstance(analysis, Mapping) and isinstance((analysis.get("candidate_rules") or analysis.get("suggested_rules") or []), list) else [],
         "shadow_recommendation": str(advice.get("recommendation") or advice.get("action_preference") or advice.get("summary") or "")[:300] if isinstance(advice, Mapping) else "",
+        "profiles": list(cfg.get("profiles") or []),  # FORK: diag.js SAVED MODELS dropdown reads this
     }
