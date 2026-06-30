@@ -85,6 +85,8 @@ Referenced by [CLAUDE.md](CLAUDE.md) (auto-update rule).
 | Charm Dump Failure Rate | 10 | Min failure rate for charm in dump window |
 | Whistle Dump Turn | 60 | Allow whistle usage earlier than default 65 |
 | MCH Climax Reserve | 3 | Master hammers protected for Climax (dynamic) |
+| Final MCH Required **(new)** | 2 | MCH to protect for later Climax races; T74 gets MCH only if 3+ owned |
+| Final Artisan Reserve **(new)** | 1 | Artisan fallback kept for later Climax races when MCH is tight |
 
 ---
 

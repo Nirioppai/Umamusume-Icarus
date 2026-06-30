@@ -125,6 +125,13 @@ recommendation in [RECOMMENDED_SETTINGS.md](RECOMMENDED_SETTINGS.md):
 3. **If the run outperforms** (higher total stats AND better win rate AND fewer
    leftover items), **auto-update** RECOMMENDED_SETTINGS.md:
    - Update the "Current Recommended Settings" tables with the new values.
+   - For any setting whose value changed from the previous recommendation, append
+     **(changed)** to its name in the table.
+   - For any setting that did not exist in the previous table (a newly introduced
+     knob), append **(new)** to its name in the table.
+   - Remove **(new)** and **(changed)** markers from prior entries that were
+     already present in the previous recommendation cycle — they only mark what
+     is different from the last promoted run.
    - Add a dated entry to "Settings History" with the evidence (metrics).
    - Note which specific settings changed and the measured improvement.
 4. **If the run is mixed** (better in some metrics, worse in others), note the
