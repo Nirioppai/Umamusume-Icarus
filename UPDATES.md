@@ -30,6 +30,11 @@ For collision entries (where we chose between our fix and upstream's), add:
 
 ## Change Log
 
+### 2026-07-01 — Local LLM: floor TEST & SAVE timeout to tolerate Ollama cold starts
+**Commit:** `(pending)` **File(s):** `career_bot/local_llm.py`
+**Context:** User reported a LAN Ollama endpoint (`192.168.1.53:11434`, model `qwen3.5:9b`) failing TEST & SAVE with `ReadTimeout` at exactly 30s, despite the same endpoint having passed before. Root cause: Ollama unloads idle models from memory after its keep-alive window, so the first request after idle has to reload the model into memory/VRAM — which routinely exceeds the configured `timeout_seconds` (default 30s) even though the endpoint is healthy and the prior test happened to hit a warm model. `test_connection()` now floors its request timeout at `max(configured timeout_seconds, 90)` for the connectivity test only — `analyze_latest_run()` and `shadow_advice()` still use the user's configured `timeout_seconds` unmodified, so this doesn't change behavior for production calls, only the manual cold-start-prone TEST & SAVE path.
+**Status:** ACTIVE
+
 ### 2026-07-01 — Local LLM: multi-model profile persistence with TEST & SAVE gate
 **Commit:** `(pending)` **File(s):** `career_bot/local_llm.py`, `main.py`, `public-v3/diag.js`
 **Context:** Users with multiple Ollama endpoints or models had no way to save more than one config entry. Every switch required manually retyping endpoint + model and re-testing. Added a `profiles` array to `local_llm_config.json` that stores verified model entries (provider, base_url, model, label, verified_at). Entries are only written on `test_connection` success — never from a manual SAVE — so the list is a verified-only allowlist. The DIAG/AI page gains a SAVED MODELS dropdown (appears once any profile exists) that populates fields and activates the config on selection without re-testing. TEST & SAVE replaces the old separate SAVE + TEST buttons. Profiles survive server restarts (file-backed). Capped at 10 entries; re-testing the same endpoint+model refreshes `verified_at` and moves it to the top rather than creating a duplicate.

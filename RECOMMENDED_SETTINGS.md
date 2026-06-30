@@ -94,6 +94,67 @@ Referenced by [CLAUDE.md](CLAUDE.md) (auto-update rule).
 
 Newest first. Each entry documents what changed and why.
 
+### 2026-07-01 — Long Pace V3 Fix, skill-buying failure repeat + MCH overhoarding
+
+**Source:** Long Pace V3 Fix preset, Make a New Track scenario, T76 natural end (2 Climax races)
+**Classification:** UNDERPERFORMS — do not update Current Recommended Settings
+
+Settings active (non-recommended values in **bold**):
+- **SP Threshold: 1600** (rec: 888)
+- **Skill Strategy: optimize_rank** (rec: career)
+- **nirio_skill_hoard_threshold: 1600** (rec: 1000)
+- **nirio_skill_sp_floor: 1500** (rec: 500)
+- **Training Priority: stamina before wit** (rec: wit before stamina)
+- **Max Streak: 4** (rec: 5)
+- nirio_chain_mood_floor: 4, nirio_mch_reserve: 2, nirio_final_mch_required: 2, nirio_final_artisan_reserve: 1
+- nirio_mood_floor: 4, nirio_mood_critical_turn: 65, nirio_mood_repair_turn: 50
+- nirio_skill_force_turn: 60, nirio_whistle_dump_turn: 60
+- nirio_charm_dump_turn: 60, nirio_charm_dump_min_gain: 8, nirio_charm_dump_failure_rate: 10
+- nirio_bootcamp_mega_target: 2, nirio_buy_coaching_mega: false
+
+Result:
+- Final stats: 3548 (Speed 819, Stamina 753, Power 790, Guts 527, Wit 659)
+- Win rate: 93.9% (31/33 races)
+- G1 win rate: 93% (13/14)
+- Climax: 2/2 wins, mood Good (expected 3 Climax races; 1 may be missing/skipped)
+- SP remaining: 100 — 0 skills purchased (critical: all SP wasted again)
+- Final coins: 7
+- Items left: 21 — Hammer (Master Cleat) ×4, Vita (20) ×5, Megaphone (Motivating) ×3,
+  Ankle Weights (Speed) ×3, Ankle Weights (Power) ×2, Hammer (Artisan Cleat) ×1, others
+
+Trade-offs vs baseline (4030 stats, 92.1% win rate, Great Climax mood):
+- Stats (3548) far below baseline (4030) — gap of 482 (-12%).
+- Win rate (93.9%) slightly above baseline.
+- Climax mood Good vs Great — regression.
+- SP: critical failure — same as 2026-06-30 run. SP peaked at 1495 (T72), still below
+  hoard threshold 1600. At force turn T60, SP was ~1065 — below sp_floor 1500. Both gates
+  blocked buying simultaneously the entire career. The catch-22 is confirmed: you cannot
+  have hoard_threshold AND sp_floor both set above realistic mid-career SP levels.
+- MCH: 4 leftover after Climax (expected ≤2). Climax race count ambiguous (2 logged vs 3
+  expected) — if only 2 Climax races ran, 4 leftover is partially explained but still above
+  nirio_final_mch_required=2. Bot may have overprotected for a 3rd race that didn't happen.
+- Bootcamp mega PARTIAL (T37: 0 strong megas, target 2) — same issue as prior 2026-07-01 run.
+- 5 Vita (20) fully unused — bought but never consumed. Late-game dump window T65-T76 did not
+  clear stat consumables aggressively enough.
+
+Confirmed issues (do NOT retry these settings):
+1. **hoard_threshold=1600 + sp_floor=1500 kills all skill buying.** This is now confirmed across
+   two independent runs (2026-06-30 and today). Use recommended values: hoard_threshold=1000,
+   sp_floor=500.
+2. **SP Threshold=1600 in preset is too high for Trackblazer.** Upstream's SP threshold governs
+   when the skill-check system considers buying. Set to 888 (recommended) to allow mid-career purchases.
+3. **Vita (20) ×5 unused.** Bot is buying Vita for HP recovery but not consuming them in the dump
+   window. The late-game dump policy doesn't trigger consumption on training turns post-T65.
+4. **MCH overhoarding when Climax has <3 races.** Policy protected for 3 Climax races but only
+   2 ran. Dynamic MCH allocation should check confirmed Climax race count before T73.
+
+Decision:
+Do not promote. Stats significantly below baseline. Skill buying completely failed for the second
+time with these threshold settings. All three skill-related knobs (preset SP Threshold, nirio
+hoard_threshold, nirio sp_floor) must be lowered before next run to eliminate the catch-22.
+
+---
+
 ### 2026-07-01 — Long Pace V3 Fix, final_inventory cleanup + hammer allocation pass
 
 **Source:** Long Pace V3 Fix preset, Make a New Track scenario, 77/77 turns

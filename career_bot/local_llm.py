@@ -600,6 +600,13 @@ def test_connection(base_dir: Any, *, post_fn: Optional[Callable[..., Any]] = No
             cfg["provider"] = prov if prov in {"lmstudio", "ollama", "custom"} else cfg["provider"]
     if not cfg.get("base_url"):
         return {"success": False, "detail": "Base URL is required.", "config": _redact_config(cfg)}
+    # FORK: cold-start tolerance for manual TEST & SAVE — Ollama (and similar
+    # local servers) unload idle models from memory after a few minutes, so the
+    # first request after idle has to reload the model and can take well past
+    # the user's configured timeout_seconds even though the endpoint is healthy.
+    # Floor the test-only request timeout higher so a true positive isn't
+    # reported as a failure; analyze/shadow calls still use the configured value.
+    cfg["timeout_seconds"] = max(safe_int(cfg.get("timeout_seconds"), 30), 90)
     messages = [
         {"role": "system", "content": _system_prompt()},
         {"role": "user", "content": 'Return exactly JSON: {"ok":true,"label":"local_llm_ready"}'},
