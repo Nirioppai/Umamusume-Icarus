@@ -300,3 +300,14 @@ DEFAULT_NIRIO_FINAL_MCH_REQUIRED = 2
 DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE = 1
 
 DEFAULT_NIRIO_CHAIN_MOOD_FLOOR = 2
+
+# FORK: (nirio) bootcamp megaphone reserve.
+# Target number of strong megaphones (Empowering + Motivating) to hold back for each
+# bootcamp window before spending them on regular training turns.
+# Default 2: enough for the ideal 2-Empowering plan (T37+T39 or T61+T63).
+# nirio_second_bootcamp_turn: first turn of the senior bootcamp (default 61).
+# nirio_buy_coaching_mega: allow buying Coaching Megaphones (default False — too weak to justify
+# buying over Motivating/Empowering; enable if coins are plentiful and no stronger megas exist).
+DEFAULT_NIRIO_BOOTCAMP_MEGA_TARGET = 2
+DEFAULT_NIRIO_SECOND_BOOTCAMP_TURN = 61
+DEFAULT_NIRIO_BUY_COACHING_MEGA = False

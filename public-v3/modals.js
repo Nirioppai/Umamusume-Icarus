@@ -1119,7 +1119,10 @@
               slider('nr-wdt', 'Whistle Dump Turn', 40, 72, 60, 1, '', 'Allow whistle usage after this turn.', 'mant.nirio_whistle_dump_turn'),
               slider('nr-mcr', 'MCH Climax Reserve', 0, 5, 3, 1, '', 'Master Cleat Hammers reserved for climax races (non-Climax G1 logic).', 'mant.nirio_mch_reserve'),
               slider('nr-fmr', 'Final MCH Required', 0, 3, 2, 1, '', 'MCH to protect for later Climax races. With 2: T74 uses MCH only if 3+ owned; T76 if 2+; T78 always.', 'mant.nirio_final_mch_required'),
-              slider('nr-far', 'Final Artisan Reserve', 0, 3, 1, 1, '', 'Artisan hammers kept for later Climax races as fallback when MCH is tight.', 'mant.nirio_final_artisan_reserve'))}
+              slider('nr-far', 'Final Artisan Reserve', 0, 3, 1, 1, '', 'Artisan hammers kept for later Climax races as fallback when MCH is tight.', 'mant.nirio_final_artisan_reserve'),
+              slider('nr-bmt', 'Bootcamp Mega Target', 0, 4, 2, 1, '', 'Strong megaphones (Empowering + Motivating) to hold back for each bootcamp window. 2 = ideal (covers all 4 turns with 2 Empowering). Set 0 to disable reserve.', 'mant.nirio_bootcamp_mega_target'),
+              slider('nr-sbt', 'Senior Bootcamp Turn', 55, 65, 61, 1, '', 'First turn of the senior bootcamp window. Megaphone reserve re-arms before this turn.', 'mant.nirio_second_bootcamp_turn'),
+              toggle('Buy Coaching Megaphone', false, 'Allow buying Coaching Megaphone (+20% for 4 turns). Off by default — weaker than Motivating/Empowering and only useful when no stronger megas are available.', 'mant.nirio_buy_coaching_mega'))}
 `,
         onMount: (o) => { wireSave(o); Promise.resolve(initSettingsModal(o)).then(() => armUnsavedGuard(o)); },
       });

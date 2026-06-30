@@ -1459,6 +1459,9 @@ class MantItemManager:
         cfg.setdefault("nirio_final_mch_required", tb_rules.DEFAULT_NIRIO_FINAL_MCH_REQUIRED)
         cfg.setdefault("nirio_final_artisan_reserve", tb_rules.DEFAULT_NIRIO_FINAL_ARTISAN_RESERVE)
         cfg.setdefault("nirio_chain_mood_floor", tb_rules.DEFAULT_NIRIO_CHAIN_MOOD_FLOOR)
+        cfg.setdefault("nirio_bootcamp_mega_target", tb_rules.DEFAULT_NIRIO_BOOTCAMP_MEGA_TARGET)
+        cfg.setdefault("nirio_second_bootcamp_turn", tb_rules.DEFAULT_NIRIO_SECOND_BOOTCAMP_TURN)
+        cfg.setdefault("nirio_buy_coaching_mega", tb_rules.DEFAULT_NIRIO_BUY_COACHING_MEGA)
         return cfg
 
     def _owned_map(self, free):
@@ -1842,6 +1845,15 @@ class MantItemManager:
         item_effects = free_data.get("item_effect_array") or []
         current_mega_tier = self._active_megaphone_tier(state)
 
+        # FORK: (nirio) megaphone stacking guard.
+        # The game UI disables all megaphone buttons while one is already active — using
+        # a second megaphone is impossible in the game client.  The API accepts the call
+        # without error but the effect is wasted (the new one does not stack or replace).
+        # Return None immediately whenever any megaphone is already running so we never
+        # queue a megaphone into use_items when one is active.
+        if current_mega_tier > 0:
+            return None
+
         score = self._command_stat_gain(best_command, sp_weight=0.5)
         cfg = self._mant_cfg(preset)
         # Late-game dump (after turn 64, unless save_items_lategame): in the
@@ -1880,18 +1892,32 @@ class MantItemManager:
         inventory_pressure = slots_left > 0 and owned_count >= slots_left
         has_upgrade_pair = owned.get("Motivating Megaphone", 0) > 0 and owned.get("Empowering Megaphone", 0) > 0 and slots_left >= 2
 
-        # P2: don't burn the summer-reserved strong megaphones on ordinary training
-        # turns before the first summer-camp turn.  Below the reserve and before
-        # camp, hold the Empowering for the camp turns (35 / 59) unless inventory
-        # pressure / dump mode forces a release.
+        # P2 / FORK: (nirio) don't burn strong megaphones on ordinary training turns
+        # before EITHER bootcamp window.  The target is nirio_bootcamp_mega_target
+        # (default 2) strong megaphones banked for each window:
+        #   Classic: hold before T37 (first_summer_turn). Reserve lifts once we enter T37.
+        #   Senior:  hold before T61 (second_summer_turn). Reserve lifts once we enter T61.
+        # Outside those two pre-camp windows the reserve is lifted entirely so surplus
+        # megaphones fire freely on rainbow/dump turns.
         summer_reserve = _cfg_num(cfg, "megaphone_summer_reserve", 2)
-        first_summer_turn = _cfg_num(cfg, "megaphone_summer_first_turn", 35)
+        first_summer_turn = _cfg_num(cfg, "megaphone_summer_first_turn", 37)
+        # FORK: (nirio) second bootcamp window reserve — hold strong megas before senior camp.
+        second_summer_turn = _cfg_num(cfg, "nirio_second_bootcamp_turn", 61)
+        nirio_bootcamp_target = _cfg_num(cfg, "nirio_bootcamp_mega_target", 2)
         strong_owned = int(owned.get("Empowering Megaphone", 0) or 0) + int(owned.get("Motivating Megaphone", 0) or 0)
+
+        # Determine if we are in a pre-camp hold window for either bootcamp.
+        # "in_pre_camp" = we are between the two camps (T41-T60) and below the target.
+        # During this window, hold strong megaphones for the senior camp.
+        _in_pre_classic = turn < first_summer_turn
+        _in_pre_senior = (first_summer_turn <= turn < second_summer_turn
+                          and turn not in {37, 38, 39, 40})  # not during classic camp itself
+        _in_pre_camp_hold = (_in_pre_classic or _in_pre_senior) and strong_owned <= nirio_bootcamp_target
+
         # R2: during the late-summer (60-64) / late-spend (65-70) windows the
         # stock-conservation caps are lifted, so never hold strong megaphones back.
         hold_summer_strong = (
-            turn < first_summer_turn
-            and strong_owned <= summer_reserve
+            _in_pre_camp_hold
             and not (inventory_pressure or dump_mode)
             and not (LATE_SUMMER or LATE_SPEND)
         )
@@ -2267,10 +2293,13 @@ class MantItemManager:
             counts = (preset or {}).get("_deck_type_counts") or []
             idx = TRAINING_ITEM_DECK_TYPE_INDEX.get(name)
             deck_count = int(counts[idx] or 0) if idx is not None and len(counts) > idx else 0
-            # P1: strong decks kept buying anklets forever (+18/card vs -12/qty).
-            # Trim the per-card bonus and steepen the per-owned penalty so value
-            # falls off after the first couple of copies.
-            value += deck_count * 12.0
+            # FORK: (nirio) support-card-proportional anklet value.
+            # Per-card bonus raised from 12 → 20 so deck composition strongly ranks anklet types:
+            # 3 Speed cards → +60, 2 Power → +40, 1 Stamina → +20, 0 Guts → skipped (skip_low_deck).
+            # This ensures the most-supported stat always gets its anklet first when multiple types
+            # are in the shop simultaneously.  The per-owned penalty (-20) balances the per-card
+            # bonus so a second copy only makes sense when the deck strongly supports it.
+            value += deck_count * 20.0
             value -= qty * 20.0
         guide = self._guide(preset)
         shop_cfg = guide.get("shop_priorities") or {}
@@ -2342,10 +2371,12 @@ class MantItemManager:
         _lift_conservation = _late_summer or _dump_late
         if name in MEGAPHONE_TIERS and not _lift_conservation and self._megaphone_buy_surplus(data or {}, owned, turn, race_planner, preset):
             return "skip_mega_surplus"  # FORK: granular skip reason for log_viewer.html
-        # v2.0 megaphone buy policy: never buy small (Coaching); buy big
-        # (Empowering) freely; buy medium (Motivating) only if still short on big
-        # megaphones for the upcoming summer.
-        if name == "Coaching Megaphone" and not _lift_conservation and not cfg.get("trackblazer_buy_small_megaphone", False):
+        # v2.0 megaphone buy policy: Coaching is only bought when explicitly enabled.
+        # FORK: (nirio) nirio_buy_coaching_mega replaces the upstream trackblazer_buy_small_megaphone
+        # flag as a user-tunable nirio knob.  Both flags are checked so existing presets
+        # that use the upstream flag still work.
+        _buy_coaching = cfg.get("nirio_buy_coaching_mega", False) or cfg.get("trackblazer_buy_small_megaphone", False)
+        if name == "Coaching Megaphone" and not _lift_conservation and not _buy_coaching:
             return "skip_mega_surplus"  # FORK: granular skip reason for log_viewer.html
         if name == "Motivating Megaphone" and not _lift_conservation:
             big_target = _cfg_num(cfg, "megaphone_big_summer_target", 2)
@@ -2386,7 +2417,13 @@ class MantItemManager:
         if type_idx is not None:
             counts = (preset or {}).get("_deck_type_counts") or []
             count = int(counts[type_idx] or 0) if len(counts) > type_idx else 0
-            if count < 2:
+            # FORK: (nirio) support-card-driven anklet gate.
+            # Old threshold: skip when < 2 cards — blocked anklets for stats with exactly 1 support card.
+            # New threshold: skip only when 0 cards — no support cards = no training turns of that type = useless anklet.
+            # With ≥1 card the buy is allowed; _item_buy_value then ranks anklets proportionally by
+            # deck_count (more cards → more value) so the most-supported stat gets the anklet first.
+            # Example: 3 Speed / 2 Power / 1 Stamina / 0 Guts → Speed first, Power second, Stamina third, Guts skipped.
+            if count < 1:
                 return "skip_low_deck"  # FORK: granular skip reason for log_viewer.html
             return None  # FORK: granular skip reason for log_viewer.html
         if name in ONE_TIME_BUFF_ITEMS and name in self.used_buffs:

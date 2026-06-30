@@ -856,7 +856,7 @@ function renderOverview(){
   const nirKeys=Object.keys(_nir).filter(k=>_nir[k]!=null);
   if(nirKeys.length){
     html+=`<div class="ov-card"><h3>(NIRIO) Fork Tuning</h3>`;
-    const nirDesc={'nirio_skill_force_turn':'Force skill buying after this turn if SP >= floor','nirio_skill_sp_floor':'Min SP required for forced skill buying','nirio_skill_hoard_threshold':'Buy skills immediately above this SP','nirio_mood_floor':'Trigger mood repair when motivation <= this','nirio_mood_repair_turn':'Use cupcakes aggressively after this turn when mood <= floor','nirio_mood_critical_turn':'Hard-block race chains when mood <= floor after this turn','nirio_chain_mood_floor':'Block race chains when motivation <= this','nirio_charm_dump_turn':'Lower charm thresholds after this turn','nirio_charm_dump_min_gain':'Min stat gain for charm in dump window','nirio_charm_dump_failure_rate':'Min failure rate for charm in dump window','nirio_whistle_dump_turn':'Allow whistle usage after this turn','nirio_mch_reserve':'Master Hammers protected for Climax (dynamic)'};
+    const nirDesc={'nirio_skill_force_turn':'Force skill buying after this turn if SP >= floor','nirio_skill_sp_floor':'Min SP required for forced skill buying','nirio_skill_hoard_threshold':'Buy skills immediately above this SP','nirio_mood_floor':'Trigger mood repair when motivation <= this','nirio_mood_repair_turn':'Use cupcakes aggressively after this turn when mood <= floor','nirio_mood_critical_turn':'Hard-block race chains when mood <= floor after this turn','nirio_chain_mood_floor':'Block race chains when motivation <= this','nirio_charm_dump_turn':'Lower charm thresholds after this turn','nirio_charm_dump_min_gain':'Min stat gain for charm in dump window','nirio_charm_dump_failure_rate':'Min failure rate for charm in dump window','nirio_whistle_dump_turn':'Allow whistle usage after this turn','nirio_mch_reserve':'Master Hammers protected for Climax races (dynamic reserve, reduces as Climax races are completed)','nirio_final_mch_required':'MCH to protect for later Climax races — T74 gets MCH only if (this+1)+ owned; T76 if this+ owned; T78 always','nirio_final_artisan_reserve':'Artisan Hammers kept as fallback for later Climax races when MCH supply is tight','nirio_bootcamp_mega_target':'Strong megaphones (Empowering+Motivating) reserved for each bootcamp window — held back until T37 (classic) or T61 (senior)','nirio_second_bootcamp_turn':'First turn of senior bootcamp window — megaphone reserve re-arms before this turn','nirio_buy_coaching_mega':'Allow buying Coaching Megaphone (+20% 4-turn) — off by default, weaker than Motivating/Empowering'};
     for(const k of nirKeys){const label=k.replace(/^nirio_/,'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());html+=sRow(label,_nir[k],nirDesc[k]||'')}
     html+=`</div>`;
   }
@@ -1859,11 +1859,51 @@ function nirioEffectiveness(nirio,turns,last){
     else if(finalCoins>150)rate('partial','Cash-Out',finalCoins+' coins remaining.');
     else rate('pass','Cash-Out',finalCoins+' coins remaining.');
   }
-  // MCH reserve
+  // MCH reserve — check T73 inventory vs expected climax coverage
   if(v('nirio_mch_reserve')!=null){
-    const mchAtT73=turns.filter(t=>t.turn<=73).reduce((best,t)=>{const inv=t.inventory||[];const c=inv.filter(i=>i.item_id===11002).reduce((s,i)=>s+(i.current_num||i.num||1),0);return t.turn>=70?c:best},0);
-    if(mchLeft>1)rate('partial','MCH Reserve',mchLeft+' Master hammers left after climax (overhoarded).','Lower nirio_mch_reserve if climax races were all covered.');
+    // Count climax races actually run to judge if leftovers are truly overhoarded
+    const climaxRacesRun=turns.filter(t=>(t.bot_pre_race_use_selected||[]).length>0||categorize(t)==='race').filter(t=>{const dr=String(t.decision_reason||'').toLowerCase();return dr.includes('climax')||dr.includes('finale')}).length;
+    const expectedLeft=v('nirio_final_mch_required')!=null?v('nirio_final_mch_required'):2;
+    if(mchLeft>expectedLeft)rate('partial','MCH Reserve',mchLeft+' Master hammers left after climax (overhoarded; expected ≤'+expectedLeft+').','Lower nirio_mch_reserve if climax races were all covered.');
     else rate('pass','MCH Reserve',mchLeft+' Master hammer(s) left after climax.');
+  }
+  // Reverse-priority Climax hammer allocation check
+  if(v('nirio_final_mch_required')!=null||v('nirio_final_artisan_reserve')!=null){
+    const achLeft=invCount('Artisan Cleat Hammer');
+    const finalMchReq=v('nirio_final_mch_required')!=null?v('nirio_final_mch_required'):2;
+    const finalArtRes=v('nirio_final_artisan_reserve')!=null?v('nirio_final_artisan_reserve'):1;
+    const totalHammersLeft=mchLeft+achLeft;
+    if(totalHammersLeft>finalMchReq+finalArtRes)rate('partial','Climax Hammer Allocation',totalHammersLeft+' hammers left ('+mchLeft+' MCH + '+achLeft+' Artisan). Policy protected '+finalMchReq+' MCH + '+finalArtRes+' Artisan for later races but more remained unused.','If all Climax races ran, lower nirio_final_mch_required or nirio_final_artisan_reserve. If fewer than 3 Climax races ran, this is expected.');
+    else rate('pass','Climax Hammer Allocation','Hammer allocation correct — '+mchLeft+' MCH + '+achLeft+' Artisan remaining within policy (≤'+finalMchReq+' MCH + '+finalArtRes+' Artisan).');
+  }
+  // Bootcamp megaphone reserve check
+  if(v('nirio_bootcamp_mega_target')!=null){
+    const target=v('nirio_bootcamp_mega_target')||2;
+    // Check classic bootcamp (T37) and senior bootcamp (T61) entry
+    const classicEntry=turns.find(t=>t.turn===37);
+    const seniorEntry=turns.find(t=>t.turn===61);
+    const classicInv=classicEntry?(classicEntry.inventory||[]):[null];
+    const seniorInv=seniorEntry?(seniorEntry.inventory||[]):[null];
+    const countStrong=(inv)=>inv===null?null:inv.filter(i=>i.item_id===8002||i.item_id===8003).reduce((s,i)=>s+(i.current_num||i.num||1),0);
+    const classicStrong=countStrong(classicInv);
+    const seniorStrong=countStrong(seniorInv);
+    const issues=[];
+    if(classicStrong!==null&&classicStrong<target)issues.push('T37 had '+classicStrong+' strong mega(s) (target '+target+')');
+    if(seniorStrong!==null&&seniorStrong<target)issues.push('T61 had '+seniorStrong+' strong mega(s) (target '+target+')');
+    if(issues.length)rate('partial','Bootcamp Mega Reserve',issues.join('; ')+'. Fewer than target strong megaphones available at bootcamp start.','Lower nirio_bootcamp_mega_target or buy more Empowering/Motivating megaphones before bootcamp. Check coin availability at T35/T59.');
+    else{
+      const parts=[];
+      if(classicStrong!==null)parts.push('T37: '+classicStrong+'×');
+      if(seniorStrong!==null)parts.push('T61: '+seniorStrong+'×');
+      rate('pass','Bootcamp Mega Reserve','Target '+target+' met at bootcamp entries'+(parts.length?' ('+parts.join(', ')+')')+'.');
+    }
+    // Check for wasted megaphone (stacking bug indicator): used on same turn as already-active
+    let stackedMegaTurns=0;
+    for(const t of turns){
+      const used=(t.bot_item_use_selected||[]).filter(u=>u.item_id===8001||u.item_id===8002||u.item_id===8003);
+      if(used.length>=2)stackedMegaTurns++;
+    }
+    if(stackedMegaTurns>0)rate('fail','Megaphone Stacking',stackedMegaTurns+' turn(s) where 2+ megaphones were used. Game rejects stacked megaphones — second use is wasted. This should not happen with the stacking-guard fix.','Verify nirio fork is at latest version with megaphone stacking guard active.');
   }
   if(!evals.length)return'';
   let o='--- (NIRIO) EFFECTIVENESS ---\n';
@@ -1948,6 +1988,18 @@ function generateAISummary(){
     o+='  Summer Train>Rec: '+(_scn.summer_force_train_over_recreation?'ON':'OFF')+'\n';
     o+='  Kale Release: '+(_scn.release_cupcake_reserve_when_no_kale?'ON':'OFF')+'\n';
     o+='\n';
+    // FORK: new nirio knobs that affect scenario-level behavior — include in settings snapshot
+    const _nir=_rts.nirio||{};
+    const hasNewNirioKnobs=_nir.nirio_final_mch_required!=null||_nir.nirio_final_artisan_reserve!=null||_nir.nirio_bootcamp_mega_target!=null;
+    if(hasNewNirioKnobs){
+      o+='[Nirio — Item Allocation]\n';
+      if(_nir.nirio_final_mch_required!=null)o+='  Final MCH Required: '+_nir.nirio_final_mch_required+'\n';
+      if(_nir.nirio_final_artisan_reserve!=null)o+='  Final Artisan Reserve: '+_nir.nirio_final_artisan_reserve+'\n';
+      if(_nir.nirio_bootcamp_mega_target!=null)o+='  Bootcamp Mega Target: '+_nir.nirio_bootcamp_mega_target+'\n';
+      if(_nir.nirio_second_bootcamp_turn!=null)o+='  Senior Bootcamp Turn: '+_nir.nirio_second_bootcamp_turn+'\n';
+      if(_nir.nirio_buy_coaching_mega!=null)o+='  Buy Coaching Mega: '+(_nir.nirio_buy_coaching_mega?'ON':'OFF')+'\n';
+      o+='\n';
+    }
   }
 
   // Metric confidence
