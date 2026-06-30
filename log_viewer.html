@@ -769,13 +769,19 @@ function renderOverview(){
     </div>`;
 
   // Items & economy card
-  const leftoverItems=Object.entries(shopItems).reduce((s,[n,c])=>s+Math.max(0,c-(usedItems[n]||0)),0);
+  // FORK: use final_inventory as authoritative leftover count; ledger (bought-used) drifts when usage events are missing or double-counted
+  const _ovFinalInv=last.inventory||[];
+  const _ovInvLeftover=_ovFinalInv.reduce((s,i)=>s+(i.current_num||i.num||1),0);
+  const _ovLedgerLeftover=Object.entries(shopItems).reduce((s,[n,c])=>s+Math.max(0,c-(usedItems[n]||0)),0);
+  const leftoverItems=_ovFinalInv.length?_ovInvLeftover:_ovLedgerLeftover;
+  const _ovAcctMismatch=_ovFinalInv.length&&Math.abs(_ovInvLeftover-_ovLedgerLeftover)>2;
   const finalCoin=last.mant_coin!=null?last.mant_coin:null;
   const coinColor=finalCoin!=null&&finalCoin>50?'var(--orange)':'var(--green)';
   html+=`<div class="ov-card"><h3>Items &amp; Economy</h3>
     <div class="ov-row"><span class="ov-lbl">Items Bought</span><span class="ov-val" style="color:var(--yellow)">${itemsBought}</span></div>
     <div class="ov-row"><span class="ov-lbl">Items Used</span><span class="ov-val" style="color:var(--blue)">${itemsUsed}</span></div>
-    <div class="ov-row"><span class="ov-lbl">Items Left Over</span><span class="ov-val" style="color:${leftoverItems>0?'var(--orange)':'var(--green)'}">${leftoverItems}</span></div>
+    <div class="ov-row"><span class="ov-lbl">Items Left Over</span><span class="ov-val" style="color:${leftoverItems>0?'var(--orange)':'var(--green)'}">${leftoverItems}${_ovAcctMismatch?` <span style="color:var(--text3);font-size:10px">(ledger:${_ovLedgerLeftover})</span>`:''}</span></div>
+    ${_ovAcctMismatch?`<div class="ov-row" style="grid-column:1/-1"><span style="color:var(--orange);font-size:10px">⚠ Inventory accounting mismatch — count is from final_inventory</span></div>`:''}
     <div class="ov-row"><span class="ov-lbl">Skills Bought</span><span class="ov-val" style="color:var(--accent2)">${skillsBought}</span></div>
     <div class="ov-row"><span class="ov-lbl">Final Coin</span><span class="ov-val" style="color:${coinColor}">${finalCoin!=null?'🪙'+finalCoin:'—'}</span></div>
     </div>`;
@@ -2008,10 +2014,16 @@ function generateAISummary(){
   // Item economy
   o+='--- ITEM ECONOMY ---\n';
   const ie=aiItemSummary(turns);
-  const leftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  // FORK: use final_inventory as authoritative leftover count; ledger (bought-used) can disagree when usage events are incomplete or double-counted
+  const _aiFinvItems=last.inventory||[];
+  const _aiInvLeftover=_aiFinvItems.reduce((s,i)=>s+(i.current_num||i.num||1),0);
+  const _aiLedgerLeftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  const leftover=_aiFinvItems.length?_aiInvLeftover:_aiLedgerLeftover;
+  const _aiAcctMismatch=_aiFinvItems.length&&Math.abs(_aiInvLeftover-_aiLedgerLeftover)>2;
   o+='Total Items Bought: '+ie.boughtCount+'\n';
   o+='Total Items Used: '+ie.usedCount+'\n';
-  o+='Items Left Over: '+leftover+'\n';
+  o+='Items Left Over: '+leftover+(_aiFinvItems.length?' (from final_inventory)':' (from ledger)')+'\n';
+  if(_aiAcctMismatch)o+='  ⚠ Accounting Warning: ledger says '+_aiLedgerLeftover+', final_inventory says '+_aiInvLeftover+'. Per-item table below uses ledger for economy analysis; treat per-item "left" column as approximate.\n';
   o+='Total Coins Spent: '+ie.spent+'\n\n';
 
   const allNames=new Set([...Object.keys(ie.bought),...Object.keys(ie.used)]);
@@ -2045,7 +2057,7 @@ function generateAISummary(){
 
   // Late-game dump window
   o+='--- LATE-GAME DUMP WINDOW (T65-T76) ---\n';
-  o+=aiDumpWindow(turns,ie);
+  o+=aiDumpWindow(turns,ie,last);
   o+='\n';
 
   // Mood & HP
@@ -2259,7 +2271,7 @@ function aiUnusedStatEstimate(ie){
   return o;
 }
 
-function aiDumpWindow(turns,ie){
+function aiDumpWindow(turns,ie,last){
   const DUMP_START=65,DUMP_END=76;
   const t65=[...turns].reverse().find(t=>t.turn<=DUMP_START);
   const dumpTurns=turns.filter(t=>t.turn>=DUMP_START&&t.turn<=DUMP_END);
@@ -2287,7 +2299,11 @@ function aiDumpWindow(turns,ie){
       for(const it of dumpable)o+='  '+fmtItem(it.name||ITEM[it.item_id]||'?')+' ×'+(it.current_num||it.num||1)+'\n';
     }
   }
-  const leftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  // FORK: use final_inventory as authoritative leftover count for the dump window assessment
+  const _dumpFInv=(last&&last.inventory)||[];
+  const _dumpInvLeft=_dumpFInv.reduce((s,i)=>s+(i.current_num||i.num||1),0);
+  const _dumpLedgerLeft=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  const leftover=_dumpFInv.length?_dumpInvLeft:_dumpLedgerLeft;
   if(leftover>10)o+='Assessment: The bot entered the late-game with usable items and ended with '+leftover+' leftovers. The late-game dump policy may not be aggressive enough.\n';
   else if(leftover>0)o+='Assessment: Some items remained unused ('+leftover+'), but volume is moderate.\n';
   else o+='Assessment: Good — no significant leftovers from the dump window.\n';
@@ -2297,10 +2313,11 @@ function aiDumpWindow(turns,ie){
 function aiCashOut(turns,last,ie,rr){
   const ls=last.stats||{};
   const spRemaining=(ls.skill_point||0);
-  const leftover=Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
+  const finalInv=last.inventory||[];
+  // FORK: use final_inventory total as authoritative leftover count; ledger (bought-used) drifts
+  const leftover=finalInv.length?finalInv.reduce((s,i)=>s+(i.current_num||i.num||1),0):Object.entries(ie.bought).reduce((s,[n,c])=>s+Math.max(0,c-(ie.used[n]||0)),0);
   const skillLog=[];let spSpent=0;
   for(const t of turns)for(const sk of(t.bot_skill_selected||[])){skillLog.push(sk);spSpent+=(sk.cost||0)}
-  const finalInv=last.inventory||[];
   const mchLeft=finalInv.filter(i=>i.item_id===11002).reduce((s,i)=>s+(i.current_num||i.num||1),0);
   const achLeft=finalInv.filter(i=>i.item_id===11001).reduce((s,i)=>s+(i.current_num||i.num||1),0);
   const finalCoins=last.mant_coin!=null?last.mant_coin:0;

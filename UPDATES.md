@@ -245,6 +245,11 @@ Same collisions as v3.2.2 — no new fork changes superseded. One new upstream f
 **Context:** The flat "swing best hammer unconditionally" Climax logic was forward-greedy: T74 spent MCH first, T78 hoped one remained. The last Climax race has the highest stat value (T78 > T76 > T74). Replaced with reverse-priority allocation: protect `nirio_final_mch_required` (default 2) MCH for later races, so T74 only gets a Master Hammer if 3+ are owned. Added `nirio_final_artisan_reserve` (default 1) for the same Artisan fallback protection. With defaults: T74 uses Artisan if tight; T76 uses MCH if 2+ owned; T78 always gets the best available. Two new sliders added to the nirio UI section.
 **Status:** ACTIVE
 
+### 2026-06-30 — Log viewer: fix leftover item source of truth
+**Commit:** (pending) **File(s):** `log_viewer.html`
+**Context:** Per-item leftover count (bought − used ledger) disagreed with final_inventory snapshot. The ledger reported leftover manuals, carrots, and scrolls that were not present in final_inventory or confirmed in-game. Root cause: usage events can be incomplete or double-counted, causing ledger drift. Fixed by preferring `last.inventory` total as the authoritative leftover count in the overview card, AI summary export, dump window assessment, and cash-out analysis. Ledger columns retained for per-item economy analysis. Added ⚠ accounting mismatch warning when the two sources differ by more than 2 items.
+**Status:** ACTIVE
+
 ### 2026-06-30 — Integrate fork fixes after v3.2.3
 **Commit:** (pending) **File(s):** `career_bot/items.py`, `career_bot/runner.py`, `career_bot/skills.py`, `career_bot/trackblazer_rules.py`, `career_bot/scenarios/mant_trackblazer.py`, `public-v3/modals.js`, `main.py`
 **Context:** v3.2.3 is primarily a UI/display overhaul (CSS type-scale). One new upstream behavior fix: whistle dump-late short-circuit (accepted). All fork changes identical to v3.2.2 integration re-applied. No new superseded knobs.

@@ -92,6 +92,43 @@ Referenced by [CLAUDE.md](CLAUDE.md) (auto-update rule).
 
 Newest first. Each entry documents what changed and why.
 
+### 2026-06-30 — Long Pace V3 Fix, reserve-2 hammer policy test
+
+**Source:** Long Pace V3 Fix preset, Make a New Track scenario
+**Classification:** PROVISIONAL — do not update Current Recommended Settings (leftover accounting suspect)
+
+Settings tested:
+- nirio_mch_reserve: 2
+- nirio_final_mch_required: 2
+- nirio_final_artisan_reserve: 1
+- nirio_chain_mood_floor: 4
+- nirio_mood_floor: 4
+- nirio_mood_critical_turn: 65
+
+Result:
+- Final stats: 3815
+- Win rate: 93.5% (31/33 races, 14/14 G1, 2/2 Climax)
+- Climax mood: Good
+- SP remaining: 23
+- Final coins: 136
+- Reported leftovers: 29 (low-confidence — ledger/inventory mismatch confirmed)
+- Real leftovers per final_inventory: Power Anklets ×4, Reset Whistles ×2, MCH ×2, Artisan ×1, Glow Sticks ×1
+
+Trade-offs vs baseline (4030 stats, 92.1% win rate):
+- Stats (3815) below baseline (4030).
+- Win rate (93.5%) slightly better than baseline (92.1%).
+- G1 win rate (100%) better than baseline (89%).
+- Climax mood Good vs Great — marginally worse.
+- T73 MCH: 2 available (intentional per new reserve-2 + final_mch_required=2 policy).
+
+Decision:
+Do not promote. Stats below baseline despite better race quality. Per-item leftover accounting is bugged
+(ledger reported leftover manuals/carrots/scrolls not present in final_inventory or confirmed in-game at T77).
+MCH reserve 2 with final_mch_required=2 + final_artisan_reserve=1 appears viable. Main issues: Power Anklets
+and Reset Whistles still not dumping. Fix log viewer accounting before next comparison.
+
+---
+
 ### 2026-06-30 — Long Pace V3 Fix mixed result
 
 **Source:** Long Pace V3 Fix preset, Make a New Track scenario, 78/78 finished
