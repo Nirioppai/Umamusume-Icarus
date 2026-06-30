@@ -120,8 +120,8 @@ def resolve_running_style_for_race(
     Priority:
     1. Per-distance strategy when enabled.
     2. Junior-year strategy during Junior turns.
-    3. Main Racing Settings style.
-    4. Legacy ``original_running_style`` fallback.
+    3. ``mant_config.original_running_style`` (explicit Year 2+ user setting).
+    4. ``preset.running_style`` (legacy top-level fallback).
     """
 
     preset = preset or {}
@@ -145,8 +145,12 @@ def resolve_running_style_for_race(
         if style in STYLE_LABELS:
             return style
 
+    # FORK: original_running_style must be checked BEFORE preset.running_style.
+    # preset.running_style is often a truthy int (e.g. 1) left over from an earlier
+    # default; putting it first caused the or-chain to short-circuit and silently
+    # ignore the user's explicit original_running_style setting every run.
     return normalize_running_style(
-        preset.get("running_style") or cfg.get("original_running_style") or cfg.get("running_style"),
+        cfg.get("original_running_style") or cfg.get("running_style") or preset.get("running_style"),
         default,
     )
 

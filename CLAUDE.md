@@ -148,6 +148,21 @@ loop can work. Never skip the comparison — every run is data.
 
 ---
 
+## Preset Storage Location
+
+User presets are **not** stored inside this repository. They live at:
+
+```
+C:\Active Codebase\SWEEPY\Icarus_userdata\data\presets\<Preset Name>.json
+```
+
+The in-repo `uma_runtime/default/data/presets/Default.json` is a **local dev
+fallback only** and does not reflect what runs in production. When diagnosing
+issues with running style, item budgets, or any `mant_config` knob, always read
+the preset from the `Icarus_userdata` path above, not from `uma_runtime/`.
+
+---
+
 ## Files Safe to Accept Upstream Wholesale
 
 No active fork modifications:

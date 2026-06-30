@@ -30,6 +30,11 @@ For collision entries (where we chose between our fix and upstream's), add:
 
 ## Change Log
 
+### 2026-07-01 — Fix `original_running_style` silently ignored post-Junior
+**Commit:** `(pending)` **File(s):** `career_bot/running_style.py`
+**Context:** `resolve_running_style_for_race` evaluated `preset.running_style or cfg.original_running_style`. Since `preset.running_style` is typically a truthy integer (1), Python's `or` short-circuited and `original_running_style` was never reached. The "Long Pace V3 Fix" preset had `junior_running_style: 'front'` and `original_running_style: 'pace'` correctly set, but the bot used Front Runner for every race post-Junior because `preset.running_style = 1` blocked it. Fixed by checking `cfg.original_running_style` first.
+**Status:** ACTIVE
+
 ### 2026-06-25 — Pacing system
 **Commit:** `3b8e236` **File(s):** `career_bot/runner.py`, `career_bot/delay.py`
 **Context:** Bot actions were instant, making the request pattern machine-like. Added `_pace()` with per-session jitter before decisions, events, race starts, skill buys, and item handling.

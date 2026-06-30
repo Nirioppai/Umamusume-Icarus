@@ -1,6 +1,7 @@
 *.pyc
 /node_modules
 /uma_runtime
+!/uma_runtime/default/bot_logs/latest_career_log.json
 /tools
 /scraped game logs
 career_bot/.timing_dna
