@@ -687,6 +687,8 @@ All fields are 0 or 1. A flag set to 1 means the waste condition occurred.
 
 **Vita Diagnostic Flags** (more specific than `vita_waste`)
 
+For compatibility, `vita_*` diagnostic flag names refer to all held energy items (including `royal_kale_juice`) unless a future schema version renames them to `held_energy_*`.
+
 | Flag | Set to 1 when |
 |---|---|
 | `vita_bought_too_early` | Vita items were purchased before turn 20 and sat in inventory more than 30 turns before use |
@@ -710,8 +712,10 @@ All fields are 0 or 1. A flag set to 1 means the waste condition occurred.
 | `mood_item_shortage` | Mood dropped to Bad or Awful during a race chain and no mood item was available |
 | `mood_item_overstock` | More than `mood_item_max_stock` mood items remained in inventory after turn 65 |
 | `cupcake_unused_late` | A Plain Cupcake or Berry Sweet Cupcake remained unused in final inventory |
-| `race_chain_mood_break_failed` | Race chain exceeded `race_chain_mood_break_after`, mood fell below Normal, and no mood repair occurred |
-| `rest_avoidance_item_gap` | Rest was taken while no energy or mood item was available that could have plausibly prevented the rest |
+| `race_chain_mood_item_shortage` | `current_race_chain_length` ≥ `race_chain_mood_break_after` AND `pre_action_mood` ≤ 2 AND `mood_item_available` = 0 |
+| `race_chain_mood_item_not_used` | `current_race_chain_length` ≥ `race_chain_mood_break_after` AND `pre_action_mood` ≤ 2 AND `mood_item_available` = 1 AND `mood_item_used_this_turn` = null |
+| `rest_avoidance_item_gap` | `action_taken` = `"rest"` AND `rest_avoidance_enabled` = 1 AND `energy_item_available` = 0 AND `mood_item_available` = 0 |
+| `rest_taken_with_recovery_item_available` | `action_taken` = `"rest"` AND `rest_avoidance_enabled` = 1 AND (`energy_item_available` = 1 OR `mood_item_available` = 1) |
 
 ### Record Eligibility
 
@@ -823,8 +827,9 @@ logs are needed for root cause.
 | `pre_action_mood` | Integer 1–5 | Mood before the selected action resolves |
 | `post_action_mood` | Integer 1–5 | Mood after action and item effects resolve |
 
-These fields are required to compute `race_chain_mood_break_failed` and `rest_avoidance_item_gap`
-reliably. Without them, implementations cannot distinguish between "no mood item existed" and
+These fields are required to compute `race_chain_mood_item_shortage`, `race_chain_mood_item_not_used`,
+`rest_avoidance_item_gap`, and `rest_taken_with_recovery_item_available` reliably.
+Without them, implementations cannot distinguish between "no mood item existed" and
 "a mood item existed but was not used."
 
 ### Inventory at Turn Start
@@ -1029,8 +1034,10 @@ choose the field to adjust using this deterministic priority order:
 | `mood_item_shortage` | 1. `mood_item_min_stock` 2. `cupcake_aggression` 3. `mood_item_buy_enabled` |
 | `mood_item_overstock` | 1. `mood_item_max_stock` 2. `cupcake_aggression` |
 | `cupcake_unused_late` | 1. `mood_item_max_stock` 2. `cupcake_aggression` 3. `dump_window_start_turn` |
-| `race_chain_mood_break_failed` | 1. `race_chain_mood_break_after` 2. `mood_item_min_stock` 3. `cupcake_aggression` |
-| `rest_avoidance_item_gap` | 1. `rest_avoidance_enabled` 2. `energy_buy_threshold` 3. `mood_item_min_stock` |
+| `race_chain_mood_item_shortage` | 1. `mood_item_min_stock` 2. `race_chain_mood_break_after` 3. `cupcake_aggression` |
+| `race_chain_mood_item_not_used` | 1. `race_chain_mood_break_after` 2. `cupcake_aggression` |
+| `rest_avoidance_item_gap` | 1. `energy_buy_threshold` 2. `mood_item_min_stock` 3. `rest_avoidance_enabled` |
+| `rest_taken_with_recovery_item_available` | 1. `rest_avoidance_enabled` 2. `cupcake_aggression` 3. `mood_item_min_stock` |
 
 This table is the canonical tie-break order. Two bots applying the same records
 must choose the same field to adjust. Without this, bots can diverge on field
@@ -1047,13 +1054,40 @@ selection even when they agree on flag rates and step sizes.
 
 For each settings field where a misconfigured value is detected:
 
+The following named set defines every flag that blocks a career from `qualified_clean`.
+All flags in this set must equal 0. Mood diagnostic flags are excluded from this set and
+are ignored in the `qualified_clean` filter unless explicitly promoted by the active
+scoring or conformance version.
+
 ```
+qualified_clean_blocking_flags:
+
+  Core item leftover flags:
+    skill_point_hoard, skill_buy_failure, master_cleat_waste, artisan_cleat_waste,
+    vita_waste, megaphone_waste, ankle_weights_waste, reset_whistle_waste,
+    good_luck_charm_waste, coin_hoard
+
+  Core timing and allocation error flags:
+    bootcamp_mega_shortage, climax_hammer_excess, sp_catchall_blocked, vita_never_triggered
+
+  Vita diagnostic flags:
+    vita_bought_too_early, vita_used_on_low_value_turn, vita_missing_before_high_value_training
+
+  Ankle weights diagnostic flags:
+    ankle_weights_held_past_bootcamp, ankle_weights_wrong_stat,
+    ankle_weights_no_matching_training, ankle_weights_used_without_mega,
+    ankle_weights_stock_cap_blocked
+
+  Excluded — mood diagnostic flags (diagnostic only until explicitly promoted):
+    mood_item_shortage, mood_item_overstock, cupcake_unused_late,
+    race_chain_mood_item_shortage, race_chain_mood_item_not_used,
+    rest_avoidance_item_gap, rest_taken_with_recovery_item_available
+
 qualified_clean = careers where:
     — record_eligibility = "direct_learning"   ← ONLY direct_learning records
-    — all waste flags = 0
+    — all qualified_clean_blocking_flags = 0
     — item_execution_score ≥ 15
     — skills_purchased ≥ 1
-    — bootcamp_mega_shortage = 0
 
 clean_mean   = mean value of that field across qualified_clean careers
 current      = current active value of that field
@@ -1078,11 +1112,13 @@ from drifting toward "buy less" as the solution to all waste.
 **Mood Diagnostic Flags and `qualified_clean`:**
 
 Mood Diagnostic Flags (`mood_item_shortage`, `mood_item_overstock`, `cupcake_unused_late`,
-`race_chain_mood_break_failed`, `rest_avoidance_item_gap`) do **not** disqualify a career
-from `qualified_clean` unless a future scoring or conformance version explicitly promotes
-them to core waste flags. Until that promotion occurs, they are recorded but not checked
-in the `qualified_clean` filter. Implementations must not treat mood diagnostic flags the
-same as `master_cleat_waste = 1` or other core waste flags that do block `qualified_clean`.
+`race_chain_mood_item_shortage`, `race_chain_mood_item_not_used`, `rest_avoidance_item_gap`,
+`rest_taken_with_recovery_item_available`) are excluded from `qualified_clean_blocking_flags`
+and do **not** disqualify a career from `qualified_clean` unless a future scoring or
+conformance version explicitly promotes them to blocking flags. Until that promotion occurs,
+they are recorded but not checked in the `qualified_clean` filter. Implementations must not
+treat mood diagnostic flags the same as `master_cleat_waste = 1` or other flags listed in
+`qualified_clean_blocking_flags`.
 
 **No-qualified-clean-records fallback:**
 
@@ -2245,6 +2281,16 @@ shop_optimizer/
       skill_point_blocked_001.expected.json
       vita_never_triggered_001.input.json
       vita_never_triggered_001.expected.json
+      mood_item_shortage_001.input.json
+      mood_item_shortage_001.expected.json
+      mood_item_overstock_001.input.json
+      mood_item_overstock_001.expected.json
+      race_chain_mood_item_shortage_001.input.json
+      race_chain_mood_item_shortage_001.expected.json
+      race_chain_mood_item_not_used_001.input.json
+      race_chain_mood_item_not_used_001.expected.json
+      rest_avoidance_item_gap_001.input.json
+      rest_avoidance_item_gap_001.expected.json
 
     scoring_fixtures/
       high_efficiency_001.input.json
@@ -2265,6 +2311,8 @@ shop_optimizer/
       energy_threshold_clamp_001.expected.json
       hammer_reserve_clamp_001.input.json
       hammer_reserve_clamp_001.expected.json
+      mood_min_max_clamp_001.input.json
+      mood_min_max_clamp_001.expected.json
 
     knowledge_pack_import_fixtures/
       valid_deterministic_pack_001.input.json
