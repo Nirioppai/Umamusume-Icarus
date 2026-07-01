@@ -49,10 +49,10 @@ layer that sits on top of that solver and focuses exclusively on the shop.
 | Instant-Use Item | An item consumed immediately when purchased, on the same turn. Never sits in inventory. Cannot be wasted. |
 | Held Item | An item that goes into inventory when purchased and must be triggered manually or automatically by a rule. These can become waste. |
 | Dump Window | A late-career period (usually after turn 60–65) where the bot relaxes buying restrictions and tries to spend remaining coins before the career ends. |
-| Optimizer | The deterministic function that reads numeric career records and outputs an updated settings vector. No language model component. |
-| Shop Policy Mode | Which shop decision policy is currently active: `native`, `deterministic`, `hybrid`, or `manual`. The active mode determines which policy makes live shop decisions, but all modes must emit canonical telemetry. |
-| Native Shop Optimizer | The bot's original built-in shop decision logic, implemented independently of this spec. |
-| Deterministic Shop Optimizer | The policy engine defined by this spec. Reads the Universal Shop Profile and applies learned settings to make live shop decisions. |
+| Shop Policy Mode | Which shop decision policy is currently active: `native`, `deterministic`, `native_with_deterministic_shadow`, `hybrid`, or `manual`. The active mode determines which policy makes live shop decisions, but all modes must emit canonical telemetry. |
+| Native Shop Policy | The bot's original built-in shop decision logic, implemented independently of this spec. Makes live buy/use/skip decisions when `shop_optimizer_mode = "native"` or `"native_with_deterministic_shadow"`. |
+| Deterministic Shop Policy | The live shop decision engine defined by this spec. Reads the Universal Shop Profile and applies learned settings to make buy/use/skip decisions. Active when `shop_optimizer_mode = "deterministic"`. This is a live decision component — it does not read career records or update settings. |
+| Shop Learning Optimizer | The post-career component that reads completed career records and computes an updated settings vector. Separate from the live decision policy. Runs after every career regardless of which policy made the live decisions. |
 | Adapter Layer | The bot-specific translation code that converts internal settings to Universal Shop Profile fields and back. The optimizer never touches bot-internal names or structures. |
 | Policy Router | The component that reads `shop_optimizer_mode` and dispatches a turn's shop decision to the correct policy, then routes the result through the shared telemetry layer. |
 | Interop Manifest | A machine-readable declaration of which Universal Shop Profile fields a bot implementation supports, which policy modes it implements, and which spec versions it conforms to. |
@@ -60,6 +60,9 @@ layer that sits on top of that solver and focuses exclusively on the shop.
 | Conformance Hash | A deterministic hash of the canonical optimizer output. Two bots that produce the same hash from the same input apply the same algorithm. |
 | Evidence Type | A label on a Knowledge Pack declaring whether its contributing records came from deterministic-policy runs, native-policy runs, or a mix. Determines how much trust an importing bot should assign. |
 | Universal Profile Source | A per-career field recording how the career's Universal Shop Profile snapshot was produced: directly applied, derived from native logic, partially mapped, defaulted, or unknown. |
+| Record Eligibility | A per-career field that classifies how much an individual career record may contribute to learning. `direct_learning` records (deterministic policy, profile directly applied) may update clean-career means. `observational_learning` records (native policy, derived profile) contribute only to waste pattern detection. See Record Eligibility Rules section. |
+| Shadow Mode | A policy mode (`native_with_deterministic_shadow`) in which native policy makes the live decision and the deterministic shop policy runs silently in parallel on the same context, logging what it would have decided without executing it. |
+| Canonical Item ID | A snake_case identifier for each in-game item, stable across bot implementations, languages, and display name changes (e.g. `vita_40`, `master_cleat_hammer`). Used in all cross-bot telemetry and Knowledge Packs. |
 
 ### Mood Effects Reference
 
@@ -80,69 +83,82 @@ Cupcakes) are treated as high-priority purchases when mood is declining toward B
 
 ## Item Reference
 
+All items are referenced in telemetry and Knowledge Packs by their **canonical
+item ID** — a stable snake_case identifier. Display names are for human reading
+only. Canonical IDs are defined in `reference/canonical_items.json` (see
+Recommended Repository Structure section). That file is the authoritative source
+for IDs, display names, categories, costs, held/instant-use status, and waste
+eligibility for each item.
+
 ### Energy and Vitality Items
 
-| Item | Energy Restored | Cost |
-|---|---|---|
-| Vita 20 | 20 | 35 coins |
-| Vita 40 | 40 | 55 coins |
-| Vita 65 | 65 | 75 coins |
-| Royal Kale Juice | Full recovery | 70 coins |
-| Energy Drink MAX | 5 (emergency only) | 30 coins |
-| Energy Drink MAX EX | Full recovery | 50 coins |
+| Canonical ID | Display Name | Energy Restored | Cost |
+|---|---|---|---|
+| `vita_20` | Vita 20 | 20 | 35 coins |
+| `vita_40` | Vita 40 | 40 | 55 coins |
+| `vita_65` | Vita 65 | 65 | 75 coins |
+| `royal_kale_juice` | Royal Kale Juice | Full recovery | 70 coins |
+| `energy_drink_max` | Energy Drink MAX | 5 (emergency only) | 30 coins |
+| `energy_drink_max_ex` | Energy Drink MAX EX | Full recovery | 50 coins |
 
 ### Mood Items
 
-| Item | Effect |
-|---|---|
-| Plain Cupcake | Repairs bad Mood. Synergizes with Royal Kale Juice (use together). |
-| Berry Sweet Cupcake | Stronger Mood repair. |
-| Yummy Cat Food | Instant-use Mood boost. Consumed on purchase. |
+| Canonical ID | Display Name | Effect |
+|---|---|---|
+| `plain_cupcake` | Plain Cupcake | Repairs bad Mood. Synergizes with Royal Kale Juice (use together). |
+| `berry_sweet_cupcake` | Berry Sweet Cupcake | Stronger Mood repair. |
+| `yummy_cat_food` | Yummy Cat Food | Instant-use Mood boost. Consumed on purchase. |
 
 ### Stat Consumables (all instant-use)
 
-| Item | Stat Gained |
-|---|---|
-| Speed/Stamina/Power/Guts/Wit Notepad | +small points to named stat |
-| Speed/Stamina/Power/Guts/Wit Manual | +medium points to named stat |
-| Speed/Stamina/Power/Guts/Wit Scroll | +large points to named stat |
-| Grilled Carrots | Instant-use, adds to a stat and bond. |
+| Canonical ID Pattern | Display Name | Stat Gained |
+|---|---|---|
+| `{stat}_notepad` | Speed/Stamina/Power/Guts/Wit Notepad | +small points to named stat |
+| `{stat}_manual` | Speed/Stamina/Power/Guts/Wit Manual | +medium points to named stat |
+| `{stat}_scroll` | Speed/Stamina/Power/Guts/Wit Scroll | +large points to named stat |
+| `grilled_carrots` | Grilled Carrots | Instant-use, adds to a stat and bond. |
 
 ### Race-Use Items (Hammers and Glow Sticks)
 
-| Item | Use Case |
-|---|---|
-| Master Cleat Hammer | Used before Grade 1 and Climax races for a large performance boost. The most valuable pre-race item. |
-| Artisan Cleat Hammer | Fallback when no Master Cleat Hammer is available. Used before Grade 2 races. |
-| Glow Sticks | Used before high-fan-value races when the fan count is above the minimum threshold. |
+| Canonical ID | Display Name | Use Case |
+|---|---|---|
+| `master_cleat_hammer` | Master Cleat Hammer | Used before Grade 1 and Climax races for a large performance boost. The most valuable pre-race item. |
+| `artisan_cleat_hammer` | Artisan Cleat Hammer | Fallback when no Master Cleat Hammer is available. Used before Grade 2 races. |
+| `glow_sticks` | Glow Sticks | Used before high-fan-value races when the fan count is above the minimum threshold. |
 
 ### Training Amplifiers
 
-| Item | Effect |
-|---|---|
-| Motivating Megaphone | Large training bonus. Best used during bootcamp. |
-| Empowering Megaphone | Large training bonus. Best used during bootcamp. |
-| Coaching Megaphone | Training bonus, but affects a different part of the formula. |
-| Speed/Stamina/Power/Guts Ankle Weights | Held item. Adds a bonus to the matching stat on each training turn until consumed. |
-| Reset Whistle | Rerolls the current training selection when the best available training is poor. |
-| Good-Luck Charm | Reduces the penalty for failed training attempts. Used before uncertain turns. |
+| Canonical ID | Display Name | Effect |
+|---|---|---|
+| `motivating_megaphone` | Motivating Megaphone | Large training bonus. Best used during bootcamp. |
+| `empowering_megaphone` | Empowering Megaphone | Large training bonus. Best used during bootcamp. |
+| `coaching_megaphone` | Coaching Megaphone | Training bonus, but affects a different part of the formula. |
+| `ankle_weights_{stat}` | Speed/Stamina/Power/Guts Ankle Weights | Held item. Adds a bonus to the matching stat on each training turn until consumed. |
+| `reset_whistle` | Reset Whistle | Rerolls the current training selection when the best available training is poor. |
+| `good_luck_charm` | Good-Luck Charm | Reduces the penalty for failed training attempts. Used before uncertain turns. |
 
 ### One-Time Permanent Buffs (all instant-use)
 
-Pretty Mirror, Reporter's Binoculars, Master Practice Guide, Scholar's Hat —
-each applies an immediate permanent bonus. Never wasted.
+| Canonical ID | Display Name |
+|---|---|
+| `pretty_mirror` | Pretty Mirror |
+| `reporters_binoculars` | Reporter's Binoculars |
+| `master_practice_guide` | Master Practice Guide |
+| `scholars_hat` | Scholar's Hat |
+
+Each applies an immediate permanent bonus. Never wasted.
 
 ### Ailment Cures
 
-| Ailment | Cure Item |
-|---|---|
-| Night Owl | Fluffy Pillow |
-| Slacker | Pocket Planner |
-| Skin Outbreak | Rich Hand Cream |
-| Slow Metabolism | Smart Scale |
-| Migraine | Aroma Diffuser |
-| Practice Poor | Practice Drills DVD |
-| Any ailment | Miracle Cure |
+| Ailment | Canonical Item ID | Display Name |
+|---|---|---|
+| Night Owl | `fluffy_pillow` | Fluffy Pillow |
+| Slacker | `pocket_planner` | Pocket Planner |
+| Skin Outbreak | `rich_hand_cream` | Rich Hand Cream |
+| Slow Metabolism | `smart_scale` | Smart Scale |
+| Migraine | `aroma_diffuser` | Aroma Diffuser |
+| Practice Poor | `practice_drills_dvd` | Practice Drills DVD |
+| Any ailment | `miracle_cure` | Miracle Cure |
 
 ---
 
@@ -160,25 +176,34 @@ optimizer over those records. The optimizer detects which settings values correl
 with waste flags firing and adjusts them toward values where waste flags do not fire.
 No language model is in the critical path.
 
-### Two Layers
+### Three Components
 
-**Layer 1 — The Optimizer (primary, automated):**
-A deterministic function. Reads the numeric career record database. Computes
-correlations between settings values and waste flag outcomes. Outputs a new
-settings vector with specific integer values. Runs automatically after every career.
-No human input required. No text. No interpretation.
+**Component 1 — The Shop Policy Router and Live Policies:**
+Decides what the bot does on each turn. The `shop_policy_router` dispatches to
+the configured policy (`native_shop_policy`, `deterministic_shop_policy`, or a
+shadow combination). The `deterministic_shop_policy` reads the current Universal
+Shop Profile values and applies their learned settings to make live buy/use/skip
+decisions. It does not read career records — it only consumes the settings vector
+produced by the learning optimizer.
 
-**Layer 2 — The LLM (secondary, exception-triggered):**
-A language model. Only invoked when: (a) the optimizer produces a regression —
-Item Execution score drops more than 2 points below the prior 3-career mean;
-(b) a novel waste flag combination appears with no matching past records; or
-(c) a human explicitly requests an explanation. The LLM produces human-readable
-text only. It never writes config values.
+**Component 2 — The Shop Learning Optimizer (primary, automated):**
+A deterministic function that runs after every career. Reads the numeric career
+record database. Computes correlations between settings values and waste flag
+outcomes. Outputs a new Universal Shop Profile settings vector. No human input
+required. No text. No interpretation. Feeds its output to the deterministic shop
+policy before the next career.
 
-The optimizer gradually moves settings toward lower-waste ranges observed in prior
-careers. It is expected to improve shop behavior over repeated runs, but it does
-not prove global optimality. It cannot evaluate whether the bot is buying the
-*best* items or simply *fewer* items.
+The shop learning optimizer gradually moves settings toward lower-waste ranges
+observed in prior careers. It is expected to improve shop behavior over repeated
+runs, but it does not prove global optimality. It cannot evaluate whether the bot
+is buying the *best* items or simply *fewer* items.
+
+**Component 3 — The LLM Exception Layer (secondary, exception-triggered):**
+A language model. Only invoked when: (a) the learning optimizer produces a
+regression — Item Execution score drops more than 2 points below the prior
+3-career mean; (b) a novel waste flag combination appears with no matching past
+records; or (c) a human explicitly requests an explanation. The LLM produces
+human-readable text only. It never writes config values.
 
 ---
 
@@ -201,26 +226,29 @@ Allowed policy modes:
 | Mode | Meaning |
 |---|---|
 | `native` | The bot's original built-in shop logic. |
-| `deterministic` | The policy engine defined by this spec. |
+| `deterministic` | The deterministic shop policy defined by this spec. |
+| `native_with_deterministic_shadow` | Native policy executes live; deterministic shop policy runs silently in parallel and logs its hypothetical decision. Optional but recommended for adoption. |
 | `hybrid` | A custom combination of native and deterministic policies. |
 | `manual` | Human-directed mode; no policy automation active. |
 
-Only `native` and `deterministic` are mandatory. A bot may omit `hybrid` and
-`manual`.
+Only `native` and `deterministic` are mandatory. A bot may omit
+`native_with_deterministic_shadow`, `hybrid`, and `manual`.
 
-### Responsibility 2 — Optimizer Telemetry and Knowledge Layer
+### Responsibility 2 — Shop Learning Optimizer and Telemetry Layer
 
 This is the component that records what happened during a career using the shared
-schema. It must run regardless of which shop decision policy was active.
+schema, and then updates the settings vector after the career. It must run
+regardless of which shop decision policy was active.
 
-The telemetry layer is always mandatory. It includes:
+The telemetry and learning layer is always mandatory. It includes:
 
 - Universal Shop Profile snapshot export
-- Numeric career record export
+- Numeric career record export (including `record_eligibility` classification)
 - Waste flag computation
 - Item Execution score computation
 - Turn-level shop log export
 - Policy mode metadata recording
+- Shop learning optimizer (post-career settings update)
 - Knowledge Pack export
 
 The decision policy may vary between bots and between careers.
@@ -228,41 +256,56 @@ The decision policy may vary between bots and between careers.
 
 ### The Separation Mandate
 
-The deterministic optimizer must be implemented as a **separate policy module**
-from the bot's native shop optimizer. A coding agent applying this spec to a bot
-repository must not overwrite or entangle the bot's existing native shop logic.
+The `deterministic_shop_policy` and the `shop_learning_optimizer` must each be
+implemented as **separate modules** from the bot's native shop logic. A coding
+agent applying this spec to a bot repository must not overwrite or entangle the
+bot's existing native shop code.
 
 **Incorrect implementation (do not do this):**
 
 ```
 existing_shop_logic.py
-  └── native logic modified directly until it becomes the deterministic optimizer
+  └── native logic modified until it becomes the deterministic shop policy
 ```
 
 **Correct implementation:**
 
 ```
 shop/
-  native_shop_optimizer.py          ← untouched native logic
-  deterministic_shop_optimizer.py   ← new, separate policy
-  shop_policy_router.py             ← reads shop_optimizer_mode, dispatches
-  optimizer_telemetry.py            ← records outcomes regardless of policy
-  universal_shop_profile_adapter.py ← translates internal ↔ Universal fields
+  native_shop_policy.py               ← untouched native logic
+  deterministic_shop_policy.py        ← new live decision policy
+  shop_learning_optimizer.py          ← post-career settings updater
+  shop_policy_router.py               ← reads shop_optimizer_mode, dispatches
+  optimizer_telemetry.py              ← records outcomes regardless of policy
+  universal_shop_profile_adapter.py   ← translates internal ↔ Universal fields
 ```
 
 The bot's native shop logic must remain independently usable after the
-deterministic optimizer is added.
+deterministic components are added.
+
+**Hard rule for coding agents:**
+
+> Coding agents must not refactor, rewrite, tune, or otherwise modify the native
+> shop policy unless the implementation requires a thin telemetry instrumentation
+> hook. Native policy behavior must remain unchanged except for that instrumentation.
+> Any other change to native policy code — even an apparent improvement — is
+> prohibited because it would corrupt the native vs. deterministic comparison data.
+
+If a telemetry hook cannot be added without touching native logic, the agent must
+document the minimum required change in a code comment, limit the change to the
+smallest possible surface area, and record the modification in the bot's adapter
+documentation so future audits can account for it.
 
 ### The Telemetry Mandate
 
-> Using the deterministic optimizer is optional.
+> Using the deterministic shop policy is optional.
 > Emitting deterministic-compatible telemetry is mandatory.
 
-A bot that uses its native optimizer for every career still contributes useful
+A bot that uses its native policy for every career still contributes useful
 knowledge to the ecosystem, provided it emits canonical records. Native-policy
 records can reveal recurring waste patterns, bad timing decisions, and item
-failure conditions — the optimizer can learn from observed outcomes even when it
-was not the policy that made the decisions.
+failure conditions — the shop learning optimizer can learn from observed outcomes
+even when the deterministic shop policy was not the one making decisions.
 
 ---
 
@@ -325,24 +368,25 @@ layouts.
 Required adapter functions:
 
 ```
-export_universal_shop_profile()         → Universal Shop Profile dict
-import_universal_shop_profile(profile)  → applies profile to internal config
-export_career_record(career_id)         → career record dict
-export_turn_shop_log(career_id)         → list of turn log dicts
-import_knowledge_pack(pack)             → applies pack as baseline
-export_knowledge_pack()                 → Knowledge Pack dict
-run_optimizer(records, profile, pack, direction) → new profile dict
-run_conformance_tests(fixtures)         → list of pass/fail results
+export_universal_shop_profile()                          → Universal Shop Profile dict
+import_universal_shop_profile(profile)                   → applies profile to internal config
+export_career_record(career_id)                          → career record dict
+export_turn_shop_log(career_id)                          → list of turn log dicts
+import_knowledge_pack(pack)                              → applies pack as baseline
+export_knowledge_pack()                                  → Knowledge Pack dict
+run_shop_learning_optimizer(records, profile, pack, dir) → new profile dict
+run_conformance_tests(fixtures)                          → list of pass/fail results
 ```
 
 Required adapter functions for policy routing:
 
 ```
-get_active_shop_policy()                → current shop_optimizer_mode string
-set_active_shop_policy(mode)            → updates shop_optimizer_mode
-run_native_shop_optimizer(context)      → native policy decision
-run_deterministic_shop_optimizer(context) → deterministic policy decision
-emit_optimizer_telemetry(context, decision, policy_mode) → writes turn log
+get_active_shop_policy()                  → current shop_optimizer_mode string
+set_active_shop_policy(mode)              → updates shop_optimizer_mode
+run_native_shop_policy(context)           → native policy decision
+run_deterministic_shop_policy(context)    → deterministic policy decision (live)
+run_shop_learning_optimizer(records, profile, pack, direction) → new profile
+emit_optimizer_telemetry(context, decision, policy_mode)       → writes turn log
 ```
 
 Example field name translation:
@@ -356,9 +400,9 @@ adapter's private concern.
 
 ### Shop Policy Mode and Frontend Toggle
 
-The bot must expose a setting that allows the user to choose which shop optimizer
+The bot must expose a setting that allows the user to choose which shop decision
 policy is active. At minimum, the frontend or config must support `native` and
-`deterministic`.
+`deterministic`. `native_with_deterministic_shadow` is strongly recommended.
 
 Recommended UI:
 
@@ -368,7 +412,8 @@ Shop Optimizer
 
 Options:
   Native Bot Optimizer
-  Deterministic Shop Optimizer
+  Deterministic Shop Policy
+  Native + Deterministic Shadow (recommended for testing)
 ```
 
 Config representation:
@@ -379,15 +424,19 @@ Config representation:
 }
 ```
 
-Allowed values: `native`, `deterministic`, `hybrid`, `manual`.
-Only `native` and `deterministic` are mandatory.
+Allowed values: `native`, `deterministic`, `native_with_deterministic_shadow`,
+`hybrid`, `manual`. Only `native` and `deterministic` are mandatory.
 
 The UI should make the data contract clear to the user:
 
 > **Native Bot Optimizer:** Uses this bot's original shop decision logic.
 >
-> **Deterministic Shop Optimizer:** Uses the shared SHOP_OPTIMIZER_SPEC policy
-> and learned settings from past careers.
+> **Deterministic Shop Policy:** Uses the shared SHOP_OPTIMIZER_SPEC live decision
+> policy and learned settings from past careers.
+>
+> **Native + Deterministic Shadow:** Native policy makes live decisions.
+> Deterministic policy runs silently in parallel and logs what it would have done.
+> Safe for testing — no deterministic decisions are executed.
 >
 > Regardless of the selected mode, all runs still produce optimizer-compatible
 > telemetry and can contribute to Knowledge Pack generation.
@@ -398,6 +447,25 @@ The policy router reads `shop_optimizer_mode` at the start of each turn's shop
 decision and dispatches to the correct policy. The telemetry layer runs after the
 decision, regardless of which policy was used.
 
+The full system flow, from live decisions through post-career learning:
+
+```
+native_shop_policy ───────────────┐
+                                  ├── shop_policy_router ─── live decision
+deterministic_shop_policy ────────┘
+                                             │
+                                             ▼
+                                  canonical telemetry layer
+                                             │
+                                             ▼
+                                  shop_learning_optimizer
+                                             │
+                                             ▼
+                                  Knowledge Packs
+```
+
+Turn-by-turn router flow:
+
 ```
 Turn begins
       │
@@ -407,9 +475,18 @@ Build shop decision context
       ▼
 Read shop_optimizer_mode
       │
-      ├── native → run native_shop_optimizer(context)
+      ├── native → run native_shop_policy(context)
+      │            record active_policy_decision in turn log
       │
-      ├── deterministic → run deterministic_shop_optimizer(context)
+      ├── deterministic → run deterministic_shop_policy(context)
+      │                   record active_policy_decision in turn log
+      │
+      ├── native_with_deterministic_shadow →
+      │            run native_shop_policy(context)       ← executes live
+      │            run deterministic_shop_policy(context) ← runs silently
+      │            record active_policy_decision (native result)
+      │            record shadow_policy_decision (deterministic result)
+      │            record shadow_decision_executed = 0
       │
       └── hybrid → run configured hybrid policy
       │
@@ -420,12 +497,16 @@ Execute selected shop decision
 emit_optimizer_telemetry(context, decision, policy_mode)
       │
       ▼
-At career end: emit canonical career record
+At career end: shop_learning_optimizer runs, emits canonical career record
 ```
 
 The telemetry layer records what state existed, what items were offered, what
-decision was made, and what happened by career end. It does not care which policy
-made the decision.
+decision was made (and what the shadow policy would have done), and what happened
+by career end. It does not care which policy made the executed decision.
+
+**Important:** Native runs contribute telemetry to the `shop_learning_optimizer`,
+even when the `deterministic_shop_policy` was not active. The learning optimizer
+is always the consumer of career records — the live policy is separate from it.
 
 ### Interop Manifest
 
@@ -443,10 +524,12 @@ spec versions it conforms to.
   "bot_optimizer_adapter_version": "0.3.0",
   "item_name_mapping_version": "1.0.0",
   "supports_native_policy": true,
-  "supports_deterministic_policy": true,
+  "supports_deterministic_shop_policy": true,
+  "supports_shop_learning_optimizer": true,
+  "supports_shadow_mode": true,
   "supports_policy_toggle": true,
   "emits_telemetry_for_native_policy": true,
-  "supported_policy_modes": ["native", "deterministic"],
+  "supported_policy_modes": ["native", "deterministic", "native_with_deterministic_shadow"],
   "supported_fields": [
     "energy_buy_threshold",
     "climax_master_hammer_reserve",
@@ -579,11 +662,32 @@ All fields are 0 or 1. A flag set to 1 means the waste condition occurred.
 | `ankle_weights_used_without_mega` | Ankle Weights were active during bootcamp but no Megaphone was also active on those turns |
 | `ankle_weights_stock_cap_blocked` | `ankle_weights_max_stock` prevented buying an Ankle Weight on a turn when the matching training appeared |
 
+### Record Eligibility
+
+| Field | Type | Description |
+|---|---|---|
+| `record_eligibility` | String | Classification of how much this record may contribute to learning. See Record Eligibility Rules section. |
+
+The `record_eligibility` field is computed from `shop_policy_mode`,
+`universal_profile_source`, and `human_directed` at career end. It is a single
+derived field that replaces the need to re-check multiple fields at query time.
+
+| Value | Meaning | Allowed Use |
+|---|---|---|
+| `direct_learning` | Deterministic policy active; Universal Profile directly applied | Full learning: clean-career means, safe ranges, waste flag rates, Knowledge Packs |
+| `observational_learning` | Native policy active; profile derived from native behavior | Waste pattern detection, timing diagnostics, lower-trust ranges, native-derived Knowledge Packs |
+| `diagnostic_only` | Partial/default/unknown profile mapping | Human review, LLM explanation, aggregate diagnostics only — no optimizer influence |
+| `excluded_manual` | Human-directed run | Store for history; excluded from all optimizer learning |
+| `invalid` | Missing or corrupt telemetry | Ignored by all optimizer and Knowledge Pack export paths |
+
+**Critical rule:** Only `direct_learning` records may update deterministic
+clean-career means. See Record Eligibility Rules for the full specification.
+
 ### Human Direction Flag
 
 | Field | Type | Description |
 |---|---|---|
-| `human_directed` | Integer 0 or 1 | Set to 1 if any manual priority rating was non-zero or any value override was active. Records with `human_directed = 1` are excluded from optimizer input. |
+| `human_directed` | Integer 0 or 1 | Set to 1 if any manual priority rating was non-zero or any value override was active. Records with `human_directed = 1` receive `record_eligibility = "excluded_manual"` and are excluded from optimizer input. |
 
 ### Human Annotation (Optional)
 
@@ -665,12 +769,64 @@ logs are needed for root cause.
 
 | Field | Type | Description |
 |---|---|---|
-| `shop_items_offered` | JSON array | Item names offered in the shop this turn |
-| `item_bought` | String or null | Name of item purchased, or null |
+| `shop_items_offered` | JSON array | Canonical item IDs offered in the shop this turn |
+| `item_bought` | String or null | Canonical item ID of item purchased, or null |
 | `item_bought_cost` | Integer | Coin cost of purchased item, or 0 |
 | `skip_reason` | String or null | Reason code if shop was skipped (see table below) |
-| `item_used_this_turn` | String or null | Name of held item triggered this turn, or null |
+| `item_used_this_turn` | String or null | Canonical item ID of held item triggered this turn, or null |
 | `item_used_context` | String or null | Context code for why item was used (see table below) |
+
+### Policy Decision Record
+
+A structured object recording the full policy decision for this turn. Required
+for cross-bot comparison and LLM exception analysis.
+
+| Field | Type | Description |
+|---|---|---|
+| `policy_decision.decision_type` | String | `"buy_item"`, `"use_item"`, `"skip_shop"`, or `"no_shop"` |
+| `policy_decision.item_id` | String or null | Canonical item ID of the item bought or used, or null |
+| `policy_decision.reason_code` | String or null | The skip reason or item use context code that drove this decision |
+| `policy_decision.score` | Integer or null | Internal scoring value the policy assigned to this decision, if available |
+| `policy_decision.policy_mode` | String | Which policy produced this decision |
+| `policy_decision.executed` | Integer 0 or 1 | 1 if this decision was actually executed; 0 if this was a shadow decision |
+
+Example:
+
+```json
+{
+  "policy_decision": {
+    "decision_type": "buy_item",
+    "item_id": "vita_40",
+    "reason_code": "energy_threshold",
+    "score": 82,
+    "policy_mode": "native",
+    "executed": 1
+  }
+}
+```
+
+### Shadow Decision Fields
+
+Present only when `shop_optimizer_mode = "native_with_deterministic_shadow"`.
+Records what the deterministic shop policy would have decided without executing it.
+
+| Field | Type | Description |
+|---|---|---|
+| `active_policy_decision` | String | Canonical item ID or decision code from the executed (native) policy |
+| `shadow_policy_decision` | String | Canonical item ID or decision code the deterministic shop policy would have chosen |
+| `shadow_policy_mode` | String | Always `"deterministic"` in standard shadow mode |
+| `shadow_decision_executed` | Integer 0 or 1 | Always 0 — shadow decisions are never executed |
+
+Example (native bought Vita 40, deterministic would have skipped):
+
+```json
+{
+  "active_policy_decision": "buy_item:vita_40",
+  "shadow_policy_decision": "skip_shop:not_needed",
+  "shadow_policy_mode": "deterministic",
+  "shadow_decision_executed": 0
+}
+```
 
 ### Skip Reason Codes
 
@@ -701,7 +857,7 @@ logs are needed for root cause.
 
 ---
 
-## How the Optimizer Works
+## How the Shop Learning Optimizer Works
 
 ### Tiered Adjustment by Record Count
 
@@ -734,9 +890,9 @@ decrease toward 2.
 Note: single-field correlations can be misleading. The same waste flag can be
 caused by multiple fields interacting — for example, `climax_hammer_excess` may
 be caused by `climax_master_hammer_reserve` too high, OR `master_hammer_buy_cap_turn`
-too late, OR an unusually low `climax_races_run`. The optimizer adjusts the most
-directly correlated field. When a regression occurs, the LLM exception handler
-can surface multi-field interactions (see LLM Exception Layer section).
+too late, OR an unusually low `climax_races_run`. The learning optimizer adjusts
+the most directly correlated field. When a regression occurs, the LLM exception
+handler can surface multi-field interactions (see LLM Exception Layer section).
 
 **Example — `skill_point_hoard_threshold` vs `skill_buy_failure`:**
 
@@ -751,6 +907,7 @@ For each settings field where a misconfigured value is detected:
 
 ```
 qualified_clean = careers where:
+    — record_eligibility = "direct_learning"   ← ONLY direct_learning records
     — all waste flags = 0
     — item_execution_score ≥ 15
     — skills_purchased ≥ 1
@@ -760,14 +917,50 @@ clean_mean   = mean value of that field across qualified_clean careers
 current      = current active value of that field
 step_limit   = tier table above (5%, 10%, or 15%)
 step         = (clean_mean - current) × step_limit
-new_value    = round(current + step)
+new_value    = round_half_away_from_zero(current + step)
 new_value    = clamp(new_value, guardrail_min, guardrail_max)
 ```
 
-The "clean career" definition requires adequate item use, not just absence of
+**`record_eligibility` filter is mandatory.** Only records where the
+`deterministic_shop_policy` was active and the Universal Profile was directly
+applied may update clean-career means. `observational_learning` records (native
+policy, derived profile) may contribute to waste flag rate calculations but must
+not pull the settings mean. This prevents native bot behavior from being treated
+as causal evidence for Universal Shop Profile settings.
+
+The "clean career" definition also requires adequate item use, not just absence of
 waste. A career where the bot bought nothing would show no waste flags but would
-not qualify because `skills_purchased = 0`. This prevents the optimizer from
-drifting toward "buy less" as the solution to all waste.
+not qualify because `skills_purchased = 0`. This prevents the learning optimizer
+from drifting toward "buy less" as the solution to all waste.
+
+### Deterministic Rounding Rule
+
+All optimizer arithmetic uses **half-away-from-zero** integer rounding. This rule
+is part of the interoperability contract — conformance fixtures will fail if a
+different rounding convention is used.
+
+```
+round_half_away_from_zero(x):
+  if x ≥ 0: return floor(x + 0.5)
+  else:      return ceil(x - 0.5)
+
+Examples:
+  2.4  → 2
+  2.5  → 3
+  2.6  → 3
+  -2.4 → -2
+  -2.5 → -3
+  -2.6 → -3
+```
+
+This differs from Python's built-in `round()` (which uses banker's rounding /
+round-half-to-even) and from JavaScript's `Math.round()` (which rounds .5 toward
++Infinity). Any implementation must explicitly implement half-away-from-zero rather
+than relying on the host language's default rounding.
+
+All intermediate arithmetic uses full floating-point precision. Rounding to integer
+is applied once, at the final `new_value = round_half_away_from_zero(current + step)`
+step, not at any intermediate calculation.
 
 ### Step 3: Apply Guardrails
 
@@ -887,8 +1080,8 @@ A career that bought 20 items and used all 20 scores higher than one that bought
 strictly better than buying more and wasting some.
 
 **Regression detection:** If the 3-career rolling mean of `item_execution_score`
-drops more than 2 points after an optimizer adjustment, the LLM exception handler
-is triggered.
+drops more than 2 points after a learning optimizer adjustment, the LLM exception
+handler is triggered.
 
 ---
 
@@ -900,28 +1093,38 @@ Career completes
       ▼
 Numeric record written to database
 (settings vector + policy mode metadata + outcomes vector + waste flag vector)
+record_eligibility computed and written
 human_directed flag set based on whether any manual input was active
       │
       ▼
-  human_directed = 1?
+  record_eligibility?
       │
-      ├── YES → record stored but excluded from optimizer input
-      │         career outcome still visible in history for human review
+      ├── excluded_manual → record stored but excluded from optimizer input
+      │                     career outcome still visible in history for human review
       │
-      └── NO  → record enters optimizer input pool
+      ├── diagnostic_only → record stored; available for LLM and human review only
+      │                     must not influence optimizer settings or clean-career means
+      │
+      ├── observational_learning → enters waste flag rate pool
+      │                            must not update clean-career means
+      │                            may contribute to native-derived Knowledge Packs
+      │
+      └── direct_learning → enters full optimizer input pool
                 │
                 ▼
-          Optimizer runs
+          Shop learning optimizer runs
           Checks eligible record count → applies tier step limit
           For each settings field:
-            — compute waste flag rate at current value
+            — compute waste flag rate (uses direct_learning + observational records)
+            — compute clean-career mean (uses ONLY direct_learning records)
             — compute adjustment step toward qualified clean-career mean
             — apply tier step limit
+            — apply round_half_away_from_zero()
             — clamp to guardrail min/max
           Output: new settings vector (integers)
                 │
                 ▼
-          New settings applied before next career
+          New settings applied to deterministic_shop_policy before next career
                 │
                 ▼
           Regression check: 3-career rolling mean of item_execution_score
@@ -938,7 +1141,7 @@ human_directed flag set based on whether any manual input was active
 ```
 
 Human involvement is only triggered by regressions or novel flag combinations.
-The optimizer runs silently every career otherwise.
+The learning optimizer runs silently every career otherwise.
 
 ---
 
@@ -951,10 +1154,10 @@ The LLM is a secondary tool. It is not consulted on routine careers.
 Three conditions trigger the LLM. All are exceptional — most careers produce none.
 
 - **Regression:** The 3-career rolling mean of `item_execution_score` drops more
-  than 2 points after an optimizer adjustment.
+  than 2 points after a learning optimizer adjustment.
 - **Novel Flag Combination:** A waste flag combination appears that has no matching
-  pattern in the past record database. The optimizer cannot compute an adjustment
-  step for a combination it has never seen.
+  pattern in the past record database. The learning optimizer cannot compute an
+  adjustment step for a combination it has never seen.
 - **Human-Requested Explanation:** A human explicitly requests a plain-language
   explanation of a past career's outcomes, a specific waste flag, or why a settings
   adjustment was made.
@@ -985,9 +1188,9 @@ The LLM output is plain text for human consumption only. Acceptable outputs:
 
 ### What the LLM Must Never Do
 
-- **Never write configuration values directly.** The optimizer is the sole source
-  of config updates. If a suggested value is applied, the human applies it as a
-  manual override, which marks the career `human_directed = 1`.
+- **Never write configuration values directly.** The shop learning optimizer is
+  the sole source of config updates. If a suggested value is applied, the human
+  applies it as a manual override, which marks the career `human_directed = 1`.
 - **Never be consulted on routine careers.** Running it every career introduces
   interpretation variability where determinism is available.
 - **Never override the optimizer.** If the LLM and optimizer disagree, the human
@@ -1289,15 +1492,33 @@ strong local deterministic evidence.
 
 ### Step 5: Conformance Fixture Execution
 
-Every exported Knowledge Pack must include at least three deterministic conformance
-tests. A conformance test is a frozen input/output pair representing a specific
-optimizer scenario.
+Every exported Knowledge Pack must include fixtures from each of the seven
+required fixture categories. A bot can pass schema validation while failing
+scoring, or pass scoring while failing optimizer rounding. Layered fixtures
+catch failures at each layer independently.
 
-Example fixture:
+**Required fixture categories:**
+
+| Fixture Category | What It Proves |
+|---|---|
+| `schema_fixtures` | Bot validates canonical structure correctly |
+| `waste_flag_fixtures` | Bot computes same flags from same career record |
+| `scoring_fixtures` | Bot computes same Item Execution score |
+| `optimizer_adjustment_fixtures` | Bot updates settings the same way, including rounding |
+| `guardrail_fixtures` | Bot clamps values the same way |
+| `knowledge_pack_import_fixtures` | Bot accepts/rejects packs consistently |
+| `canonical_hash_fixtures` | Bot canonicalizes JSON the same way before hashing |
+
+Every Knowledge Pack must include at least one fixture from each category.
+A Knowledge Pack that provides only optimizer adjustment fixtures is not
+conformance-complete.
+
+**Fixture format:**
 
 ```json
 {
   "test_id": "climax_hammer_excess_001",
+  "fixture_category": "optimizer_adjustment_fixtures",
   "input": {
     "current_profile": {
       "energy_buy_threshold": 40,
@@ -1330,12 +1551,14 @@ Example fixture:
 }
 ```
 
-The importing bot runs each fixture through its own local optimizer implementation.
-It must produce the same `new_profile`, `changed_fields`, `clamped_fields`,
-`triggered_failure_conditions`, `item_execution_score`, and `conformance_hash`.
+The importing bot runs each fixture through its own local implementation of the
+corresponding layer. It must produce the same `new_profile`, `changed_fields`,
+`clamped_fields`, `triggered_failure_conditions`, `item_execution_score`, and
+`conformance_hash`.
 
-If any fixture output differs, the pack fails conformance. A failed conformance
-pack must not be applied.
+If any fixture output differs, the pack fails conformance for that layer. A bot
+that fails `scoring_fixtures` should fix its scoring before attempting
+`optimizer_adjustment_fixtures`. A failed conformance pack must not be applied.
 
 ### Conformance Hash
 
@@ -1495,6 +1718,90 @@ meaningless.
 
 ---
 
+## Record Eligibility Rules
+
+Not all career records contribute equally to learning. Each career record must
+include a `record_eligibility` field that classifies how the record may be used.
+This field is computed at career end — never set manually.
+
+### Eligibility Values
+
+| Value | Meaning | Allowed Use |
+|---|---|---|
+| `direct_learning` | Deterministic shop policy was active; Universal Profile was `applied_directly` | Full optimizer learning: clean-career means, safe ranges, waste flag rates, Knowledge Packs |
+| `observational_learning` | Native policy was active; profile source is `derived_from_native` | Waste pattern detection, timing diagnostics, lower-trust range contributions, native-derived Knowledge Packs |
+| `diagnostic_only` | Profile source is `partially_mapped`, `defaulted`, or `unknown` | Human review, LLM explanation, aggregate diagnostics only — no optimizer influence |
+| `excluded_manual` | `human_directed = 1` | Store for history; excluded from all optimizer learning |
+| `invalid` | Missing required fields or corrupt telemetry | Ignored by all optimizer and Knowledge Pack export paths |
+
+### Eligibility Computation
+
+```
+if human_directed = 1:
+    record_eligibility = "excluded_manual"
+
+elif required telemetry fields are missing or corrupt:
+    record_eligibility = "invalid"
+
+elif shop_policy_mode = "deterministic"
+     AND universal_profile_source = "applied_directly":
+    record_eligibility = "direct_learning"
+
+elif shop_policy_mode in ("native", "native_with_deterministic_shadow")
+     AND universal_profile_source = "derived_from_native":
+    record_eligibility = "observational_learning"
+
+elif universal_profile_source in ("partially_mapped", "defaulted", "unknown"):
+    record_eligibility = "diagnostic_only"
+
+else:
+    record_eligibility = "diagnostic_only"
+```
+
+Shadow mode (`native_with_deterministic_shadow`) produces `observational_learning`
+records for the learning optimizer's purposes — the native policy executed the
+live decisions, so the profile was derived, not directly applied.
+
+### What Each Eligibility Level Can and Cannot Do
+
+**`direct_learning`** records:
+- May update deterministic clean-career means
+- May contribute to waste flag rate calculations
+- May be used as qualified clean-career baselines in the optimizer adjustment step
+- May be included in Knowledge Packs as `deterministic_policy_evidence`
+
+**`observational_learning`** records:
+- May contribute to waste flag rate calculations
+- May identify timing failure patterns (bootcamp shortage, vita never-triggered, etc.)
+- May contribute to native-derived Knowledge Packs as `native_policy_evidence`
+- **Must not** update deterministic clean-career means
+- **Must not** be used as qualified clean-career baselines
+
+**`diagnostic_only`** records:
+- May be surfaced to the LLM exception handler for human-readable explanation
+- May be used in aggregate diagnostics (e.g., shop availability heatmaps)
+- **Must not** influence optimizer settings or safe ranges in any way
+
+**`excluded_manual`** records:
+- Stored for human review and history only
+- **Must not** enter any optimizer input pool
+
+**`invalid`** records:
+- Discarded from all optimizer and Knowledge Pack paths
+- May be logged for adapter debugging
+
+### The Critical Rule
+
+> **Only `direct_learning` records may update deterministic clean-career means.**
+
+This is the single most important rule for cross-bot safety. Without it, native
+bot behavior — which may reflect very different heuristics than the Universal
+Shop Profile's intended semantics — can contaminate the learning optimizer's
+clean baseline and cause the deterministic shop policy to drift toward native
+behavior rather than toward genuinely low-waste outcomes.
+
+---
+
 ## Recommended Repository Structure
 
 The prose spec should not be the only artifact. A complete implementation should
@@ -1510,16 +1817,56 @@ shop_optimizer/
     knowledge_pack.schema.json
     interop_manifest.schema.json
     import_report.schema.json
+    canonical_items.schema.json
 
   fixtures/
-    climax_hammer_excess_001.input.json
-    climax_hammer_excess_001.expected.json
-    skill_point_blocked_001.input.json
-    skill_point_blocked_001.expected.json
-    vita_never_triggered_001.input.json
-    vita_never_triggered_001.expected.json
-    ankle_weights_bootcamp_001.input.json
-    ankle_weights_bootcamp_001.expected.json
+    schema_fixtures/
+      career_record_valid_001.input.json
+      career_record_valid_001.expected.json
+      career_record_missing_eligibility_001.input.json
+      career_record_missing_eligibility_001.expected.json
+
+    waste_flag_fixtures/
+      climax_hammer_excess_001.input.json
+      climax_hammer_excess_001.expected.json
+      skill_point_blocked_001.input.json
+      skill_point_blocked_001.expected.json
+      vita_never_triggered_001.input.json
+      vita_never_triggered_001.expected.json
+
+    scoring_fixtures/
+      high_efficiency_001.input.json
+      high_efficiency_001.expected.json
+      megaphone_waste_deduction_001.input.json
+      megaphone_waste_deduction_001.expected.json
+
+    optimizer_adjustment_fixtures/
+      climax_hammer_excess_adjustment_001.input.json
+      climax_hammer_excess_adjustment_001.expected.json
+      skill_point_floor_adjustment_001.input.json
+      skill_point_floor_adjustment_001.expected.json
+      ankle_weights_bootcamp_001.input.json
+      ankle_weights_bootcamp_001.expected.json
+
+    guardrail_fixtures/
+      energy_threshold_clamp_001.input.json
+      energy_threshold_clamp_001.expected.json
+      hammer_reserve_clamp_001.input.json
+      hammer_reserve_clamp_001.expected.json
+
+    knowledge_pack_import_fixtures/
+      valid_deterministic_pack_001.input.json
+      valid_deterministic_pack_001.expected.json
+      major_version_mismatch_001.input.json
+      major_version_mismatch_001.expected.json
+      native_pack_lower_trust_001.input.json
+      native_pack_lower_trust_001.expected.json
+
+    canonical_hash_fixtures/
+      hash_stable_across_field_order_001.input.json
+      hash_stable_across_field_order_001.expected.json
+      hash_excludes_metadata_001.input.json
+      hash_excludes_metadata_001.expected.json
 
   docs/
     SHOP_OPTIMIZER_SPEC.md
@@ -1527,17 +1874,24 @@ shop_optimizer/
     KNOWLEDGE_PACK_FORMAT.md
     CONFORMANCE_FAILURES.md
     NATIVE_POLICY_TELEMETRY.md
+    RECORD_ELIGIBILITY.md
 
   reference/
-    canonical_item_names.json
+    canonical_items.json          ← IDs, display names, category, cost, held/instant, waste eligibility
     default_guardrails.json
     default_universal_shop_profile.json
     default_policy_modes.json
+    rounding_rules.json
 ```
 
 The fixtures are the most important files in this structure. The prose spec tells
 coding agents what to build. The fixtures prove they built the same thing as every
 other conforming bot.
+
+`canonical_items.json` is the authoritative source for all item IDs and metadata.
+Any item referenced in telemetry, Knowledge Packs, or fixtures must have a
+corresponding entry here. Bots must not invent item IDs — they must map their
+internal item representations to IDs defined in this file.
 
 ---
 
@@ -1548,39 +1902,59 @@ list is the authoritative deliverable specification for any coding agent applyin
 this spec.
 
 **Policy separation:**
-- [ ] Native shop optimizer preserved as a separate, independently-runnable policy
-- [ ] Deterministic shop optimizer implemented as a separate policy
+- [ ] Native shop policy preserved as a separate, independently-runnable module (no native code changed except for thin telemetry hooks)
+- [ ] Deterministic shop policy implemented as a separate live-decision module
+- [ ] Shop learning optimizer implemented as a separate post-career module
 - [ ] Shop policy router that dispatches to the selected policy without mixing implementations
-- [ ] Frontend or config toggle for `shop_optimizer_mode`
+- [ ] Frontend or config toggle for `shop_optimizer_mode` supporting at minimum `native` and `deterministic`
+- [ ] (Recommended) `native_with_deterministic_shadow` mode supported
 
 **Adapter layer:**
 - [ ] Universal Shop Profile adapter translating internal fields ↔ Universal fields
 - [ ] Interop manifest generator listing supported/unsupported fields and policy modes
 - [ ] Documentation mapping internal config field names to Universal Shop Profile field names
+- [ ] Documentation explaining how native-policy records are mapped to canonical telemetry
+
+**Canonical item IDs:**
+- [ ] All telemetry fields that reference items use canonical item IDs, not display names
+- [ ] Bot maintains a local mapping from internal item names to canonical item IDs
+- [ ] Unmapped items are logged as `unknown_item_id` and do not silently use display names
+
+**Record eligibility:**
+- [ ] `record_eligibility` field computed and written at career end for every career record
+- [ ] Learning optimizer filters by `record_eligibility = "direct_learning"` for clean-career means
+- [ ] Waste flag rate calculations correctly accept `direct_learning` and `observational_learning`
+- [ ] `diagnostic_only`, `excluded_manual`, and `invalid` records excluded from settings influence
 
 **Telemetry:**
 - [ ] Career record exporter covering all fields in the Numeric Career Record section
 - [ ] Turn-level shop log exporter covering all fields in the Turn-Level Shop Log section
 - [ ] Policy mode metadata written correctly for both native and deterministic policies
+- [ ] `policy_decision` structured object written for every turn
+- [ ] Shadow decision fields written when `shop_optimizer_mode = "native_with_deterministic_shadow"`
 - [ ] Telemetry emitter that runs after every turn regardless of which policy made the decision
+
+**Rounding:**
+- [ ] All learning optimizer arithmetic uses half-away-from-zero integer rounding
+- [ ] Rounding is applied once, at the final `new_value` step — not at intermediate calculations
+- [ ] A rounding conformance fixture exists and passes
 
 **Knowledge Pack exchange:**
 - [ ] Knowledge Pack exporter with `evidence_type` and `source_policy_modes` declared
 - [ ] Knowledge Pack importer with schema validation, version check, and capability check
 - [ ] Evidence type check and trust level assignment
-- [ ] Conformance fixture runner
-- [ ] At least three golden conformance fixtures covering distinct optimizer scenarios
+- [ ] Conformance fixture runner supporting all 7 fixture categories
+- [ ] At least one golden fixture from each of the 7 required fixture categories
 - [ ] Conformance hash computation using canonical JSON representation
 - [ ] Import report generator (machine-readable and human-readable)
 - [ ] Quarantine and reject handling for failed imports
-- [ ] Documentation of which adapter fields map to which Universal Shop Profile fields
-- [ ] Documentation of how native-policy records are mapped to deterministic-compatible telemetry
 
 **Verification:**
-- [ ] Bot can run native optimizer and emit canonical records
-- [ ] Bot can run deterministic optimizer and emit canonical records
+- [ ] Bot can run native shop policy and emit canonical records
+- [ ] Bot can run deterministic shop policy and emit canonical records
+- [ ] Bot can run shadow mode and log both active and shadow decisions
 - [ ] Bot can switch between policies from frontend or config
-- [ ] Bot can export a Knowledge Pack with correct evidence type
+- [ ] Bot can export a Knowledge Pack with correct evidence type and fixture categories
 - [ ] Bot can import a Knowledge Pack and apply it as external baseline
-- [ ] Bot can run the shared conformance fixture suite and produce matching hashes
+- [ ] Bot can run the shared conformance fixture suite and produce matching hashes across all 7 categories
 - [ ] Bot rejects failed packs safely without disrupting the current career or optimizer state
