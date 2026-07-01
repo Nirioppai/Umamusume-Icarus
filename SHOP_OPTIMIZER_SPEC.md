@@ -50,6 +50,16 @@ layer that sits on top of that solver and focuses exclusively on the shop.
 | Held Item | An item that goes into inventory when purchased and must be triggered manually or automatically by a rule. These can become waste. |
 | Dump Window | A late-career period (usually after turn 60–65) where the bot relaxes buying restrictions and tries to spend remaining coins before the career ends. |
 | Optimizer | The deterministic function that reads numeric career records and outputs an updated settings vector. No language model component. |
+| Shop Policy Mode | Which shop decision policy is currently active: `native`, `deterministic`, `hybrid`, or `manual`. The active mode determines which policy makes live shop decisions, but all modes must emit canonical telemetry. |
+| Native Shop Optimizer | The bot's original built-in shop decision logic, implemented independently of this spec. |
+| Deterministic Shop Optimizer | The policy engine defined by this spec. Reads the Universal Shop Profile and applies learned settings to make live shop decisions. |
+| Adapter Layer | The bot-specific translation code that converts internal settings to Universal Shop Profile fields and back. The optimizer never touches bot-internal names or structures. |
+| Policy Router | The component that reads `shop_optimizer_mode` and dispatches a turn's shop decision to the correct policy, then routes the result through the shared telemetry layer. |
+| Interop Manifest | A machine-readable declaration of which Universal Shop Profile fields a bot implementation supports, which policy modes it implements, and which spec versions it conforms to. |
+| Conformance Fixture | A frozen test case: a specific optimizer input paired with a canonical expected output. Used to prove that two bot implementations apply the optimizer algorithm identically. |
+| Conformance Hash | A deterministic hash of the canonical optimizer output. Two bots that produce the same hash from the same input apply the same algorithm. |
+| Evidence Type | A label on a Knowledge Pack declaring whether its contributing records came from deterministic-policy runs, native-policy runs, or a mix. Determines how much trust an importing bot should assign. |
+| Universal Profile Source | A per-career field recording how the career's Universal Shop Profile snapshot was produced: directly applied, derived from native logic, partially mapped, defaulted, or unknown. |
 
 ### Mood Effects Reference
 
@@ -172,6 +182,90 @@ not prove global optimality. It cannot evaluate whether the bot is buying the
 
 ---
 
+## Bot-Agnostic Design Principles
+
+Different bots have different internal shop implementations, config formats,
+execution loops, and frontends. This system must be safe to adopt without requiring
+a bot to replace or discard its existing shop logic.
+
+The design separates two responsibilities that must never be merged in any
+implementation.
+
+### Responsibility 1 — Shop Decision Policy
+
+This is the component that decides what the bot actually does on each turn:
+which item to buy, which item to use, and when to skip the shop.
+
+Allowed policy modes:
+
+| Mode | Meaning |
+|---|---|
+| `native` | The bot's original built-in shop logic. |
+| `deterministic` | The policy engine defined by this spec. |
+| `hybrid` | A custom combination of native and deterministic policies. |
+| `manual` | Human-directed mode; no policy automation active. |
+
+Only `native` and `deterministic` are mandatory. A bot may omit `hybrid` and
+`manual`.
+
+### Responsibility 2 — Optimizer Telemetry and Knowledge Layer
+
+This is the component that records what happened during a career using the shared
+schema. It must run regardless of which shop decision policy was active.
+
+The telemetry layer is always mandatory. It includes:
+
+- Universal Shop Profile snapshot export
+- Numeric career record export
+- Waste flag computation
+- Item Execution score computation
+- Turn-level shop log export
+- Policy mode metadata recording
+- Knowledge Pack export
+
+The decision policy may vary between bots and between careers.
+**The telemetry contract must not vary.**
+
+### The Separation Mandate
+
+The deterministic optimizer must be implemented as a **separate policy module**
+from the bot's native shop optimizer. A coding agent applying this spec to a bot
+repository must not overwrite or entangle the bot's existing native shop logic.
+
+**Incorrect implementation (do not do this):**
+
+```
+existing_shop_logic.py
+  └── native logic modified directly until it becomes the deterministic optimizer
+```
+
+**Correct implementation:**
+
+```
+shop/
+  native_shop_optimizer.py          ← untouched native logic
+  deterministic_shop_optimizer.py   ← new, separate policy
+  shop_policy_router.py             ← reads shop_optimizer_mode, dispatches
+  optimizer_telemetry.py            ← records outcomes regardless of policy
+  universal_shop_profile_adapter.py ← translates internal ↔ Universal fields
+```
+
+The bot's native shop logic must remain independently usable after the
+deterministic optimizer is added.
+
+### The Telemetry Mandate
+
+> Using the deterministic optimizer is optional.
+> Emitting deterministic-compatible telemetry is mandatory.
+
+A bot that uses its native optimizer for every career still contributes useful
+knowledge to the ecosystem, provided it emits canonical records. Native-policy
+records can reveal recurring waste patterns, bad timing decisions, and item
+failure conditions — the optimizer can learn from observed outcomes even when it
+was not the policy that made the decisions.
+
+---
+
 ## Connecting a Bot to This System
 
 ### The Universal Shop Profile (Common Language)
@@ -221,6 +315,163 @@ safe ranges and adjusts them downward.
 4. The bot translates the new settings vector back to its internal config before
    the next career starts.
 
+### Required Adapter Layer
+
+Each bot must implement an optimizer adapter that isolates all bot-specific
+translation. The optimizer and telemetry layer interact only with the adapter —
+never with bot-internal field names, class structures, file paths, or database
+layouts.
+
+Required adapter functions:
+
+```
+export_universal_shop_profile()         → Universal Shop Profile dict
+import_universal_shop_profile(profile)  → applies profile to internal config
+export_career_record(career_id)         → career record dict
+export_turn_shop_log(career_id)         → list of turn log dicts
+import_knowledge_pack(pack)             → applies pack as baseline
+export_knowledge_pack()                 → Knowledge Pack dict
+run_optimizer(records, profile, pack, direction) → new profile dict
+run_conformance_tests(fixtures)         → list of pass/fail results
+```
+
+Required adapter functions for policy routing:
+
+```
+get_active_shop_policy()                → current shop_optimizer_mode string
+set_active_shop_policy(mode)            → updates shop_optimizer_mode
+run_native_shop_optimizer(context)      → native policy decision
+run_deterministic_shop_optimizer(context) → deterministic policy decision
+emit_optimizer_telemetry(context, decision, policy_mode) → writes turn log
+```
+
+Example field name translation:
+
+| Bot A internal field | Bot B internal field | Universal Shop Profile field |
+|---|---|---|
+| `climaxHammerReserve` | `shop.items.masterHammer.keepForFinals` | `climax_master_hammer_reserve` |
+
+The optimizer sees only the Universal Shop Profile form. Internal names are the
+adapter's private concern.
+
+### Shop Policy Mode and Frontend Toggle
+
+The bot must expose a setting that allows the user to choose which shop optimizer
+policy is active. At minimum, the frontend or config must support `native` and
+`deterministic`.
+
+Recommended UI:
+
+```
+Shop Optimizer
+[ Native Bot Optimizer ▼ ]
+
+Options:
+  Native Bot Optimizer
+  Deterministic Shop Optimizer
+```
+
+Config representation:
+
+```json
+{
+  "shop_optimizer_mode": "native"
+}
+```
+
+Allowed values: `native`, `deterministic`, `hybrid`, `manual`.
+Only `native` and `deterministic` are mandatory.
+
+The UI should make the data contract clear to the user:
+
+> **Native Bot Optimizer:** Uses this bot's original shop decision logic.
+>
+> **Deterministic Shop Optimizer:** Uses the shared SHOP_OPTIMIZER_SPEC policy
+> and learned settings from past careers.
+>
+> Regardless of the selected mode, all runs still produce optimizer-compatible
+> telemetry and can contribute to Knowledge Pack generation.
+
+### Policy Router Pattern
+
+The policy router reads `shop_optimizer_mode` at the start of each turn's shop
+decision and dispatches to the correct policy. The telemetry layer runs after the
+decision, regardless of which policy was used.
+
+```
+Turn begins
+      │
+      ▼
+Build shop decision context
+      │
+      ▼
+Read shop_optimizer_mode
+      │
+      ├── native → run native_shop_optimizer(context)
+      │
+      ├── deterministic → run deterministic_shop_optimizer(context)
+      │
+      └── hybrid → run configured hybrid policy
+      │
+      ▼
+Execute selected shop decision
+      │
+      ▼
+emit_optimizer_telemetry(context, decision, policy_mode)
+      │
+      ▼
+At career end: emit canonical career record
+```
+
+The telemetry layer records what state existed, what items were offered, what
+decision was made, and what happened by career end. It does not care which policy
+made the decision.
+
+### Interop Manifest
+
+Every bot implementing the optimizer must expose a machine-readable interop
+manifest. This manifest tells other bots what the implementation supports and which
+spec versions it conforms to.
+
+```json
+{
+  "shop_optimizer_schema_version": "1.0.0",
+  "optimizer_algorithm_version": "1.0.0",
+  "scoring_version": "1.0.0",
+  "ruleset": "umamusume_make_a_new_track",
+  "bot_name": "example-bot",
+  "bot_optimizer_adapter_version": "0.3.0",
+  "item_name_mapping_version": "1.0.0",
+  "supports_native_policy": true,
+  "supports_deterministic_policy": true,
+  "supports_policy_toggle": true,
+  "emits_telemetry_for_native_policy": true,
+  "supported_policy_modes": ["native", "deterministic"],
+  "supported_fields": [
+    "energy_buy_threshold",
+    "climax_master_hammer_reserve",
+    "climax_artisan_hammer_reserve",
+    "master_hammer_buy_cap_turn",
+    "glow_sticks_min_fans",
+    "bootcamp_strong_mega_target",
+    "coaching_mega_enabled",
+    "skill_point_buy_threshold",
+    "skill_point_hoard_threshold",
+    "skill_point_force_turn",
+    "skill_point_floor",
+    "dump_window_start_turn",
+    "late_game_save_items",
+    "ankle_weights_max_stock"
+  ],
+  "unsupported_fields": [],
+  "passes_conformance_suite": true
+}
+```
+
+If a bot does not support a Universal Shop Profile field directly, it must declare
+that field under `unsupported_fields` and provide the functional default it uses
+instead. Unsupported fields must never be silently hidden — they must be declared.
+
 ---
 
 ## The Numeric Career Record
@@ -231,6 +482,34 @@ path. All values are integers or 0/1 flags.
 ### Settings Vector
 
 The Universal Shop Profile values active during this career. All integers.
+
+### Policy Mode Metadata
+
+These fields record how the career's shop decisions were made and how the Universal
+Shop Profile snapshot was produced. They are stored alongside the settings vector
+and outcomes vector.
+
+| Field | Type | Description |
+|---|---|---|
+| `shop_policy_mode` | String | Active policy: `"native"`, `"deterministic"`, `"hybrid"`, or `"manual"` |
+| `shop_policy_id` | String | Internal identifier for the specific optimizer implementation |
+| `shop_policy_version` | String | Version string of the active policy implementation |
+| `universal_profile_source` | String | How the Universal Shop Profile snapshot was produced (see table below) |
+| `deterministic_optimizer_active` | Integer 0 or 1 | 1 if the deterministic optimizer made live shop decisions; 0 otherwise |
+
+**`universal_profile_source` values:**
+
+| Value | Meaning |
+|---|---|
+| `applied_directly` | The Universal Shop Profile directly controlled the active deterministic optimizer. |
+| `derived_from_native` | The bot used native logic, but the adapter mapped native behavior into Universal Shop Profile fields. |
+| `partially_mapped` | Some Universal fields were mapped; others used functional defaults. |
+| `defaulted` | The bot could not map native settings and used safe defaults for the profile snapshot. |
+| `unknown` | Mapping quality is unknown. Should not be used for high-trust learning. |
+
+Records with `universal_profile_source` of `defaulted` or `unknown` contribute
+to observable waste pattern knowledge but should not be used as clean-career
+baselines for optimizer adjustment steps.
 
 ### Outcomes Vector
 
@@ -620,7 +899,7 @@ Career completes
       │
       ▼
 Numeric record written to database
-(settings vector + outcomes vector + waste flag vector, all integers)
+(settings vector + policy mode metadata + outcomes vector + waste flag vector)
 human_directed flag set based on whether any manual input was active
       │
       ▼
@@ -829,3 +1108,479 @@ data progressively replaces the imported baseline. A locally observed pattern wi
 - Any information about which trainee, scenario, or support card deck was used
 - Settings tested by only a single user or single career
 - Records marked `human_directed = 1`
+
+### Knowledge Pack Evidence Type
+
+Every Knowledge Pack must declare how its contributing records were produced.
+
+```json
+{
+  "schema_version": "1.0.0",
+  "optimizer_algorithm_version": "1.0.0",
+  "scoring_version": "1.0.0",
+  "ruleset": "umamusume_make_a_new_track",
+  "evidence_type": "mixed_policy_evidence",
+  "source_policy_modes": ["native", "deterministic"],
+  "safe_starting_ranges": {},
+  "known_failure_conditions": [],
+  "conformance_tests": []
+}
+```
+
+| Evidence Type | Meaning |
+|---|---|
+| `deterministic_policy_evidence` | All contributing records came from runs where the deterministic optimizer made live shop decisions. |
+| `native_policy_evidence` | All contributing records came from native-policy runs that emitted compatible telemetry. |
+| `mixed_policy_evidence` | Contributing records include both deterministic and native-policy runs. |
+
+This label is required for honest cross-bot learning. Without it, an importing
+bot cannot know how much trust to assign the pack.
+
+### Knowledge Pack Trust Levels
+
+Imported Knowledge Packs are assigned a trust level based on their evidence type
+and origin. Trust levels determine how aggressively the optimizer weighs imported
+knowledge against local records.
+
+```json
+{
+  "import_trust_level": "external_native_observational"
+}
+```
+
+| Trust Level | Meaning |
+|---|---|
+| `local_deterministic_confirmed` | Local records where `deterministic_optimizer_active = 1` and `universal_profile_source = applied_directly`. Highest trust. |
+| `local_native_observational` | Local records where native policy was active. Settings were derived, not directly applied. |
+| `external_deterministic_confirmed` | Imported Knowledge Pack with `deterministic_policy_evidence`. |
+| `external_mixed` | Imported Knowledge Pack with `mixed_policy_evidence`. |
+| `external_native_observational` | Imported Knowledge Pack with `native_policy_evidence`. |
+| `external_partial` | Pack imported with one or more unsupported fields omitted. |
+| `quarantined` | Pack failed conformance but is retained for diagnostic inspection. |
+
+Trust order (highest to lowest):
+
+```
+local_deterministic_confirmed
+> local_native_observational
+> external_deterministic_confirmed
+> external_mixed
+> external_native_observational
+> external_partial
+> default_guardrails
+> hardcoded_defaults
+```
+
+### What Native-Policy Knowledge Packs Can Safely Export
+
+A bot that uses only its native optimizer can still export a Knowledge Pack,
+labeled as `native_policy_evidence`. Native-derived packs contribute useful
+observational knowledge even without direct deterministic control.
+
+**Safe to export:**
+
+- Recurring waste flag patterns
+- Item waste rates
+- Safe observed ranges when the adapter's `universal_profile_source` is
+  `derived_from_native` (not `defaulted` or `unknown`)
+- Known bad threshold combinations
+- Item timing failure conditions
+- Bootcamp understock patterns
+- Climax hammer excess patterns
+- Vita never-triggered patterns
+- Ankle weight timing problems
+
+**Treat with caution:**
+
+- Exact deterministic optimizer settings (never directly applied)
+- Clean-career means (derived from native behavior, not optimizer-controlled runs)
+- Strong adjustment recommendations
+- High-trust safe ranges
+
+A native-derived pack is useful. It is not proof of causal optimality at the
+Universal Shop Profile level. Importing bots should apply it at a lower trust
+level than `external_deterministic_confirmed`.
+
+---
+
+## Knowledge Pack Handshake Protocol
+
+Before an importing bot applies a Knowledge Pack, it must prove compatibility
+with the exporting bot at the optimizer boundary. This section defines the
+five-step validation flow.
+
+The handshake proves that two bots understand the same Universal Shop Profile
+fields, compute the same waste flags, compute the same Item Execution score,
+and apply the same optimizer adjustment rules. It does not prove gameplay
+equivalence, race solver equivalence, or that the pack is optimal.
+
+### Step 1: Schema Validation
+
+The importing bot validates that the Knowledge Pack conforms to the shared schema.
+A pack that fails schema validation is rejected immediately — no further steps run.
+
+Required checks:
+
+- All required fields exist and have correct types.
+- Unknown fields are rejected unless under a `metadata` key.
+- Safe starting ranges are inside global guardrails.
+- Known failure condition fields exist in the Universal Shop Profile.
+- No raw career records are included.
+- No turn-level logs are included.
+- No human-directed records are included.
+- `evidence_type` is declared.
+- `source_policy_modes` is declared.
+- No free-text analysis data appears in optimizer-visible fields.
+
+### Step 2: Version Compatibility Check
+
+The importing bot checks:
+
+```
+schema_version
+optimizer_algorithm_version
+scoring_version
+ruleset
+item_name_mapping_version
+```
+
+| Version state | Action |
+|---|---|
+| Major version differs | Reject the pack |
+| Minor version differs | May import in compatibility mode; log a warning |
+| Versions match | Proceed |
+
+Major version mismatches indicate incompatible optimizer behavior and must not
+be imported.
+
+### Step 3: Capability Check
+
+The importing bot compares the pack's required fields against its own interop
+manifest. If a required field is not in `supported_fields`, the bot must either
+reject the pack or perform a partial import for explicitly optional fields only.
+
+Partial imports must be labeled with status `partially_applied` and must document
+which fields were ignored and why.
+
+Partial imports are never allowed for:
+
+- Core scoring logic
+- Waste flag definitions
+- Guardrail min/max values
+- Item enum mappings
+- Optimizer algorithm behavior (step calculation, rounding, clamping order)
+
+Those components must match exactly. A bot that cannot support them must reject
+the pack, not silently ignore the mismatch.
+
+### Step 4: Evidence Type Check
+
+The importing bot reads `evidence_type` and assigns the corresponding trust level.
+
+| Evidence type received | Trust level assigned |
+|---|---|
+| `deterministic_policy_evidence` | `external_deterministic_confirmed` |
+| `mixed_policy_evidence` | `external_mixed` |
+| `native_policy_evidence` | `external_native_observational` |
+
+A pack with `native_policy_evidence` may still be imported. It is applied at a
+lower trust level — useful observational knowledge, but not allowed to override
+strong local deterministic evidence.
+
+### Step 5: Conformance Fixture Execution
+
+Every exported Knowledge Pack must include at least three deterministic conformance
+tests. A conformance test is a frozen input/output pair representing a specific
+optimizer scenario.
+
+Example fixture:
+
+```json
+{
+  "test_id": "climax_hammer_excess_001",
+  "input": {
+    "current_profile": {
+      "energy_buy_threshold": 40,
+      "climax_master_hammer_reserve": 3,
+      "climax_artisan_hammer_reserve": 1,
+      "master_hammer_buy_cap_turn": 68,
+      "glow_sticks_min_fans": 100000,
+      "bootcamp_strong_mega_target": 2,
+      "coaching_mega_enabled": 0,
+      "skill_point_buy_threshold": 300,
+      "skill_point_hoard_threshold": 1200,
+      "skill_point_force_turn": 62,
+      "skill_point_floor": 400,
+      "dump_window_start_turn": 64,
+      "late_game_save_items": 1,
+      "ankle_weights_max_stock": 1
+    },
+    "career_records": [],
+    "manual_direction": null,
+    "knowledge_pack_baseline": {}
+  },
+  "expected_output": {
+    "new_profile": {},
+    "changed_fields": [],
+    "clamped_fields": [],
+    "triggered_failure_conditions": [],
+    "item_execution_score": 0,
+    "conformance_hash": "..."
+  }
+}
+```
+
+The importing bot runs each fixture through its own local optimizer implementation.
+It must produce the same `new_profile`, `changed_fields`, `clamped_fields`,
+`triggered_failure_conditions`, `item_execution_score`, and `conformance_hash`.
+
+If any fixture output differs, the pack fails conformance. A failed conformance
+pack must not be applied.
+
+### Conformance Hash
+
+The `conformance_hash` is computed from the canonical JSON representation of the
+optimizer output.
+
+Hash inputs (must include):
+
+```
+new_profile
+changed_fields
+clamped_fields
+triggered_failure_conditions
+item_execution_score
+optimizer_algorithm_version
+scoring_version
+schema_version
+```
+
+Hash inputs (must exclude):
+
+```
+bot name
+local file paths
+timestamps
+human notes
+random IDs
+execution duration
+logging messages
+```
+
+This keeps the hash stable across languages, machines, and bot implementations.
+Two bots that produce the same hash from the same input apply the same algorithm.
+
+### Import Status Values
+
+Every Knowledge Pack import produces a status.
+
+| Status | Meaning |
+|---|---|
+| `accepted` | All validation and conformance checks passed. Pack is applied as external baseline. |
+| `rejected` | A required check failed. Pack must not affect optimizer behavior. |
+| `quarantined` | Pack is stored for diagnostic inspection but not applied. Used when debugging version drift or adapter issues. |
+| `partially_applied` | Only explicitly compatible optional subsets were imported. Core checks must still pass. |
+
+### Conformance Failure Categories
+
+| Failure Type | Meaning | Required Behavior |
+|---|---|---|
+| `schema_mismatch` | Pack structure is invalid or missing required fields | Reject pack |
+| `major_version_mismatch` | Major schema, optimizer, or scoring version differs | Reject pack |
+| `unsupported_required_field` | Bot cannot represent a required Universal Shop Profile field | Reject pack |
+| `item_mapping_mismatch` | Canonical item names or item enums do not match | Reject pack |
+| `scoring_mismatch` | Bot computes a different Item Execution score from same input | Reject pack and fix scoring |
+| `waste_flag_mismatch` | Bot sets different waste flags from the same input | Reject pack and fix flag logic |
+| `optimizer_mismatch` | Same input produces different settings output | Reject pack and fix optimizer |
+| `guardrail_mismatch` | Guardrail min/max behavior differs | Reject pack |
+| `rounding_mismatch` | Rounding or step calculation order differs | Reject pack |
+| `conformance_hash_mismatch` | Output hash differs from fixture | Reject or quarantine until canonical hash logic is fixed |
+| `optional_field_unsupported` | Optional field is unsupported by importing bot | Partial import allowed only if explicitly declared safe |
+
+The most critical failures are `scoring_mismatch`, `waste_flag_mismatch`, and
+`optimizer_mismatch`. Those mean the two bots are not speaking the same optimizer
+language despite using the same field names.
+
+### Required Behavior on Conformance Failure
+
+If any required conformance test fails:
+
+1. Do not apply the Knowledge Pack.
+2. Do not update safe starting ranges.
+3. Do not update known failure conditions.
+4. Do not merge the pack into local optimizer history.
+5. Do not use the pack as a clean-career baseline.
+6. Store the failed pack as quarantined diagnostic data if desired.
+7. Generate an import report.
+
+A failed import leaves the current local optimizer configuration unchanged. It
+does not stop the bot from running the next career.
+
+### Import Report
+
+Every import — successful or failed — should produce a machine-readable report
+and a human-readable summary.
+
+**Machine-readable (failed example):**
+
+```json
+{
+  "import_status": "rejected",
+  "failure_type": "optimizer_mismatch",
+  "failed_test_id": "climax_hammer_excess_001",
+  "expected_output": {
+    "new_profile": { "climax_master_hammer_reserve": 2 },
+    "changed_fields": ["climax_master_hammer_reserve"]
+  },
+  "actual_output": {
+    "new_profile": { "climax_master_hammer_reserve": 3 },
+    "changed_fields": []
+  },
+  "likely_causes": [
+    "optimizer step rounding differs from shared spec",
+    "guardrail clamp order differs",
+    "imported safe baseline was ignored"
+  ],
+  "pack_applied": false
+}
+```
+
+**Human-readable summary (failed example):**
+
+```
+Knowledge Pack rejected.
+
+Failed test: climax_hammer_excess_001
+
+Expected:
+  climax_master_hammer_reserve = 2
+  changed_fields = ["climax_master_hammer_reserve"]
+
+Actual:
+  climax_master_hammer_reserve = 3
+  changed_fields = []
+
+Likely cause:
+  Local optimizer did not apply the same adjustment rule as the shared fixture.
+
+Action:
+  Pack was not applied. Local optimizer state is unchanged.
+```
+
+### Safe Fallback Order After Rejection
+
+A rejected pack must not interrupt normal bot operation. The optimizer continues
+using the safest available source:
+
+```
+local deterministic records
+> local native observational records
+> previously accepted deterministic Knowledge Packs
+> previously accepted mixed Knowledge Packs
+> previously accepted native-derived Knowledge Packs
+> default optimizer guardrails
+> hardcoded safe defaults
+```
+
+### Rule for Coding Agents on Fixture Failures
+
+> When a conformance fixture fails, do not rewrite the expected fixture to match
+> the local implementation. Fix the local implementation until it matches the
+> shared fixture — unless the fixture itself is proven incorrect against the
+> shared spec.
+
+A fixture is an interoperability test, not a local preference test. If every bot
+adjusts fixtures to match its own behavior, the shared optimizer system becomes
+meaningless.
+
+---
+
+## Recommended Repository Structure
+
+The prose spec should not be the only artifact. A complete implementation should
+include machine-readable schemas and golden fixtures that coding agents and
+automated tests can use to verify conformance independently of human review.
+
+```
+shop_optimizer/
+  schemas/
+    universal_shop_profile.schema.json
+    career_record.schema.json
+    turn_shop_log.schema.json
+    knowledge_pack.schema.json
+    interop_manifest.schema.json
+    import_report.schema.json
+
+  fixtures/
+    climax_hammer_excess_001.input.json
+    climax_hammer_excess_001.expected.json
+    skill_point_blocked_001.input.json
+    skill_point_blocked_001.expected.json
+    vita_never_triggered_001.input.json
+    vita_never_triggered_001.expected.json
+    ankle_weights_bootcamp_001.input.json
+    ankle_weights_bootcamp_001.expected.json
+
+  docs/
+    SHOP_OPTIMIZER_SPEC.md
+    INTEROP_CONTRACT.md
+    KNOWLEDGE_PACK_FORMAT.md
+    CONFORMANCE_FAILURES.md
+    NATIVE_POLICY_TELEMETRY.md
+
+  reference/
+    canonical_item_names.json
+    default_guardrails.json
+    default_universal_shop_profile.json
+    default_policy_modes.json
+```
+
+The fixtures are the most important files in this structure. The prose spec tells
+coding agents what to build. The fixtures prove they built the same thing as every
+other conforming bot.
+
+---
+
+## Bot-Agnostic Implementation Checklist
+
+A bot implementation is not complete until it can do all of the following. This
+list is the authoritative deliverable specification for any coding agent applying
+this spec.
+
+**Policy separation:**
+- [ ] Native shop optimizer preserved as a separate, independently-runnable policy
+- [ ] Deterministic shop optimizer implemented as a separate policy
+- [ ] Shop policy router that dispatches to the selected policy without mixing implementations
+- [ ] Frontend or config toggle for `shop_optimizer_mode`
+
+**Adapter layer:**
+- [ ] Universal Shop Profile adapter translating internal fields ↔ Universal fields
+- [ ] Interop manifest generator listing supported/unsupported fields and policy modes
+- [ ] Documentation mapping internal config field names to Universal Shop Profile field names
+
+**Telemetry:**
+- [ ] Career record exporter covering all fields in the Numeric Career Record section
+- [ ] Turn-level shop log exporter covering all fields in the Turn-Level Shop Log section
+- [ ] Policy mode metadata written correctly for both native and deterministic policies
+- [ ] Telemetry emitter that runs after every turn regardless of which policy made the decision
+
+**Knowledge Pack exchange:**
+- [ ] Knowledge Pack exporter with `evidence_type` and `source_policy_modes` declared
+- [ ] Knowledge Pack importer with schema validation, version check, and capability check
+- [ ] Evidence type check and trust level assignment
+- [ ] Conformance fixture runner
+- [ ] At least three golden conformance fixtures covering distinct optimizer scenarios
+- [ ] Conformance hash computation using canonical JSON representation
+- [ ] Import report generator (machine-readable and human-readable)
+- [ ] Quarantine and reject handling for failed imports
+- [ ] Documentation of which adapter fields map to which Universal Shop Profile fields
+- [ ] Documentation of how native-policy records are mapped to deterministic-compatible telemetry
+
+**Verification:**
+- [ ] Bot can run native optimizer and emit canonical records
+- [ ] Bot can run deterministic optimizer and emit canonical records
+- [ ] Bot can switch between policies from frontend or config
+- [ ] Bot can export a Knowledge Pack with correct evidence type
+- [ ] Bot can import a Knowledge Pack and apply it as external baseline
+- [ ] Bot can run the shared conformance fixture suite and produce matching hashes
+- [ ] Bot rejects failed packs safely without disrupting the current career or optimizer state
