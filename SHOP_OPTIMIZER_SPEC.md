@@ -717,6 +717,8 @@ For compatibility, `vita_*` diagnostic flag names refer to all held energy items
 | `rest_avoidance_item_gap` | `action_taken` = `"rest"` AND `rest_avoidance_enabled` = 1 AND `energy_item_available` = 0 AND `mood_item_available` = 0 |
 | `rest_taken_with_recovery_item_available` | `action_taken` = `"rest"` AND `rest_avoidance_enabled` = 1 AND (`energy_item_available` = 1 OR `mood_item_available` = 1) |
 
+`mood_item_shortage` is the broad diagnostic flag for any Bad or Awful mood event during a race chain where no mood item was available. `race_chain_mood_item_shortage` and `race_chain_mood_item_not_used` are the race-chain-specific versions; prefer them for race-chain analysis because they distinguish between a stocking failure and a use failure.
+
 ### Record Eligibility
 
 | Field | Type | Description |
@@ -1022,9 +1024,9 @@ choose the field to adjust using this deterministic priority order:
 3. Explicit `waste_flag_to_field_priority` order (table below).
 4. Lexicographic field name as final fallback (earlier in alphabet wins).
 
-**`waste_flag_to_field_priority` — explicit field order per flag:**
+**`waste_flag_to_field_priority` — explicit field order per flag (covers both core waste flags and mood diagnostic flags):**
 
-| Waste Flag | Priority Order |
+| Flag | Priority Order |
 |---|---|
 | `climax_hammer_excess` | 1. `climax_master_hammer_reserve` 2. `master_hammer_buy_cap_turn` 3. `climax_artisan_hammer_reserve` |
 | `vita_never_triggered` | 1. `energy_buy_threshold` 2. `dump_window_start_turn` |
@@ -2291,6 +2293,8 @@ shop_optimizer/
       race_chain_mood_item_not_used_001.expected.json
       rest_avoidance_item_gap_001.input.json
       rest_avoidance_item_gap_001.expected.json
+      rest_taken_with_recovery_item_available_001.input.json
+      rest_taken_with_recovery_item_available_001.expected.json
 
     scoring_fixtures/
       high_efficiency_001.input.json
