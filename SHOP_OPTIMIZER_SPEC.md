@@ -64,6 +64,7 @@ layer that sits on top of that solver and focuses exclusively on the shop.
 | Evidence Type | A label on a Knowledge Pack declaring whether its contributing records came from deterministic-policy runs, native-policy runs, or a mix. Determines how much trust an importing bot should assign. |
 | Universal Profile Source | A per-career field recording how the career's Universal Shop Profile snapshot was produced: directly applied, derived from native logic, partially mapped, defaulted, or unknown. |
 | Record Eligibility | A per-career field that classifies how much an individual career record may contribute to learning. `direct_learning` records (deterministic policy, profile directly applied) may update clean-career means. `observational_learning` records (native policy, derived profile) contribute only to waste pattern detection. See Record Eligibility Rules section. |
+| Expert Seed Defaults | Hardcoded bootstrap values derived from expert gameplay analysis. They provide safer initial settings before local `direct_learning` records or accepted deterministic Knowledge Packs exist. They are not optimizer-learned data, not clean-career evidence, and not Knowledge Pack evidence. Lower trust than accepted deterministic Knowledge Packs and local `direct_learning` records. See Expert Seed Defaults section. |
 | Shadow Mode | A policy mode (`native_with_deterministic_shadow`) in which native policy makes the live decision and the deterministic shop policy runs silently in parallel on the same context, logging what it would have decided without executing it. |
 | Canonical Item ID | A snake_case identifier for each in-game item, stable across bot implementations, languages, and display name changes (e.g. `vita_40`, `master_cleat_hammer`). Used in all cross-bot telemetry and Knowledge Packs. |
 
@@ -362,6 +363,16 @@ config. The optimizer never knows or cares what internal names a bot uses.
 | `dump_window_start_turn` | Integer | Turn at which the bot enters the dump window and relaxes buying restrictions |
 | `late_game_save_items` | Integer 0 or 1 | Whether the bot holds items back during the dump window (1) or spends aggressively (0) |
 | `ankle_weights_max_stock` | Integer | Maximum Ankle Weights of one type to hold in inventory at once |
+| `mood_item_buy_enabled` | Integer 0 or 1 | Whether the deterministic shop policy is allowed to buy mood-repair items |
+| `mood_item_min_stock` | Integer | Minimum number of mood-repair items the shop policy tries to maintain when racing heavily |
+| `mood_item_max_stock` | Integer | Maximum number of mood-repair items to hold before treating additional purchases as low priority |
+| `race_chain_mood_break_after` | Integer | Race-chain length after which mood-repair inventory becomes more valuable. Does not force race selection. |
+| `cupcake_aggression` | Integer 0–3 | How aggressively the shop policy buys and preserves cupcakes. Higher means more willingness to buy/hold mood items. |
+| `rest_avoidance_enabled` | Integer 0 or 1 | Whether the shop policy should value energy and mood items more because the bot prefers avoiding rest. Does not prohibit the race/training solver from resting. |
+
+**Scope rule for mood fields:** These fields must not override the race solver. They only influence how the shop policy buys, reserves, and uses mood-repair items when the race solver is already producing race chains.
+
+**Validation rule:** `mood_item_min_stock` must be ≤ `mood_item_max_stock`. If violated, clamp by setting `mood_item_min_stock = mood_item_max_stock` and log the clamp.
 
 **Critical warning:** If `skill_point_hoard_threshold` and `skill_point_floor` are
 both set above realistic mid-career Skill Point levels, neither skill-buying trigger
@@ -568,7 +579,13 @@ spec versions it conforms to.
     "skill_point_floor",
     "dump_window_start_turn",
     "late_game_save_items",
-    "ankle_weights_max_stock"
+    "ankle_weights_max_stock",
+    "mood_item_buy_enabled",
+    "mood_item_min_stock",
+    "mood_item_max_stock",
+    "race_chain_mood_break_after",
+    "cupcake_aggression",
+    "rest_avoidance_enabled"
   ],
   "unsupported_fields": [],
   "passes_conformance_suite": true
@@ -685,6 +702,16 @@ All fields are 0 or 1. A flag set to 1 means the waste condition occurred.
 | `ankle_weights_no_matching_training` | Ankle Weights were held but the matching training stat never appeared on a turn where training was taken |
 | `ankle_weights_used_without_mega` | Ankle Weights were active during bootcamp but no Megaphone was also active on those turns |
 | `ankle_weights_stock_cap_blocked` | `ankle_weights_max_stock` prevented buying an Ankle Weight on a turn when the matching training appeared |
+
+**Mood Diagnostic Flags** (optional; start as diagnostic only — do not score as core penalties until telemetry is sufficient to avoid false positives)
+
+| Flag | Set to 1 when |
+|---|---|
+| `mood_item_shortage` | Mood dropped to Bad or Awful during a race chain and no mood item was available |
+| `mood_item_overstock` | More than `mood_item_max_stock` mood items remained in inventory after turn 65 |
+| `cupcake_unused_late` | A Plain Cupcake or Berry Sweet Cupcake remained unused in final inventory |
+| `race_chain_mood_break_failed` | Race chain exceeded `race_chain_mood_break_after`, mood fell below Normal, and no mood repair occurred |
+| `rest_avoidance_item_gap` | Rest was taken while no energy or mood item was available that could have plausibly prevented the rest |
 
 ### Record Eligibility
 
@@ -927,8 +954,9 @@ priority order:
 
 1. Accepted external deterministic Knowledge Pack baselines
    (`evidence_type = "deterministic_policy_evidence"`)
-2. Default guardrails (see Step 3)
-3. Hardcoded safe defaults
+2. Expert Seed Defaults (see Expert Seed Defaults section)
+3. Default guardrails (see Step 3)
+4. Hardcoded safe defaults
 
 The optimizer **must not** compute clean-career means from `observational_learning`
 records when no `direct_learning` records exist. A native-only bot can export
@@ -1031,8 +1059,9 @@ highest-trust available baseline in this order:
 
 1. Accepted external deterministic Knowledge Pack baseline
    (`evidence_type = "deterministic_policy_evidence"`)
-2. Default Universal Shop Profile values
-3. Hardcoded safe defaults
+2. Expert Seed Defaults
+3. Default Universal Shop Profile values
+4. Hardcoded safe defaults
 
 The optimizer may still record flag rates and known failure conditions from the
 dirty records. It must not adjust toward a `clean_mean` that does not exist.
@@ -1088,9 +1117,18 @@ prevent a noisy early career from driving settings to an absurd value.
 | `dump_window_start_turn` | 55 | 68 |
 | `late_game_save_items` | 0 | 1 |
 | `ankle_weights_max_stock` | 0 | 2 |
+| `mood_item_buy_enabled` | 0 | 1 |
+| `mood_item_min_stock` | 0 | 2 |
+| `mood_item_max_stock` | 0 | 3 |
+| `race_chain_mood_break_after` | 3 | 6 |
+| `cupcake_aggression` | 0 | 3 |
+| `rest_avoidance_enabled` | 0 | 1 |
 
 If the computed new value falls outside the range, it is clamped to the nearest
 limit. The clamping event is logged so a human can review it.
+
+After clamping, validate `mood_item_min_stock ≤ mood_item_max_stock`. If violated,
+set `mood_item_min_stock = mood_item_max_stock` and log the clamp.
 
 ### Step 4: Output
 
@@ -1511,6 +1549,7 @@ local_deterministic_confirmed
 > external_mixed
 > external_native_observational
 > external_partial
+> expert_seed_defaults
 > default_guardrails
 > hardcoded_defaults
 ```
@@ -1902,6 +1941,7 @@ local deterministic records
 > previously accepted deterministic Knowledge Packs
 > previously accepted mixed Knowledge Packs
 > previously accepted native-derived Knowledge Packs
+> expert seed defaults
 > default optimizer guardrails
 > hardcoded safe defaults
 ```
@@ -1916,6 +1956,137 @@ local deterministic records
 A fixture is an interoperability test, not a local preference test. If every bot
 adjusts fixtures to match its own behavior, the shared optimizer system becomes
 meaningless.
+
+---
+
+## Expert Seed Defaults
+
+### What Expert Seed Defaults Are
+
+Expert Seed Defaults are hardcoded bootstrap values derived from expert gameplay
+analysis. They provide safer initial settings before local `direct_learning`
+records or accepted deterministic Knowledge Packs exist. They are not
+optimizer-learned data, not clean-career evidence, and not Knowledge Pack
+evidence.
+
+Expert Seed Defaults occupy a specific position in the trust hierarchy:
+
+```
+local direct_learning records
+> accepted external deterministic Knowledge Pack baseline
+> expert seed defaults
+> default guardrails
+> hardcoded safe fallback
+```
+
+### What Expert Seed Defaults Must Not Do
+
+Expert Seed Defaults must not:
+
+- count as `direct_learning`
+- update clean-career means
+- be exported as deterministic Knowledge Pack evidence
+- override local direct-learning data
+- override accepted deterministic Knowledge Pack baselines
+- force race selection or race chaining
+- bypass conformance checks
+
+Once at least three local `direct_learning` records exist, the shop learning
+optimizer should begin replacing expert seed assumptions with local deterministic
+evidence.
+
+### Source Metadata
+
+Expert seed profiles carry source metadata that is excluded from
+optimizer-visible numeric analysis and excluded from conformance hashes (unless a
+fixture explicitly tests source metadata serialization):
+
+```json
+{
+  "source_type": "expert_interview_seed",
+  "source_name": "rank_1_trackblazer_interview",
+  "source_trust_level": "bootstrap_only",
+  "source_notes": "Derived from expert race-heavy Trackblazer strategy; not optimizer evidence."
+}
+```
+
+### Expert Seed Profile: `expert_seed_race_heavy_v1`
+
+This profile is derived from a Rank 1 Trackblazer player interview. The
+interview reveals a race-heavy strategy where mood repair items — particularly
+Plain Cupcakes and Berry Sweet Cupcakes — are the key inventory layer that
+enables longer race chains without rest. Energy items support this by preserving
+training capacity. This strategy informs shop/inventory defaults only; race
+selection remains outside the scope of this spec.
+
+```json
+{
+  "profile_name": "expert_seed_race_heavy_v1",
+  "source_type": "expert_interview_seed",
+  "source_name": "rank_1_trackblazer_interview",
+  "source_trust_level": "bootstrap_only",
+  "source_notes": "Derived from expert race-heavy Trackblazer strategy; not optimizer evidence.",
+  "profile": {
+    "energy_buy_threshold": 45,
+    "climax_master_hammer_reserve": 2,
+    "climax_artisan_hammer_reserve": 1,
+    "master_hammer_buy_cap_turn": 62,
+    "glow_sticks_min_fans": 100000,
+    "bootcamp_strong_mega_target": 2,
+    "coaching_mega_enabled": 0,
+    "skill_point_buy_threshold": 300,
+    "skill_point_hoard_threshold": 1000,
+    "skill_point_force_turn": 62,
+    "skill_point_floor": 400,
+    "dump_window_start_turn": 62,
+    "late_game_save_items": 0,
+    "ankle_weights_max_stock": 1,
+    "mood_item_buy_enabled": 1,
+    "mood_item_min_stock": 1,
+    "mood_item_max_stock": 2,
+    "race_chain_mood_break_after": 4,
+    "cupcake_aggression": 2,
+    "rest_avoidance_enabled": 1
+  }
+}
+```
+
+**Rationale per field:**
+
+- `energy_buy_threshold = 45` — Supports a rest-averse strategy without
+  spending energy items too early. High enough to prevent unnecessary rest turns,
+  low enough not to over-buy Vita items.
+- `climax_master_hammer_reserve = 2` — Avoids the known over-reservation problem
+  where 3 Master Cleat Hammers are held but fewer than 3 Climax races occur.
+  See `climax_hammer_excess` waste flag.
+- `bootcamp_strong_mega_target = 2` — Supports summer training value without
+  overstocking Megaphones.
+- `dump_window_start_turn = 62` and `late_game_save_items = 0` — Encourage item
+  usage after second summer instead of late-game hoarding.
+- `ankle_weights_max_stock = 1` — Conservative because Ankle Weights have several
+  possible waste modes (wrong stat, held past bootcamp, no matching training).
+- `mood_item_buy_enabled = 1`, `mood_item_min_stock = 1`, `mood_item_max_stock = 2`,
+  `cupcake_aggression = 2` — Reflects that cupcakes are a high-value item in a
+  race-heavy strategy; the bot should maintain at least one mood item and be
+  willing to buy more when available.
+- `race_chain_mood_break_after = 4` — After 4 consecutive races, mood repair
+  inventory becomes more valuable. Aligns with expert guidance to consider
+  breaking race chains at around 4 races.
+- `rest_avoidance_enabled = 1` — The expert explicitly states resting is never
+  an option; energy and mood items should be weighted more highly to avoid rest
+  turns.
+
+### Repository Artifact
+
+The expert seed profile should be stored at:
+
+```
+reference/expert_seed_profiles.json
+```
+
+This file is machine-readable and may be loaded by implementations to initialize
+the optimizer when no direct learning records or accepted deterministic Knowledge
+Packs exist.
 
 ---
 
@@ -2099,6 +2270,7 @@ shop_optimizer/
     default_universal_shop_profile.json
     default_policy_modes.json
     rounding_rules.json
+    expert_seed_profiles.json     ← bootstrap profiles derived from expert analysis; bootstrap_only trust level
 ```
 
 The fixtures are the most important files in this structure. The prose spec tells
@@ -2166,6 +2338,11 @@ this spec.
 - [ ] Conformance hash computation using canonical JSON representation
 - [ ] Import report generator (machine-readable and human-readable)
 - [ ] Quarantine and reject handling for failed imports
+
+**Expert Seed Defaults:**
+- [ ] `reference/expert_seed_profiles.json` loaded as bootstrap when `direct_learning_record_count = 0` and no accepted deterministic Knowledge Pack exists
+- [ ] Expert seed defaults applied at lower trust than accepted deterministic Knowledge Packs and never override local `direct_learning` data
+- [ ] Expert seed source metadata excluded from conformance hashes
 
 **Verification:**
 - [ ] Bot can run native shop policy and emit canonical records
