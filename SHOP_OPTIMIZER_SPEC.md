@@ -519,6 +519,7 @@ spec versions it conforms to.
   "shop_optimizer_schema_version": "1.0.0",
   "optimizer_algorithm_version": "1.0.0",
   "scoring_version": "1.0.0",
+  "record_eligibility_version": "1.0.0",
   "ruleset": "umamusume_make_a_new_track",
   "bot_name": "example-bot",
   "bot_optimizer_adapter_version": "0.3.0",
@@ -574,11 +575,11 @@ and outcomes vector.
 
 | Field | Type | Description |
 |---|---|---|
-| `shop_policy_mode` | String | Active policy: `"native"`, `"deterministic"`, `"hybrid"`, or `"manual"` |
+| `shop_policy_mode` | String | Active policy: `"native"`, `"deterministic"`, `"native_with_deterministic_shadow"`, `"hybrid"`, or `"manual"` |
 | `shop_policy_id` | String | Internal identifier for the specific optimizer implementation |
 | `shop_policy_version` | String | Version string of the active policy implementation |
 | `universal_profile_source` | String | How the Universal Shop Profile snapshot was produced (see table below) |
-| `deterministic_optimizer_active` | Integer 0 or 1 | 1 if the deterministic optimizer made live shop decisions; 0 otherwise |
+| `deterministic_shop_policy_active` | Integer 0 or 1 | 1 if the deterministic shop policy made live shop decisions; 0 otherwise. The shop learning optimizer runs after every career regardless of this value. |
 
 **`universal_profile_source` values:**
 
@@ -667,10 +668,14 @@ All fields are 0 or 1. A flag set to 1 means the waste condition occurred.
 | Field | Type | Description |
 |---|---|---|
 | `record_eligibility` | String | Classification of how much this record may contribute to learning. See Record Eligibility Rules section. |
+| `record_eligibility_version` | String | Version of the eligibility computation rules used to produce this value (e.g. `"1.0.0"`). Required for future auditability if eligibility rules change. |
 
 The `record_eligibility` field is computed from `shop_policy_mode`,
 `universal_profile_source`, and `human_directed` at career end. It is a single
 derived field that replaces the need to re-check multiple fields at query time.
+The `record_eligibility_version` must match the version declared in the Interop
+Manifest and Knowledge Pack — a version mismatch means old records may have been
+classified under different rules and should be treated as `diagnostic_only`.
 
 | Value | Meaning | Allowed Use |
 |---|---|---|
@@ -786,7 +791,7 @@ for cross-bot comparison and LLM exception analysis.
 | `policy_decision.decision_type` | String | `"buy_item"`, `"use_item"`, `"skip_shop"`, or `"no_shop"` |
 | `policy_decision.item_id` | String or null | Canonical item ID of the item bought or used, or null |
 | `policy_decision.reason_code` | String or null | The skip reason or item use context code that drove this decision |
-| `policy_decision.score` | Integer or null | Internal scoring value the policy assigned to this decision, if available |
+| `policy_decision.score` | Integer or null | Internal scoring value the policy assigned to this decision, if available. **Local diagnostic data only** — must not be compared across bots, cross-policy, or used in Knowledge Pack conformance unless a fixture explicitly defines the scoring algorithm. Native and deterministic policies may use entirely different scoring scales. |
 | `policy_decision.policy_mode` | String | Which policy produced this decision |
 | `policy_decision.executed` | Integer 0 or 1 | 1 if this decision was actually executed; 0 if this was a shadow decision |
 
@@ -809,6 +814,14 @@ Example:
 
 Present only when `shop_optimizer_mode = "native_with_deterministic_shadow"`.
 Records what the deterministic shop policy would have decided without executing it.
+
+**Hard safety rule — shadow policy must be side-effect free:**
+
+> The shadow deterministic policy must not mutate inventory, config, random state,
+> telemetry counters, cooldowns, or any other game state. It must run on a deep copy
+> of the decision context and return a hypothetical decision object only. Any
+> implementation that allows the shadow policy to write to shared state violates
+> the separation mandate and must be rejected in code review.
 
 | Field | Type | Description |
 |---|---|---|
@@ -864,13 +877,41 @@ Example (native bought Vita 40, deterministic would have skipped):
 The optimizer's behavior scales with how many eligible records exist. A small
 number of noisy early careers should not drive large corrections.
 
-| Eligible Records | Behavior |
+Two record counts are tracked separately:
+
+- `direct_learning_record_count` — count of records with `record_eligibility = "direct_learning"`
+- `flag_rate_record_count` — count of records with `record_eligibility` in `"direct_learning"` or `"observational_learning"`
+
+The step-size tier is driven by `direct_learning_record_count` only. Tier
+advancement requires direct evidence because only direct records update clean-career
+means. `flag_rate_record_count` is used only in Step 1 (waste flag rate computation)
+— observational records broaden flag detection but do not increase adjustment
+confidence.
+
+| `direct_learning_record_count` | Behavior |
 |---|---|
 | 0–2 | Collect only. No adjustment made. Output current settings unchanged. |
 | 3–4 | Micro-adjustments. Step size capped at 5% per cycle. |
 | 5–9 | Small adjustments. Step size capped at 10% per cycle. |
 | 10–19 | Normal adjustments. 15% step limit applies. |
 | 20+ | Full confidence. 15% step limit applies. |
+
+### Bootstrap Rule for Missing Direct Records
+
+If `direct_learning_record_count = 0`, the shop learning optimizer cannot compute
+clean-career means from local data. It must use the safest available source, in
+priority order:
+
+1. Accepted external deterministic Knowledge Pack baselines
+   (`evidence_type = "deterministic_policy_evidence"`)
+2. Default guardrails (see Step 3)
+3. Hardcoded safe defaults
+
+The optimizer **must not** compute clean-career means from `observational_learning`
+records when no `direct_learning` records exist. A native-only bot can export
+useful native-derived Knowledge Packs, but its deterministic clean-career mean
+remains unset until the bot runs at least one career with
+`shop_policy_mode = "deterministic"` and `universal_profile_source = "applied_directly"`.
 
 ### Step 1: Compute Flag Rates per Settings Value
 
@@ -1067,13 +1108,37 @@ same field, the value is used and the rating has no additional effect.
 Each career receives a numeric Item Execution score (0–20) stored in the outcomes
 vector. This is the optimizer's primary signal.
 
-- Base: items consumed ÷ items purchased, weighted by item coin value
-- Master Cleat Hammers and Vita items carry higher weight than Reset Whistles
-  or Good-Luck Charms
-- Zero Master Cleat Hammers or Vita items in final inventory = full sub-score
-  for those categories
-- Each Motivating or Empowering Megaphone in final inventory after turn 65
-  applies a heavy deduction
+### Exact Scoring Formula
+
+```
+item_execution_score = clamp(0, 20,
+  20
+  - hammer_waste_penalty
+  - vita_waste_penalty
+  - megaphone_late_penalty
+  - skill_failure_penalty
+  - coin_hoard_penalty
+  - minor_waste_penalty
+)
+```
+
+**Penalty definitions:**
+
+| Penalty Component | Condition | Deduction |
+|---|---|---|
+| `hammer_waste_penalty` | Each Master Cleat Hammer in final inventory | 4 points each |
+| `vita_waste_penalty` | Each Vita item (any tier: Vita 20, 40, 65, or Royal Kale Juice) in final inventory | 2 points each |
+| `megaphone_late_penalty` | Each Motivating or Empowering Megaphone in final inventory after turn 65 | 3 points each |
+| `skill_failure_penalty` | `skill_buy_failure = 1` (zero skills purchased entire career) | 4 points flat |
+| `coin_hoard_penalty` | `coins_remaining > 50` at career end | 1 point flat |
+| `minor_waste_penalty` | Each Reset Whistle, Good-Luck Charm, or Artisan Cleat Hammer in final inventory | 1 point each |
+
+All penalties are additive. The total is subtracted from 20 and then clamped to [0, 20].
+
+Instant-use items (Yummy Cat Food, Grilled Carrots, all Stat Notepads/Manuals/Scrolls,
+Pretty Mirror, Reporter's Binoculars, Scholar's Hat, Master Practice Guide,
+Energy Drink MAX, Energy Drink MAX EX, all Ailment Cure items) can never be wasted
+and never generate any penalty. Only held items contribute to waste penalties.
 
 A career that bought 20 items and used all 20 scores higher than one that bought
 30 items and used 25. The optimizer treats buying less and using all of it as
@@ -1321,12 +1386,15 @@ Every Knowledge Pack must declare how its contributing records were produced.
   "schema_version": "1.0.0",
   "optimizer_algorithm_version": "1.0.0",
   "scoring_version": "1.0.0",
+  "record_eligibility_version": "1.0.0",
   "ruleset": "umamusume_make_a_new_track",
   "evidence_type": "mixed_policy_evidence",
   "source_policy_modes": ["native", "deterministic"],
   "safe_starting_ranges": {},
   "known_failure_conditions": [],
-  "conformance_tests": []
+  "conformance_tests": [],
+  "conformance_suite_version": null,
+  "conformance_suite_hash": null
 }
 ```
 
@@ -1353,7 +1421,7 @@ knowledge against local records.
 
 | Trust Level | Meaning |
 |---|---|
-| `local_deterministic_confirmed` | Local records where `deterministic_optimizer_active = 1` and `universal_profile_source = applied_directly`. Highest trust. |
+| `local_deterministic_confirmed` | Local records where `deterministic_shop_policy_active = 1` and `universal_profile_source = applied_directly`. Highest trust. |
 | `local_native_observational` | Local records where native policy was active. Settings were derived, not directly applied. |
 | `external_deterministic_confirmed` | Imported Knowledge Pack with `deterministic_policy_evidence`. |
 | `external_mixed` | Imported Knowledge Pack with `mixed_policy_evidence`. |
@@ -1443,6 +1511,7 @@ The importing bot checks:
 schema_version
 optimizer_algorithm_version
 scoring_version
+record_eligibility_version
 ruleset
 item_name_mapping_version
 ```
@@ -1492,10 +1561,25 @@ strong local deterministic evidence.
 
 ### Step 5: Conformance Fixture Execution
 
-Every exported Knowledge Pack must include fixtures from each of the seven
-required fixture categories. A bot can pass schema validation while failing
+Every exported Knowledge Pack must provide access to fixtures from each of the
+seven required fixture categories. A bot can pass schema validation while failing
 scoring, or pass scoring while failing optimizer rounding. Layered fixtures
 catch failures at each layer independently.
+
+Fixtures may be provided in one of two ways:
+
+1. **Embedded fixtures** — the full fixture objects are included directly inside the
+   Knowledge Pack under the `conformance_tests` key. Suitable for offline portability.
+2. **Suite reference** — the Knowledge Pack declares a `conformance_suite_version`
+   and `conformance_suite_hash` pointing to a known shared fixture suite. The
+   importing bot downloads or locates the suite, verifies its hash, and runs the
+   fixtures from the suite rather than from the pack. Suitable for normal use
+   where pack size matters.
+
+A pack must use one of these forms. It must not omit both. If `conformance_suite_version`
+and `conformance_suite_hash` are present, the importing bot must verify the suite
+hash before running any fixtures from it. A suite hash mismatch must be treated
+as a `conformance_hash_mismatch` failure.
 
 **Required fixture categories:**
 
@@ -1560,10 +1644,38 @@ If any fixture output differs, the pack fails conformance for that layer. A bot
 that fails `scoring_fixtures` should fix its scoring before attempting
 `optimizer_adjustment_fixtures`. A failed conformance pack must not be applied.
 
+### Canonical JSON Specification (Shop Optimizer Canonical JSON v1)
+
+Before hashing, the optimizer output must be serialized to canonical JSON using
+these exact rules. This is "Shop Optimizer Canonical JSON v1" — not RFC 8785,
+not language-default JSON, but a minimal deterministic subset defined here.
+
+- **Encoding:** UTF-8, no BOM
+- **Object keys:** Sorted lexicographically by Unicode code point value (U+0000 ascending)
+- **Whitespace:** No insignificant whitespace — no spaces after `:` or `,`, no
+  indentation, no newlines between values
+- **Arrays:** Preserve insertion order (do not sort array elements)
+- **Integers:** All optimizer-visible numeric values serialized as JSON integers
+  (no decimals, no scientific notation, e.g. `17` not `17.0` or `1.7e1`)
+- **Null:** Allowed only where the schema explicitly permits it; absent optional
+  fields are omitted entirely rather than serialized as `null`
+- **Booleans:** Not used for optimizer-visible fields; use integer 0/1 instead
+- **Strings:** UTF-8; key sort uses raw Unicode code point order, no locale normalization
+- **Metadata fields:** Excluded from canonical JSON before hashing (see exclusion
+  list below)
+
+Example of correctly canonicalized optimizer output:
+
+```json
+{"changed_fields":["climax_master_hammer_reserve"],"clamped_fields":[],"item_execution_score":17,"new_profile":{"ankle_weights_max_stock":1,"climax_artisan_hammer_reserve":1,"climax_master_hammer_reserve":2,"coaching_mega_enabled":0,"dump_window_start_turn":64,"energy_buy_threshold":40,"glow_sticks_min_fans":100000,"late_game_save_items":1,"master_hammer_buy_cap_turn":68,"skill_point_buy_threshold":300,"skill_point_floor":400,"skill_point_force_turn":62,"skill_point_hoard_threshold":1200,"bootcamp_strong_mega_target":2},"optimizer_algorithm_version":"1.0.0","schema_version":"1.0.0","scoring_version":"1.0.0","triggered_failure_conditions":[]}
+```
+
+Note that `new_profile` keys are sorted lexicographically.
+
 ### Conformance Hash
 
 The `conformance_hash` is computed from the canonical JSON representation of the
-optimizer output.
+optimizer output using SHA-256. The result is encoded as a lowercase hex string.
 
 Hash inputs (must include):
 
