@@ -1,10 +1,12 @@
 # SHOP_OPTIMIZER_SPEC.md — Self-Tuning Shop Policy Optimizer
 
-A two-layer system for optimizing shop purchases and item usage in a umamusume
-career bot. All configuration changes are driven by a **deterministic numeric
-optimizer** that reads past career records and updates settings automatically.
-A language model (LLM) is a secondary layer — invoked only for exception handling
-and human-readable explanation, never for configuration decisions.
+A bot-agnostic shop optimization system with three components: live shop
+policies, a deterministic post-career learning optimizer, and an exception-only
+LLM explanation layer. All configuration changes are driven by a **deterministic
+numeric optimizer** that reads past career records and updates settings
+automatically. A language model (LLM) is a tertiary layer — invoked only for
+exception handling and human-readable explanation, never for configuration
+decisions.
 
 ---
 
@@ -92,14 +94,27 @@ eligibility for each item.
 
 ### Energy and Vitality Items
 
+Energy items are divided into two categories with different waste eligibility:
+
+**Held energy items** (go into inventory; can become waste):
+
 | Canonical ID | Display Name | Energy Restored | Cost |
 |---|---|---|---|
 | `vita_20` | Vita 20 | 20 | 35 coins |
 | `vita_40` | Vita 40 | 40 | 55 coins |
 | `vita_65` | Vita 65 | 65 | 75 coins |
 | `royal_kale_juice` | Royal Kale Juice | Full recovery | 70 coins |
+
+**Instant-use energy items** (consumed on purchase; can never be wasted):
+
+| Canonical ID | Display Name | Energy Restored | Cost |
+|---|---|---|---|
 | `energy_drink_max` | Energy Drink MAX | 5 (emergency only) | 30 coins |
 | `energy_drink_max_ex` | Energy Drink MAX EX | Full recovery | 50 coins |
+
+Only held energy items contribute to `vita_waste` or `vita_waste_penalty`.
+`energy_drink_max` and `energy_drink_max_ex` are instant-use and must never be
+penalized as waste, even though they appear in the same in-game category.
 
 ### Mood Items
 
@@ -935,6 +950,31 @@ too late, OR an unusually low `climax_races_run`. The learning optimizer adjusts
 the most directly correlated field. When a regression occurs, the LLM exception
 handler can surface multi-field interactions (see LLM Exception Layer section).
 
+**Tie-breaking when multiple fields correlate with the same waste flag:**
+
+When two or more settings fields show correlation with the same waste flag,
+choose the field to adjust using this deterministic priority order:
+
+1. Highest absolute flag-rate difference between the high-rate and low-rate
+   value groups.
+2. Highest sample count in the correlated group (more records = more confidence).
+3. Explicit `waste_flag_to_field_priority` order (table below).
+4. Lexicographic field name as final fallback (earlier in alphabet wins).
+
+**`waste_flag_to_field_priority` — explicit field order per flag:**
+
+| Waste Flag | Priority Order |
+|---|---|
+| `climax_hammer_excess` | 1. `climax_master_hammer_reserve` 2. `master_hammer_buy_cap_turn` 3. `climax_artisan_hammer_reserve` |
+| `vita_never_triggered` | 1. `energy_buy_threshold` 2. `dump_window_start_turn` |
+| `bootcamp_mega_shortage` | 1. `bootcamp_strong_mega_target` 2. `master_hammer_buy_cap_turn` |
+| `sp_catchall_blocked` | 1. `skill_point_hoard_threshold` 2. `skill_point_floor` |
+| `skill_point_hoard` | 1. `skill_point_force_turn` 2. `skill_point_hoard_threshold` |
+
+This table is the canonical tie-break order. Two bots applying the same records
+must choose the same field to adjust. Without this, bots can diverge on field
+selection even when they agree on flag rates and step sizes.
+
 **Example — `skill_point_hoard_threshold` vs `skill_buy_failure`:**
 
 | `skill_point_hoard_threshold` | `skill_point_floor` | `skill_buy_failure` rate |
@@ -973,6 +1013,23 @@ The "clean career" definition also requires adequate item use, not just absence 
 waste. A career where the bot bought nothing would show no waste flags but would
 not qualify because `skills_purchased = 0`. This prevents the learning optimizer
 from drifting toward "buy less" as the solution to all waste.
+
+**No-qualified-clean-records fallback:**
+
+If `direct_learning_record_count > 0` but `qualified_clean` is empty (all
+direct-learning records have a waste flag or low score), the optimizer must not
+compute `clean_mean` from unqualified records. It must fall back to the
+highest-trust available baseline in this order:
+
+1. Accepted external deterministic Knowledge Pack baseline
+   (`evidence_type = "deterministic_policy_evidence"`)
+2. Default Universal Shop Profile values
+3. Hardcoded safe defaults
+
+The optimizer may still record flag rates and known failure conditions from the
+dirty records. It must not adjust toward a `clean_mean` that does not exist.
+This fallback is distinct from the `direct_learning_record_count = 0` bootstrap
+rule — it covers the case where data exists but none of it qualifies as clean.
 
 ### Deterministic Rounding Rule
 
@@ -1015,11 +1072,13 @@ prevent a noisy early career from driving settings to an absurd value.
 | `climax_artisan_hammer_reserve` | 0 | 2 |
 | `master_hammer_buy_cap_turn` | 55 | 72 |
 | `bootcamp_strong_mega_target` | 1 | 4 |
+| `coaching_mega_enabled` | 0 | 1 |
 | `skill_point_buy_threshold` | 100 | 800 |
 | `skill_point_hoard_threshold` | 600 | 1400 |
 | `skill_point_force_turn` | 50 | 70 |
 | `skill_point_floor` | 100 | 800 |
 | `dump_window_start_turn` | 55 | 68 |
+| `late_game_save_items` | 0 | 1 |
 | `ankle_weights_max_stock` | 0 | 2 |
 
 If the computed new value falls outside the range, it is clamped to the nearest
@@ -1674,8 +1733,16 @@ Note that `new_profile` keys are sorted lexicographically.
 
 ### Conformance Hash
 
+```
+conformance_hash = SHA-256(hex) of Shop Optimizer Canonical JSON v1
+```
+
+The canonical JSON string is encoded as UTF-8 bytes before hashing. The SHA-256
+digest is encoded as a lowercase 64-character hex string. No BOM, no trailing
+newline, no whitespace outside the canonical JSON itself.
+
 The `conformance_hash` is computed from the canonical JSON representation of the
-optimizer output using SHA-256. The result is encoded as a lowercase hex string.
+optimizer output. The result is encoded as a lowercase hex string.
 
 Hash inputs (must include):
 
@@ -1919,6 +1986,12 @@ behavior rather than toward genuinely low-waste outcomes.
 The prose spec should not be the only artifact. A complete implementation should
 include machine-readable schemas and golden fixtures that coding agents and
 automated tests can use to verify conformance independently of human review.
+
+**Normative authority:** When the prose in this document and a schema file or
+conformance fixture disagree, the schema and fixture are authoritative for
+implementation behavior. The prose explains intent; the schemas and fixtures
+define conformance. Coding agents must resolve contradictions in favor of the
+machine-readable artifact, not the prose.
 
 ```
 shop_optimizer/
