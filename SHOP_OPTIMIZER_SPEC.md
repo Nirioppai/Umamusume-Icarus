@@ -666,7 +666,7 @@ All fields are 0 or 1. A flag set to 1 means the waste condition occurred.
 | `bootcamp_mega_shortage` | Fewer Megaphones available at bootcamp entry than the target |
 | `climax_hammer_excess` | More Master Cleat Hammers reserved than Climax races that actually ran |
 | `sp_catchall_blocked` | Both `skill_point_hoard_threshold` and `skill_point_floor` were above realistic mid-career Skill Point levels simultaneously, blocking all skill buying |
-| `vita_never_triggered` | Vita items were purchased but the energy threshold was never breached |
+| `vita_never_triggered` | Held energy items were purchased but the energy threshold was never breached |
 
 **Vita Diagnostic Flags** (more specific than `vita_waste`)
 
@@ -786,7 +786,7 @@ logs are needed for root cause.
 |---|---|---|
 | `inv_master_hammers` | Integer | Master Cleat Hammers in inventory |
 | `inv_artisan_hammers` | Integer | Artisan Cleat Hammers in inventory |
-| `inv_vita_items` | Integer | Total Vita items in inventory |
+| `inv_held_energy_items` | Integer | Total held energy items in inventory: `vita_20`, `vita_40`, `vita_65`, `royal_kale_juice` |
 | `inv_strong_megaphones` | Integer | Motivating + Empowering Megaphones in inventory |
 | `inv_coaching_megaphones` | Integer | Coaching Megaphones in inventory |
 | `inv_ankle_weights` | Integer | Total Ankle Weights in inventory |
@@ -1748,7 +1748,7 @@ not language-default JSON, but a minimal deterministic subset defined here.
 Example of correctly canonicalized optimizer output:
 
 ```json
-{"changed_fields":["climax_master_hammer_reserve"],"clamped_fields":[],"item_execution_score":17,"new_profile":{"ankle_weights_max_stock":1,"climax_artisan_hammer_reserve":1,"climax_master_hammer_reserve":2,"coaching_mega_enabled":0,"dump_window_start_turn":64,"energy_buy_threshold":40,"glow_sticks_min_fans":100000,"late_game_save_items":1,"master_hammer_buy_cap_turn":68,"skill_point_buy_threshold":300,"skill_point_floor":400,"skill_point_force_turn":62,"skill_point_hoard_threshold":1200,"bootcamp_strong_mega_target":2},"optimizer_algorithm_version":"1.0.0","schema_version":"1.0.0","scoring_version":"1.0.0","triggered_failure_conditions":[]}
+{"changed_fields":["climax_master_hammer_reserve"],"clamped_fields":[],"item_execution_score":17,"new_profile":{"ankle_weights_max_stock":1,"bootcamp_strong_mega_target":2,"climax_artisan_hammer_reserve":1,"climax_master_hammer_reserve":2,"coaching_mega_enabled":0,"dump_window_start_turn":64,"energy_buy_threshold":40,"glow_sticks_min_fans":100000,"late_game_save_items":1,"master_hammer_buy_cap_turn":68,"skill_point_buy_threshold":300,"skill_point_floor":400,"skill_point_force_turn":62,"skill_point_hoard_threshold":1200},"optimizer_algorithm_version":"1.0.0","schema_version":"1.0.0","scoring_version":"1.0.0","triggered_failure_conditions":[]}
 ```
 
 Note that `new_profile` keys are sorted lexicographically.
@@ -2136,6 +2136,7 @@ this spec.
 - [ ] All telemetry fields that reference items use canonical item IDs, not display names
 - [ ] Bot maintains a local mapping from internal item names to canonical item IDs
 - [ ] Unmapped items are logged as `unknown_item_id` and do not silently use display names
+- [ ] Records containing `unknown_item_id` are valid for diagnostics but must not qualify as `direct_learning` or be exported into high-trust Knowledge Packs
 
 **Record eligibility:**
 - [ ] `record_eligibility` field computed and written at career end for every career record
@@ -2161,7 +2162,7 @@ this spec.
 - [ ] Knowledge Pack importer with schema validation, version check, and capability check
 - [ ] Evidence type check and trust level assignment
 - [ ] Conformance fixture runner supporting all 8 fixture categories
-- [ ] At least one golden fixture from each of the 8 required fixture categories
+- [ ] Knowledge Pack provides access to at least one fixture from each of the 8 required fixture categories, either embedded or through a verified suite reference
 - [ ] Conformance hash computation using canonical JSON representation
 - [ ] Import report generator (machine-readable and human-readable)
 - [ ] Quarantine and reject handling for failed imports
