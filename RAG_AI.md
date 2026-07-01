@@ -614,6 +614,139 @@ data progressively replaces the imported baseline. A locally observed pattern wi
 
 ---
 
+## LLM Backend Configuration
+
+The LLM layer (Layer 2) is only invoked for exceptions and human-requested
+explanations. It is not in the critical path. The connection is configured once
+and used only when the exception handler fires.
+
+Three backends are supported. The system checks them in this priority order:
+**endpoint** → **codex** → **ollama**. The first one that is configured and
+reachable is used.
+
+### Config Fields
+
+```json
+{
+  "llm_backend": "codex",
+  "codex_api_key": "sk-...",
+  "codex_plan_tier": "pro",
+  "ollama_host": "http://localhost:11434",
+  "ollama_model": "llama3.2:8b",
+  "endpoint_url": null,
+  "endpoint_api_key": null
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `llm_backend` | String | Active backend: `"codex"`, `"ollama"`, or `"endpoint"` |
+| `codex_api_key` | String | API key for the Codex cloud service |
+| `codex_plan_tier` | String | User's plan tier: `"free"`, `"basic"`, `"pro"`, or `"enterprise"`. Drives automatic model selection. |
+| `ollama_host` | String | Base URL of the user's Ollama instance. Defaults to `http://localhost:11434`. |
+| `ollama_model` | String | Ollama model name to use. Must match a name from `ollama list` on the user's instance (e.g., `"llama3.2:8b"`). Required when `llm_backend` is `"ollama"`. |
+| `endpoint_url` | String or null | Full URL of a custom HTTP endpoint. If set, this overrides both Codex and Ollama regardless of `llm_backend`. |
+| `endpoint_api_key` | String or null | Optional bearer token for the custom endpoint. |
+
+---
+
+### Backend: Codex (Cloud API)
+
+When `llm_backend` is `"codex"`, the system authenticates with the Codex API
+using `codex_api_key` and selects a model automatically based on `codex_plan_tier`.
+
+#### Automatic Model Selection by Plan Tier
+
+The system queries the API for the models available under the user's plan and
+selects the most capable one that plan allows.
+
+| `codex_plan_tier` | Model Selected |
+|---|---|
+| `enterprise` | Most capable available model (e.g., full-size flagship) |
+| `pro` | Standard high-capability model |
+| `basic` | Mid-tier model |
+| `free` | Smallest available model with sufficient context window |
+
+If the plan tier is not set or not recognized, the system queries the API's
+`/models` endpoint and selects the first available model from the response,
+sorted by capability descending. The selected model name is logged to the career
+record's human annotation field so it is auditable.
+
+The system does not hardcode model names in the config — the tier drives selection
+so the config does not need to be updated when the provider releases new models.
+
+---
+
+### Backend: Ollama (Local)
+
+When `llm_backend` is `"ollama"`, the system connects to the Ollama instance at
+`ollama_host` and uses the model name specified in `ollama_model`.
+
+`ollama_model` is a required field when this backend is active. The value must
+match a model name exactly as it appears in `ollama list` on the user's instance.
+
+```json
+"ollama_host": "http://localhost:11434",
+"ollama_model": "llama3.2:8b"
+```
+
+To see what model names are available on the local instance, run:
+
+```
+ollama list
+```
+
+Copy the name from the first column (including the tag, e.g., `mistral:7b` or
+`deepseek-r1:32b`) and paste it into `ollama_model`. The system uses this name
+verbatim in every API call to Ollama — it does not validate or discover models
+at runtime.
+
+If the Ollama host is unreachable or the specified model is not found, the system
+falls through to the next backend in priority order. If no backend is reachable,
+the exception handler logs a failure and skips the LLM step — the optimizer's
+numeric output is still applied normally.
+
+---
+
+### Backend: Endpoint (Custom HTTP)
+
+When `endpoint_url` is set, it takes priority over all other backends regardless
+of the `llm_backend` field value. This is for deployments where the LLM is behind
+a custom proxy, a self-hosted API, or a local inference server that is not Ollama.
+
+The system sends a POST request to `endpoint_url` with:
+
+```json
+{
+  "prompt": "...",
+  "max_tokens": 512
+}
+```
+
+If `endpoint_api_key` is provided, it is sent as a bearer token in the
+`Authorization` header.
+
+The endpoint must return a response body containing a `text` or `content` field
+with the generated string. Exact field names are configurable if the endpoint
+uses a non-standard schema.
+
+---
+
+### Fallback Behavior
+
+If the active backend is unavailable:
+
+1. If `endpoint_url` is set and unreachable → try `codex` → try `ollama`
+2. If `codex` fails → try `ollama`
+3. If all backends fail → exception handler skips the LLM step, logs
+   `"llm_unavailable"` in the human annotation field, and the optimizer's
+   numeric output is applied unchanged
+
+The bot continues running. A failed LLM invocation does not block the optimizer
+or the next career.
+
+---
+
 ## Constraints on the LLM Layer
 
 The LLM is a secondary tool. These constraints define its role precisely.
