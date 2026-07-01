@@ -113,7 +113,7 @@ Energy items are divided into two categories with different waste eligibility:
 | `energy_drink_max` | Energy Drink MAX | 5 (emergency only) | 30 coins |
 | `energy_drink_max_ex` | Energy Drink MAX EX | Full recovery | 50 coins |
 
-Only held energy items contribute to `vita_waste` or `vita_waste_penalty`.
+Only held energy items contribute to `vita_waste` or `held_energy_waste_penalty`.
 `energy_drink_max` and `energy_drink_max_ex` are instant-use and must never be
 penalized as waste, even though they appear in the same in-game category.
 
@@ -374,8 +374,10 @@ safe ranges and adjusts them downward.
 1. At career start, the bot translates its internal settings into the Universal Shop
    Profile and records the active values as the settings vector.
 2. At career end, the bot writes the completed numeric career record to the database.
-3. The optimizer reads the last N non-human-directed records and computes the new
-   settings vector.
+3. The shop learning optimizer reads the last N records according to
+   `record_eligibility`: `direct_learning` records may drive full learning,
+   `observational_learning` records may contribute to waste flag rates, and
+   manual/diagnostic/invalid records are excluded from settings influence.
 4. The bot translates the new settings vector back to its internal config before
    the next career starts.
 
@@ -1179,7 +1181,7 @@ vector. This is the optimizer's primary signal.
 item_execution_score = clamp(0, 20,
   20
   - hammer_waste_penalty
-  - vita_waste_penalty
+  - held_energy_waste_penalty
   - megaphone_late_penalty
   - skill_failure_penalty
   - coin_hoard_penalty
@@ -1192,7 +1194,7 @@ item_execution_score = clamp(0, 20,
 | Penalty Component | Condition | Deduction |
 |---|---|---|
 | `hammer_waste_penalty` | Each Master Cleat Hammer in final inventory | 4 points each |
-| `vita_waste_penalty` | Each Vita item (any tier: Vita 20, 40, 65, or Royal Kale Juice) in final inventory | 2 points each |
+| `held_energy_waste_penalty` | Each held energy item (`vita_20`, `vita_40`, `vita_65`, `royal_kale_juice`) in final inventory | 2 points each |
 | `megaphone_late_penalty` | Each Motivating or Empowering Megaphone in final inventory after turn 65 | 3 points each |
 | `skill_failure_penalty` | `skill_buy_failure = 1` (zero skills purchased entire career) | 4 points flat |
 | `coin_hoard_penalty` | `coins_remaining > 50` at career end | 1 point flat |
@@ -1280,7 +1282,7 @@ The learning optimizer runs silently every career otherwise.
 
 ## LLM Exception Layer
 
-The LLM is a secondary tool. It is not consulted on routine careers.
+The LLM is an exception-only explanation tool. It is not consulted on routine careers.
 
 ### When the LLM Is Invoked
 
@@ -1301,7 +1303,10 @@ When invoked, the LLM receives a structured prompt containing:
 
 1. The trigger reason and which career caused it.
 2. The full numeric career record for the triggering career.
-3. The last 5 eligible career records, for comparison.
+3. The last 5 eligible career records, for comparison. For LLM exception prompts,
+   "eligible" means records with `record_eligibility` in `direct_learning`,
+   `observational_learning`, or `diagnostic_only`. `excluded_manual` and `invalid`
+   records are omitted unless a human explicitly requests them.
 4. The settings diff — which fields the optimizer changed and by how much.
 5. Turn-level shop logs for the triggering career.
 6. The current optimizer guardrails.
@@ -1457,7 +1462,7 @@ Every Knowledge Pack must declare how its contributing records were produced.
   "record_eligibility_version": "1.0.0",
   "ruleset": "umamusume_make_a_new_track",
   "evidence_type": "mixed_policy_evidence",
-  "source_policy_modes": ["native", "deterministic"],
+  "source_policy_modes": ["native", "deterministic", "native_with_deterministic_shadow"],
   "safe_starting_ranges": {},
   "known_failure_conditions": [],
   "conformance_tests": [],
@@ -1630,7 +1635,7 @@ strong local deterministic evidence.
 ### Step 5: Conformance Fixture Execution
 
 Every exported Knowledge Pack must provide access to fixtures from each of the
-seven required fixture categories. A bot can pass schema validation while failing
+eight required fixture categories. A bot can pass schema validation while failing
 scoring, or pass scoring while failing optimizer rounding. Layered fixtures
 catch failures at each layer independently.
 
@@ -1662,7 +1667,7 @@ as a `conformance_hash_mismatch` failure.
 | `canonical_hash_fixtures` | Bot canonicalizes JSON the same way before hashing |
 | `record_eligibility_fixtures` | Bot classifies direct, observational, diagnostic, manual, and invalid records the same way |
 
-Every Knowledge Pack must include at least one fixture from each category.
+Every Knowledge Pack must provide access to at least one fixture from each required category, either through embedded fixtures or a verified conformance suite reference.
 A Knowledge Pack that provides only optimizer adjustment fixtures is not
 conformance-complete.
 
