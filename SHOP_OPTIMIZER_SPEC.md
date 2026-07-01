@@ -2,11 +2,12 @@
 
 A bot-agnostic shop optimization system with three components: live shop
 policies, a deterministic post-career learning optimizer, and an exception-only
-LLM explanation layer. All configuration changes are driven by a **deterministic
-numeric optimizer** that reads past career records and updates settings
-automatically. A language model (LLM) is a tertiary layer — invoked only for
-exception handling and human-readable explanation, never for configuration
-decisions.
+LLM explanation layer. All **automated** configuration changes are driven by a
+**deterministic numeric optimizer** that reads past career records and updates
+settings automatically. Human overrides may pin values explicitly, but those runs
+are marked `human_directed` and excluded from optimizer learning. A language model
+(LLM) is a tertiary layer — invoked only for exception handling and human-readable
+explanation, never for configuration decisions.
 
 ---
 
@@ -213,7 +214,7 @@ observed in prior careers. It is expected to improve shop behavior over repeated
 runs, but it does not prove global optimality. It cannot evaluate whether the bot
 is buying the *best* items or simply *fewer* items.
 
-**Component 3 — The LLM Exception Layer (secondary, exception-triggered):**
+**Component 3 — The LLM Exception Layer (tertiary, exception-triggered):**
 A language model. Only invoked when: (a) the learning optimizer produces a
 regression — Item Execution score drops more than 2 points below the prior
 3-career mean; (b) a novel waste flag combination appears with no matching past
@@ -321,6 +322,11 @@ knowledge to the ecosystem, provided it emits canonical records. Native-policy
 records can reveal recurring waste patterns, bad timing decisions, and item
 failure conditions — the shop learning optimizer can learn from observed outcomes
 even when the deterministic shop policy was not the one making decisions.
+
+For `observational_learning` records, "learn" means waste flag rate detection,
+timing diagnostics, and native-derived Knowledge Pack evidence only. Observational
+records must not update clean-career means, direct safe ranges, or deterministic
+setting baselines. Those are reserved exclusively for `direct_learning` records.
 
 ---
 
@@ -644,7 +650,7 @@ All fields are 0 or 1. A flag set to 1 means the waste condition occurred.
 | `skill_buy_failure` | Zero skills were purchased during the entire career |
 | `master_cleat_waste` | Master Cleat Hammers in final inventory |
 | `artisan_cleat_waste` | Artisan Cleat Hammers in final inventory |
-| `vita_waste` | Any Vita 20, Vita 40, or Vita 65 in final inventory |
+| `vita_waste` | Any held energy item in final inventory: `vita_20`, `vita_40`, `vita_65`, or `royal_kale_juice` |
 | `megaphone_waste` | Any Motivating or Empowering Megaphone in final inventory after turn 65 |
 | `ankle_weights_waste` | Any Ankle Weights in final inventory |
 | `reset_whistle_waste` | Reset Whistles in final inventory |
@@ -1196,8 +1202,11 @@ All penalties are additive. The total is subtracted from 20 and then clamped to 
 
 Instant-use items (Yummy Cat Food, Grilled Carrots, all Stat Notepads/Manuals/Scrolls,
 Pretty Mirror, Reporter's Binoculars, Scholar's Hat, Master Practice Guide,
-Energy Drink MAX, Energy Drink MAX EX, all Ailment Cure items) can never be wasted
-and never generate any penalty. Only held items contribute to waste penalties.
+Energy Drink MAX, Energy Drink MAX EX) can never be wasted and never generate any
+penalty. Ailment cure waste eligibility is defined by `canonical_items.json`. If a
+cure item is marked instant-use there, it cannot be wasted. If marked held, it may
+contribute to `minor_waste_penalty` when left in final inventory. Only held items
+contribute to waste penalties.
 
 A career that bought 20 items and used all 20 scores higher than one that bought
 30 items and used 25. The optimizer treats buying less and using all of it as
@@ -1651,10 +1660,18 @@ as a `conformance_hash_mismatch` failure.
 | `guardrail_fixtures` | Bot clamps values the same way |
 | `knowledge_pack_import_fixtures` | Bot accepts/rejects packs consistently |
 | `canonical_hash_fixtures` | Bot canonicalizes JSON the same way before hashing |
+| `record_eligibility_fixtures` | Bot classifies direct, observational, diagnostic, manual, and invalid records the same way |
 
 Every Knowledge Pack must include at least one fixture from each category.
 A Knowledge Pack that provides only optimizer adjustment fixtures is not
 conformance-complete.
+
+Required `record_eligibility_fixtures` examples:
+- `deterministic_applied_directly_001` — `shop_policy_mode=deterministic`, `universal_profile_source=applied_directly` → `direct_learning`
+- `native_derived_from_native_001` — `shop_policy_mode=native`, `universal_profile_source=derived_from_native` → `observational_learning`
+- `manual_override_excluded_001` — `human_directed=1` → `excluded_manual`
+- `unknown_profile_diagnostic_001` — `universal_profile_source=unknown` → `diagnostic_only`
+- `version_mismatch_diagnostic_001` — `record_eligibility_version` does not match manifest → `diagnostic_only`
 
 **Fixture format:**
 
@@ -2053,6 +2070,16 @@ shop_optimizer/
       hash_excludes_metadata_001.input.json
       hash_excludes_metadata_001.expected.json
 
+    record_eligibility_fixtures/
+      deterministic_applied_directly_001.input.json
+      deterministic_applied_directly_001.expected.json
+      native_derived_from_native_001.input.json
+      native_derived_from_native_001.expected.json
+      manual_override_excluded_001.input.json
+      manual_override_excluded_001.expected.json
+      unknown_profile_diagnostic_001.input.json
+      unknown_profile_diagnostic_001.expected.json
+
   docs/
     SHOP_OPTIMIZER_SPEC.md
     INTEROP_CONTRACT.md
@@ -2128,8 +2155,8 @@ this spec.
 - [ ] Knowledge Pack exporter with `evidence_type` and `source_policy_modes` declared
 - [ ] Knowledge Pack importer with schema validation, version check, and capability check
 - [ ] Evidence type check and trust level assignment
-- [ ] Conformance fixture runner supporting all 7 fixture categories
-- [ ] At least one golden fixture from each of the 7 required fixture categories
+- [ ] Conformance fixture runner supporting all 8 fixture categories
+- [ ] At least one golden fixture from each of the 8 required fixture categories
 - [ ] Conformance hash computation using canonical JSON representation
 - [ ] Import report generator (machine-readable and human-readable)
 - [ ] Quarantine and reject handling for failed imports
@@ -2141,5 +2168,5 @@ this spec.
 - [ ] Bot can switch between policies from frontend or config
 - [ ] Bot can export a Knowledge Pack with correct evidence type and fixture categories
 - [ ] Bot can import a Knowledge Pack and apply it as external baseline
-- [ ] Bot can run the shared conformance fixture suite and produce matching hashes across all 7 categories
+- [ ] Bot can run the shared conformance fixture suite and produce matching hashes across all 8 categories
 - [ ] Bot rejects failed packs safely without disrupting the current career or optimizer state
