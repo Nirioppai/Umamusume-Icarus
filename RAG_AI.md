@@ -1,9 +1,11 @@
-# RAG_AI.md — AI Workflow for Shop and Item Management
+# RAG_AI.md — Self-Optimizing Shop Configuration System
 
-This document describes how an AI system should reason about shop purchases and
-item usage in a umamusume career bot. It is written in plain game terms so that
-it can be understood and applied by any AI agent, regardless of which bot
-codebase it is working with.
+This document describes a two-layer system for optimizing shop purchases and item
+usage in a umamusume career bot. All configuration changes are driven by a
+**deterministic numeric optimizer** that reads past career records and updates
+settings automatically. A language model (LLM) is a secondary layer — it is only
+invoked for exception handling and human-readable explanation, never for
+configuration decisions.
 
 ---
 
@@ -15,9 +17,8 @@ them by the end of a career.
 
 It does **not** apply to race selection or race execution. Those decisions are
 handled by the bot's auto solver, which already has its own logic for picking
-races, choosing running styles, and managing race chains. The AI in this document
-is a second layer that sits on top of that solver and focuses exclusively on
-the shop.
+races, choosing running styles, and managing race chains. This system is a second
+layer that sits on top of that solver and focuses exclusively on the shop.
 
 ---
 
@@ -53,7 +54,7 @@ Terms used throughout this document, written out in full to avoid confusion.
 | Instant-Use Item | An item that is consumed immediately when purchased, on the same turn. It never sits in inventory. |
 | Held Item | An item that goes into inventory when purchased and must be manually triggered or automatically triggered by a rule. These can become waste. |
 | Dump Window | A late-career period (usually after turn 60–65) where the bot relaxes its buying restrictions and tries to spend remaining coins on useful items before the career ends. |
-| RAG | Retrieval-Augmented Generation. A method where an AI searches a memory of past records before answering a question, instead of relying only on what is in the current conversation. |
+| Optimizer | The deterministic function that reads numeric career records and outputs an updated settings vector. Runs automatically after each career. Has no language model component. |
 
 ### Mood Effects Reference
 
@@ -157,24 +158,44 @@ ailment, the item is useless to buy.
 
 ---
 
-## What Problem This AI Framework Solves
+## What Problem This System Solves
 
 The bot's shop logic runs one turn at a time. It scores each available item and
 decides whether to buy it based on the current game state. It cannot look
-backwards and say: "In the last 15 careers, every time we bought more than two
-Vita 20 items before turn 50, at least one of them was still in the final
-inventory at career end — we bought too many."
+backwards and say: "In the last 15 careers, every time `climax_master_hammer_reserve`
+was set to 3 but fewer than 3 Climax races ran, the waste flag fired — the reserve
+should be 2."
 
-That backward-looking pattern recognition is what this AI layer adds.
+That backward-looking pattern recognition requires memory across careers. Storing
+it as text and asking a language model to interpret it each time is unreliable —
+LLMs can hallucinate, drift, and cannot be tested deterministically. Instead, this
+system stores every career as a **flat numeric record** and runs a deterministic
+optimizer over those records. The optimizer computes which settings values correlate
+with waste flags firing and adjusts them toward values where waste flags do not fire.
+No language model is in the critical path.
 
-The framework has a limited context window — it cannot receive 30 full career
-histories in a single prompt. RAG solves this by storing every career run in a
-searchable memory and pulling only the most relevant past runs when answering a
-question about the current one.
+### Two Layers
+
+**Layer 1 — The Optimizer (primary, automated):**
+A deterministic function. Reads the numeric career record database. Computes
+correlations between settings values and waste flag outcomes. Outputs a new
+settings vector with specific integer values. Runs automatically after every career.
+No human input required. No text. No interpretation.
+
+**Layer 2 — The LLM (secondary, exception-triggered):**
+A language model. Only invoked when: (a) the optimizer produces a regression —
+Item Execution score drops more than 2 points below the prior 3-career mean;
+(b) a novel waste flag combination appears with no matching past records to draw
+from; or (c) a human explicitly requests an explanation. The LLM produces
+human-readable text only. It never writes config values.
+
+The optimizer converges. Given enough careers with no human direction overrides,
+it will find the settings range where all waste flags consistently do not fire.
+That is the optimal configuration — discovered by data, not designed upfront.
 
 ---
 
-## Connecting a Bot to RAG Mode Shop
+## Connecting a Bot to This System
 
 ### The Universal Shop Profile (The Common Language)
 
@@ -183,18 +204,16 @@ different formats, with different value ranges. A bot written in Python with
 a JSON config file and a bot written in JavaScript with a database schema cannot
 directly compare their settings — even if they are solving the same problem.
 
-RAG Mode Shop solves this by requiring every connected bot to translate its
-internal settings into a **Universal Shop Profile** before submitting a career
-record. Think of it like currency exchange: Japanese yen and Korean won are
-different currencies, but both convert to US dollars for international
-transactions. The Universal Shop Profile is the dollar — the common format every
-bot speaks when talking to the RAG system.
+This system requires every connected bot to translate its internal settings into
+a **Universal Shop Profile** before submitting a career record. Think of it like
+currency exchange: Japanese yen and Korean won are different currencies, but both
+convert to US dollars for international transactions. The Universal Shop Profile
+is the dollar — the common format every bot speaks when talking to the optimizer.
 
-When the RAG system recommends a settings change, it outputs that recommendation
-in the Universal Shop Profile format too. Each bot is then responsible for
-translating the recommendation back into its own internal config. The RAG system
-never knows or cares what internal names a bot uses — it only speaks the
-universal format.
+When the optimizer outputs an updated settings vector, it outputs it in the
+Universal Shop Profile format. Each bot is then responsible for translating those
+values back into its own internal config. The optimizer never knows or cares what
+internal names a bot uses — it only speaks the universal format.
 
 ### Universal Shop Profile Fields
 
@@ -210,80 +229,72 @@ to its functional default and note the absence.
 | `master_hammer_buy_cap_turn` | Integer | Turn after which the bot stops buying new Master Cleat Hammers |
 | `glow_sticks_min_fans` | Integer | Minimum fan count before Glow Sticks are considered for use |
 | `bootcamp_strong_mega_target` | Integer | How many Motivating or Empowering Megaphones to hold going into bootcamp |
-| `coaching_mega_enabled` | Boolean | Whether the bot is allowed to buy Coaching Megaphones at all |
+| `coaching_mega_enabled` | Integer 0 or 1 | Whether the bot is allowed to buy Coaching Megaphones (1 = yes, 0 = no) |
 | `skill_point_buy_threshold` | Integer | Skill Points must be above this before any skill purchase is considered |
 | `skill_point_hoard_threshold` | Integer | Buy skills immediately if Skill Points exceed this, without waiting for the force turn |
 | `skill_point_force_turn` | Integer | Turn at which the bot forces skill purchases regardless of Skill Point level |
 | `skill_point_floor` | Integer | Minimum Skill Points required for the force-buy to trigger (prevents buying at 0 Skill Points) |
 | `dump_window_start_turn` | Integer | Turn at which the bot enters the dump window and relaxes buying restrictions |
-| `late_game_save_items` | Boolean | Whether the bot holds items back for future turns during the dump window, or spends aggressively |
+| `late_game_save_items` | Integer 0 or 1 | Whether the bot holds items back during the dump window (1) or spends aggressively (0) |
 | `ankle_weights_max_stock` | Integer | Maximum Ankle Weights of one type to hold in inventory at once |
 
 **Critical warning:** If `skill_point_hoard_threshold` and `skill_point_floor`
 are both set above realistic mid-career Skill Point levels, neither skill-buying
 trigger can fire. This is the single most destructive configuration mistake — it
-causes the bot to finish the career with all Skill Points unspent. The RAG
-system will flag this pattern if it has seen it in past records.
+causes the bot to finish the career with all Skill Points unspent. The optimizer
+will detect this pattern when `skill_buy_failure` = 1 co-occurs with both
+thresholds above their safe ranges and will adjust them downward.
 
 ### How a Bot Connects
 
 1. At the start of each career, the bot translates its internal settings into the
-   Universal Shop Profile and records the active values.
-2. At the end of each career, the bot submits the career record to the RAG
-   memory, with the Universal Shop Profile attached as the settings snapshot.
-3. When requesting analysis, the bot sends the current career's Universal Shop
-   Profile. The RAG system retrieves past records with matching or similar
-   profiles and returns its findings in Universal Shop Profile terms.
-4. If the RAG system recommends changing `energy_buy_threshold` from 40 to 55,
-   the bot translates that back to whatever its internal config calls that setting
-   and applies the change.
+   Universal Shop Profile and records the active values as the settings vector.
+2. At the end of each career, the bot writes the completed numeric career record
+   to the record database.
+3. The optimizer reads the last N non-human-directed records and computes the new
+   settings vector. Output is a set of integer values in Universal Shop Profile
+   format.
+4. The bot translates the new settings vector back to its internal config and
+   applies it before the next career starts.
 
 The bot's internal logic does not change. Only the translation layer at the
 boundary changes.
 
 ---
 
-## The Anatomy of a Shop/Item Career Record
+## The Numeric Career Record
 
-Each completed career is stored as one record in the RAG memory. Only shop and
-item data is captured here — race results and training outcomes belong to the
-auto solver's own records.
+Every career is stored as a flat numeric record. There are no free-text fields
+in the analysis path. All values are integers or 0/1 flags.
 
-### Required Fields
+### Settings Vector
 
-**Settings snapshot:** The Universal Shop Profile values that were active during
-this career (see table above). This is what the RAG system uses to find past
-records with similar configurations.
+The Universal Shop Profile values active during this career. All integers.
+See the field table above.
 
-**Item lifecycle per item type:**
-- How many were purchased and on which turns
-- How many were consumed, on which turns, and what triggered the use
-- How many were in the final inventory (waste count)
+### Outcomes Vector
 
-**Skill Point trajectory:**
-- Skill Points owned at turns 40, 50, 60, 70, and career end
-- Total Skill Points spent during the career (zero = critical failure)
-- Number of skills purchased
+| Field | Type | Description |
+|---|---|---|
+| `item_execution_score` | Integer 0–20 | Computed waste score (see Run Score section) |
+| `sp_remaining` | Integer | Skill Points owned at career end |
+| `coins_remaining` | Integer | Coins at career end |
+| `waste_coin_value` | Integer | Estimated coin value of all items in final inventory |
+| `climax_mood` | Integer 1–5 | Mood level at Climax entry (1=Awful, 2=Bad, 3=Normal, 4=Good, 5=Great) |
+| `sp_t40` | Integer | Skill Points at turn 40 |
+| `sp_t50` | Integer | Skill Points at turn 50 |
+| `sp_t60` | Integer | Skill Points at turn 60 |
+| `sp_t70` | Integer | Skill Points at turn 70 |
+| `coins_t37` | Integer | Coins at turn 37 (first bootcamp entry) |
+| `coins_t60` | Integer | Coins at turn 60 (second bootcamp entry) |
+| `skills_purchased` | Integer | Number of skills bought during the career |
+| `climax_races_run` | Integer | Number of Climax races that actually ran (1, 2, or 3) |
 
-**Coin trajectory:**
-- Coins at turn 37 (first bootcamp entry)
-- Coins at turn 60 (second bootcamp entry / dump window start)
-- Coins at career end (leftover = wasted purchasing power)
+### Waste Flag Vector
 
-**Final inventory (the waste report):**
-- Every item type and count still owned at career end
-- Estimated coin value of wasted items
+All fields are 0 or 1. A flag set to 1 means the waste condition occurred.
 
-**Known issues flagged for this career:**
-- Free-text notes added during or after the run (e.g., "Skill Point buying
-  completely failed — hoard threshold never reached")
-
-### Tags for Fast Retrieval
-
-Tags allow the AI to find relevant past records without reading the full entry.
-A record can have multiple tags.
-
-| Tag | When to apply |
+| Flag | Set to 1 when |
 |---|---|
 | `skill_point_hoard` | Skill Points remaining at career end exceeded 50 |
 | `skill_buy_failure` | Zero skills were purchased during the entire career |
@@ -297,96 +308,121 @@ A record can have multiple tags.
 | `bootcamp_mega_shortage` | Fewer Megaphones available at bootcamp entry than the target |
 | `climax_hammer_excess` | More Master Cleat Hammers reserved than Climax races that actually ran |
 | `coin_hoard` | More than 50 coins remaining at career end |
-| `sp_catchall_blocked` | Both the Skill Point hoard threshold and the Skill Point floor threshold were above realistic mid-career Skill Point levels simultaneously, blocking all skill buying |
-| `vita_never_triggered` | Vita items were purchased but the energy threshold was never breached — bot bought energy items it had no reason to use |
+| `sp_catchall_blocked` | Both the Skill Point hoard threshold and floor were above realistic mid-career Skill Point levels simultaneously, blocking all skill buying |
+| `vita_never_triggered` | Vita items were purchased but the energy threshold was never breached |
+
+### Human Direction Flag
+
+| Field | Type | Description |
+|---|---|---|
+| `human_directed` | Integer 0 or 1 | Set to 1 if any manual priority rating was non-zero or any value override was active. Records with `human_directed = 1` are excluded from optimizer input. |
+
+### Human Annotation (Optional)
+
+A free-text notes field may be attached to a record by a human after the career
+ends. It is not read by the optimizer. It exists solely so a human reviewing the
+LLM's exception output can attach context for their own reference.
 
 ---
 
-## How RAG Works for Shop Decisions
+## How the Optimizer Works
 
-When the bot completes a career, the AI receives the current run's shop record
-and asks the memory for the most relevant past records before writing its
-analysis.
+The optimizer runs after every career in which `human_directed = 0`. It requires
+at least 3 eligible records before making any adjustment; with fewer records it
+outputs the current settings unchanged.
 
-### Example Retrievals
+### Step 1: Compute flag rates per settings value
 
-**Situation:** 4 Master Cleat Hammers remain in the final inventory after a
-career with only 2 Climax races.
+For each waste flag and each settings field, the optimizer groups past records by
+the settings field's value and computes the rate at which that flag fires. A
+setting value that predicts a high flag rate is misconfigured.
 
-The AI queries the memory: "Past careers where Master Cleat Hammer count in final
-inventory was greater than 1."
+**Example — `climax_master_hammer_reserve` vs `climax_hammer_excess`:**
 
-Retrieved records show: in 4 of the last 6 careers with this pattern, the Climax
-had fewer races than expected (2 instead of 3). The Master Cleat Hammer reserve
-policy was protecting for 3 Climax races but only 2 ran. The AI identifies this
-as a systemic over-protection pattern, not a one-off error.
+| `climax_master_hammer_reserve` value | `climax_hammer_excess` flag rate (last 6 careers) |
+|---|---|
+| 3 | 4 out of 4 careers (100%) |
+| 2 | 0 out of 2 careers (0%) |
 
----
+The optimizer reads: value 3 → flag fires 100% of the time. Value 2 → flag never
+fires. Adjustment direction: decrease toward 2.
 
-**Situation:** Skill Points remaining at career end is 100. Zero skills were
-purchased.
+**Example — `skill_point_hoard_threshold` vs `skill_buy_failure`:**
 
-The AI queries: "Past careers with the `skill_buy_failure` or `skill_point_hoard`
-tag."
+| `skill_point_hoard_threshold` | `skill_point_floor` | `skill_buy_failure` flag rate |
+|---|---|---|
+| ≥ 1400 | ≥ 1000 | 3 out of 3 careers (100%) |
+| ≤ 1000 | ≤ 500 | 0 out of 3 careers (0%) |
 
-Retrieved records show: the same failure appears in 3 past careers, all of which
-had the Skill Point hoard threshold set above 1400 AND the Skill Point floor
-threshold set above 1000 at the same time. This creates a situation where neither
-buying trigger can fire — the bot accumulates Skill Points but never crosses the
-hoard threshold, and at the force-buy turn the floor threshold blocks it too.
-The AI names this as the "Skill Point catch-22" and recommends lowering one of
-the two thresholds.
+The optimizer reads: both thresholds above mid-career Skill Point levels → flag
+fires every time. Adjustment: reduce both thresholds.
 
----
+**Example — `energy_buy_threshold` vs `vita_waste` and `vita_never_triggered`:**
 
-**Situation:** 5 Vita 20 items appear in the final inventory.
+| `energy_buy_threshold` | `vita_waste` flag rate |
+|---|---|
+| below 35 | 3 out of 4 careers (75%) |
+| 35–50 | 0 out of 4 careers (0%) |
 
-The AI queries: "Past careers with the `vita_waste` or `vita_never_triggered`
-tag."
+The optimizer reads: threshold too low → energy items bought but never triggered.
+Adjustment: raise threshold toward the clean-career mean.
 
-Retrieved records show: in the matching past careers, the bot had its energy
-threshold set lower than the level at which training actually depletes energy.
-The bot bought Vita 20 as insurance but the energy level never dropped far
-enough to trigger use. The AI recommends raising the energy threshold or reducing
-how many Vita 20 items are allowed in inventory at once.
+### Step 2: Compute adjustment
+
+For each settings field where a misconfigured value is detected:
+
+```
+clean_mean   = mean value of that field across careers where all waste flags = 0
+current      = current active value of that field
+step         = (clean_mean - current) × 0.15   [max 15% move per cycle]
+new_value    = round(current + step)
+```
+
+The 15% step limit prevents a single bad outlier career from causing a large
+overcorrection. The system moves toward the clean-career mean incrementally each
+cycle.
+
+### Step 3: Output
+
+The optimizer outputs a complete settings vector with all field values as integers.
+Fields that had no misconfiguration detected are unchanged from the current values.
+This vector is applied directly to the bot's config before the next career.
+
+No text. No explanation. Just numbers.
 
 ---
 
 ## Manual Direction Input
 
-The AI does not have final authority over shop decisions. The human operator can
-submit numerical ratings before or during a career to shift the AI's behavior.
-Ratings are numbers only — no verbal instructions — so the AI can use them
-directly in its scoring without needing to interpret language.
+The human operator can submit numerical overrides before or during a career to
+pin specific settings or shift the optimizer's starting point. These are numbers
+only — the optimizer reads them directly without interpretation.
 
 ### The Rating Scale
 
-All priority ratings use this five-point scale:
+Priority ratings adjust the optimizer's scoring weight for a dimension. They are
+applied as multipliers on the adjustment step, not as absolute overrides.
 
-| Rating | Meaning |
+| Rating | Effect on optimizer step for that dimension |
 |---|---|
-| +2 | Maximize. Treat this as the highest-priority concern this career, even at cost to others. |
-| +1 | Increase. Weight this more than the AI's default recommendation. |
-|  0 | Default. Follow the AI's recommendation based on past records. |
-| -1 | Reduce. Weight this less than the AI's default recommendation. |
-| -2 | Suppress. Treat this as the lowest-priority concern this career, or disable it entirely. |
+| +2 | Step size × 2.0 (move twice as fast toward optimal) |
+| +1 | Step size × 1.5 |
+|  0 | Default step size (no modification) |
+| -1 | Step size × 0.5 (move half as fast) |
+| -2 | Step size × 0 (freeze this dimension — optimizer makes no adjustment) |
 
 ### Priority Ratings (What to Emphasize)
 
-These rate how much the human wants to emphasize a strategic dimension relative
-to the AI's default weighting. A rating of 0 on every dimension means "do
-exactly what the AI recommends."
-
 | Dimension | What it controls |
 |---|---|
-| `energy_priority` | How aggressively to buy and use Vita items and Royal Kale Juice |
-| `mood_priority` | How aggressively to buy and use Cupcakes for Mood repair |
-| `bootcamp_mega_priority` | How aggressively to stock Motivating and Empowering Megaphones before turn 37 |
-| `hammer_conservation` | How strictly to protect Master Cleat Hammers from being used before Climax |
-| `skill_spending_urgency` | How urgently to push Skill Point spending earlier in the career |
-| `dump_aggression` | How aggressively to spend remaining coins once the dump window opens |
-| `ankle_weights_priority` | How aggressively to buy and time Ankle Weights around bootcamp windows |
-| `coaching_mega_priority` | Whether to buy Coaching Megaphones at all (-2 = never buy, +2 = buy freely) |
+| `energy_priority` | Optimizer adjustment speed for `energy_buy_threshold` |
+| `mood_priority` | Optimizer adjustment speed for mood-related thresholds |
+| `bootcamp_mega_priority` | Optimizer adjustment speed for `bootcamp_strong_mega_target` |
+| `hammer_conservation` | Optimizer adjustment speed for `climax_master_hammer_reserve` |
+| `skill_spending_urgency` | Optimizer adjustment speed for skill-point thresholds and force turn |
+| `dump_aggression` | Optimizer adjustment speed for `dump_window_start_turn` and `late_game_save_items` |
+| `ankle_weights_priority` | Optimizer adjustment speed for `ankle_weights_max_stock` |
+| `coaching_mega_priority` | Optimizer adjustment speed for `coaching_mega_enabled` |
 
 **Example priority rating input:**
 ```
@@ -400,103 +436,112 @@ ankle_weights_priority: 0
 coaching_mega_priority: -2
 ```
 
-This tells the AI: buy fewer energy items than usual, but be very aggressive
-about Mood repair; stock Megaphones and push Skill Point spending earlier; never
-buy Coaching Megaphones this run.
+This tells the optimizer: move energy threshold slowly this cycle, move mood
+thresholds quickly, freeze coaching mega (do not adjust it at all).
 
 ### Value Overrides (Exact Numbers)
 
-These pin a specific Universal Shop Profile field to an exact value, bypassing
-the AI's recommendation entirely. Use these when you want a precise behavior,
-not just a relative emphasis.
+These pin a specific Universal Shop Profile field to an exact value for the next
+career, bypassing the optimizer's output for that field. The career that runs with
+a value override is marked `human_directed = 1` and excluded from the optimizer's
+input pool.
 
 | Override Field | Example | Effect |
 |---|---|---|
-| `climax_master_hammer_reserve` | `= 2` | Hold exactly 2 Master Cleat Hammers for Climax, regardless of how many Climax races are expected |
+| `climax_master_hammer_reserve` | `= 2` | Hold exactly 2 Master Cleat Hammers for Climax |
 | `climax_artisan_hammer_reserve` | `= 1` | Hold exactly 1 Artisan Cleat Hammer as fallback |
-| `bootcamp_strong_mega_target` | `= 3` | Hold exactly 3 strong Megaphones going into the first bootcamp |
-| `skill_point_force_turn` | `= 55` | Force Skill Point spending at turn 55 instead of the AI's recommended turn |
-| `dump_window_start_turn` | `= 62` | Start the dump window at turn 62 regardless of coin level |
+| `bootcamp_strong_mega_target` | `= 3` | Hold exactly 3 strong Megaphones going into bootcamp |
+| `skill_point_force_turn` | `= 55` | Force Skill Point spending at turn 55 |
+| `dump_window_start_turn` | `= 62` | Start the dump window at turn 62 |
 | `master_hammer_buy_cap_turn` | `= 60` | Stop buying new Master Cleat Hammers after turn 60 |
 
-Value overrides take precedence over priority ratings. If you set
-`climax_master_hammer_reserve = 2` and also set `hammer_conservation: +2`, the
-exact value of 2 is used — the +2 rating does not increase it further.
+Value overrides take precedence over priority ratings. If `climax_master_hammer_reserve = 2`
+is set and `hammer_conservation: +2` is also set, the value of 2 is used and the
+rating has no additional effect.
 
-### How Ratings Are Recorded
+### What Overrides Cannot Do
 
-The career record stores the full rating input exactly as submitted. When future
-careers are analyzed, the AI checks whether the ratings were non-zero. If any
-rating deviates from 0, the career is flagged as **human-directed** and excluded
-from the pool used to update confirmed failure patterns or safe starting ranges.
-
-The AI will still report whether the run produced good or bad outcomes, but it
-will not treat a human-directed run as evidence that the directed behavior is
-universally better. A human-directed run is an experiment, not a data point for
-the baseline.
-
-### What Ratings Cannot Override
-
-- The auto solver's race decisions — those belong to the solver's own system.
-- Emergency energy use before a mandatory race — if the trainee has zero Energy
-  before a race the bot cannot skip, it will use an energy item regardless of
-  `energy_priority` rating.
-- Running style selection — that is separate from this framework.
+- Override the auto solver's race decisions.
+- Override emergency energy use — if the trainee has zero Energy before a
+  mandatory race the bot cannot skip, an energy item is used regardless of
+  any rating.
+- Override running style selection.
 
 ---
 
 ## The Run Score for Shop Performance
 
-The composite run score described in the full AI workflow framework has one pillar
-that directly measures shop and item performance: **Item Execution.**
+Each career receives a numeric Item Execution score (0–20) stored in the outcomes
+vector. This score is the primary signal the optimizer uses to measure whether
+settings are improving.
 
-Item Execution is scored 0–20 based on:
-- Items consumed divided by items purchased, weighted by item value
-- Master Cleat Hammers and Vita items count more than Reset Whistles or Good-Luck
-  Charms — wasting a 40-coin Master Cleat Hammer is a larger penalty than wasting
-  a 20-coin Reset Whistle
-- Zero Master Cleat Hammers or Vita items in final inventory = full points for
-  that sub-category
-- Every Motivating Megaphone or Empowering Megaphone in final inventory after
-  turn 65 subtracts heavily from the score
+Item Execution is scored as follows:
 
-A career that bought 20 items and used all 20 scores higher on this pillar than
-one that bought 30 items and used 25. Buying less but using all of it is better
-than buying more and wasting some.
+- Base: items consumed ÷ items purchased, weighted by item coin value
+- Master Cleat Hammers and Vita items carry higher weight than Reset Whistles
+  or Good-Luck Charms — a wasted 40-coin Master Cleat Hammer is a larger penalty
+  than a wasted 20-coin Reset Whistle
+- Zero Master Cleat Hammers or Vita items in final inventory = full sub-score
+  for those categories
+- Each Motivating or Empowering Megaphone in final inventory after turn 65
+  applies a heavy deduction
+
+A career that bought 20 items and used all 20 scores higher than one that bought
+30 items and used 25. The optimizer treats buying less and using all of it as
+strictly better than buying more and wasting some.
+
+**Regression detection:** If the 3-career rolling mean of `item_execution_score`
+drops more than 2 points after an optimizer adjustment, the exception handler is
+triggered and the LLM is invoked to explain which setting changed and what the
+data showed.
 
 ---
 
-## The Feedback Loop
+## The Automated Feedback Loop
 
 ```
 Career completes
       │
       ▼
-Shop/item record saved to RAG memory
-(settings + item lifecycle + Skill Point trajectory + coin trajectory + tags)
+Numeric record written to database
+(settings vector + outcomes vector + waste flag vector, all integers)
+human_directed flag set based on whether any manual input was active
       │
       ▼
-AI retrieves 3–5 past records matching current run's failure tags or settings pattern
+  human_directed = 1?
       │
-      ▼
-AI compares current run against retrieved records:
-  — Is this a known failure mode? (appears in 3+ past records with same tag)
-  — Is this better or worse than similar past runs on item execution?
-  — What repeatable rule would reduce waste or improve Skill Point spending?
-  — Does the human's manual direction explain any unusual outcome?
+      ├── YES → record stored but excluded from optimizer input
+      │         career outcome still visible in history for human review
       │
-      ▼
-Human reviews AI output
-      │
-      ├── Finding is valid + actionable → adjust the relevant shop setting
-      │   and note the change in the run history
-      │
-      └── Finding is a one-off or explained by manual direction →
-          add a note to the record and move on
-                  │
-                  ▼
-          New career starts with updated or confirmed settings
+      └── NO  → record enters optimizer input pool
+                │
+                ▼
+          Optimizer runs (requires ≥ 3 eligible records)
+          For each settings field:
+            — compute waste flag rate at current value
+            — compute adjustment step toward clean-career mean
+            — apply 15% step limit
+          Output: new settings vector (integers)
+                │
+                ▼
+          New settings applied before next career
+                │
+                ▼
+          Regression check: 3-career rolling mean of item_execution_score
+                │
+                ├── Score dropped > 2 points from prior mean
+                │         → Exception: LLM invoked
+                │         → LLM identifies which setting changed and what
+                │           the optimizer saw in the records
+                │         → Human can apply a value override to correct it
+                │           or accept the adjustment and wait for more data
+                │
+                └── Score stable or improved
+                          → No action. Loop continues.
 ```
+
+Human involvement is only triggered by regressions or novel flag combinations.
+The optimizer runs silently every career otherwise.
 
 ---
 
@@ -504,105 +549,90 @@ Human reviews AI output
 
 ### The Problem With Starting From Zero
 
-A new user who just connected their bot to RAG Mode Shop has an empty memory.
-The RAG system has no past records to retrieve, so it cannot recognize known
-failure modes or suggest safe starting ranges. They would need to run many
-careers before the memory becomes useful — repeating mistakes that the community
-already solved months ago.
+A new user who just connected their bot to this system has an empty record
+database. The optimizer has no past records to run on — it will output the current
+settings unchanged until 3 eligible careers are completed. During those first
+careers the bot runs blind, potentially repeating mistakes the community already
+solved.
 
 ### What a Knowledge Pack Is
 
-A Knowledge Pack is an export of the accumulated learnings from a RAG memory,
-stripped of any personal career data. It contains only the distilled conclusions,
-not the raw career records themselves.
+A Knowledge Pack is a pre-seeded safe-range table derived from the community's
+accumulated career records, stripped of any personal career data. It contains no
+raw records — only the numeric safe ranges that the optimizer can use as a
+starting point before local records exist.
 
-A Knowledge Pack contains three things:
+A Knowledge Pack contains two things:
 
-**1. Confirmed Failure Patterns**
-Patterns that have been observed in 3 or more independent careers and confirmed
-as systemic — not a one-off. Each entry includes the failure tag, the Universal
-Shop Profile values that were active when the failure occurred, and a plain
-description of why the failure happened.
-
-Example:
-> **Tag:** `sp_catchall_blocked`
-> **Observed in:** 3 careers across 2 users
-> **Profile values at failure:** `skill_point_hoard_threshold` ≥ 1400 AND
-> `skill_point_floor` ≥ 1000
-> **Why:** Both thresholds were above realistic mid-career Skill Point levels.
-> Neither trigger could fire. All Skill Points were unspent at career end.
-> **Recommendation:** Set `skill_point_hoard_threshold` ≤ 1000 and
-> `skill_point_floor` ≤ 500.
-
-**2. Safe Starting Ranges**
-For each Universal Shop Profile field, the range of values that has produced
-Item Execution scores above 15 out of 20 across all contributing careers.
-These are not the "best" values — they are the range that avoids known waste
-patterns. A new user can start within this range and tune from there.
+**1. Safe Starting Ranges**
+For each Universal Shop Profile field, the value range that has produced
+`item_execution_score` above 15 across confirmed non-human-directed careers
+from contributing users.
 
 Example:
-> `energy_buy_threshold`: safe range 35–50
-> `climax_master_hammer_reserve`: safe range 2–3
-> `bootcamp_strong_mega_target`: safe range 2–3
-> `skill_point_hoard_threshold`: safe range 800–1200
-> `skill_point_force_turn`: safe range 55–65
+```json
+{
+  "energy_buy_threshold":        { "min": 35, "max": 50 },
+  "climax_master_hammer_reserve": { "min": 2,  "max": 3  },
+  "bootcamp_strong_mega_target":  { "min": 2,  "max": 3  },
+  "skill_point_hoard_threshold":  { "min": 800,"max": 1200},
+  "skill_point_force_turn":       { "min": 55, "max": 65 }
+}
+```
 
-**3. High-Waste Item Patterns**
-Which items most frequently appear in final inventories, and under what Universal
-Shop Profile conditions. New users can immediately guard against the most common
-waste sources.
+**2. Known Failure Conditions**
+Settings combinations that have produced a specific waste flag in 3 or more
+independent careers. Stored as numeric threshold conditions, not text.
 
 Example:
-> Master Cleat Hammers left over: most common when `climax_master_hammer_reserve`
-> = 3 but only 2 Climax races ran. Consider `climax_master_hammer_reserve` = 2
-> as the default with a conditional bump to 3 only when all 3 Climax races are
-> confirmed.
->
-> Vita 20 left over: most common when `energy_buy_threshold` is set below 35.
-> Bot buys energy items that are never needed because training turns don't deplete
-> Energy far enough.
+```json
+{
+  "flag": "sp_catchall_blocked",
+  "condition": {
+    "skill_point_hoard_threshold": { "gte": 1400 },
+    "skill_point_floor":           { "gte": 1000 }
+  },
+  "observed_in": 3,
+  "adjustment": {
+    "skill_point_hoard_threshold": 1000,
+    "skill_point_floor": 500
+  }
+}
+```
+
+When a new user imports a Knowledge Pack, the optimizer initializes using the
+safe starting ranges as its clean-career baseline. As local careers complete, local
+data progressively replaces the imported baseline. A locally observed pattern with
+3 confirmations outweighs the same pattern from an imported pack.
 
 ### What a Knowledge Pack Does NOT Contain
 
-- Raw career records or turn-by-turn data (those are private to each user)
+- Raw career records or turn-by-turn data
 - Any information about which trainee, scenario, or support card deck was used
-  (those affect results but belong to the auto solver's domain, not the shop)
-- Settings that were only tested by a single user in a single career (too little
-  evidence to include)
-- Manual-direction career results (those are flagged as non-standard in the
-  career record and are excluded from pattern analysis)
-
-### Sharing and Importing
-
-A Knowledge Pack is a single file that can be shared between users. Importing a
-pack does not replace the user's own memory — it merges the confirmed failure
-patterns and safe ranges into the existing memory, weighted lower than locally
-observed evidence. A locally observed pattern with 3 confirmations carries more
-weight than the same pattern imported from a pack, since the local environment
-(trainee, scenario, support deck) may differ.
-
-When importing, the RAG system notes the source of each imported pattern. If a
-local career later contradicts an imported pattern, the local observation wins
-and the imported entry is flagged for review.
+- Settings tested by only a single user or single career
+- Records marked `human_directed = 1`
 
 ---
 
-## What the AI Should Never Do
+## Constraints on the LLM Layer
 
-- **Never execute purchases directly.** The bot's shop logic is the authority.
-  The AI produces advisory text only.
-- **Never promote a manual-direction run as evidence of optimal settings.**
-  A run where the human forced specific behavior proves only that the forced
-  behavior produced that result under those conditions.
-- **Never clear failure records from the memory.** Past records tagged with
-  `skill_buy_failure`, `master_cleat_waste`, or similar are the most valuable
-  entries in the memory. They are what let the AI recognize when a new run is
-  repeating a known mistake.
-- **Never recommend buying a specific item just because it appeared in a
-  high-scoring past run.** The right item depends on the current game state,
-  coin budget, and career phase — not on what was bought in a past career with
-  different support cards or a different trainee.
-- **Never conflate instant-use items with held items when measuring waste.**
+The LLM is a secondary tool. These constraints define its role precisely.
+
+- **The LLM never writes configuration values.** The optimizer is the sole source
+  of config updates. LLM output is text for human consumption only.
+- **The LLM is not consulted on routine careers.** It is only invoked on
+  regression detection or novel flag combinations. Running it every career is
+  wasteful and introduces interpretation variability where determinism is available.
+- **The LLM does not override the optimizer.** If the LLM and optimizer disagree,
+  the human resolves it by applying a value override. The override marks the career
+  `human_directed = 1` and excludes it from the optimizer's input pool.
+- **The LLM never promotes a human-directed run as evidence of optimal settings.**
+  A run where a human forced specific behavior is an experiment. It is excluded
+  from the optimizer's input and cannot update the safe ranges.
+- **Failure records are never cleared.** Past records where waste flags fired are
+  the most valuable records in the database — they are what the optimizer uses to
+  identify which settings values cause waste.
+- **The LLM never conflates instant-use items with held items when measuring waste.**
   Instant-use items (Notepads, Manuals, Scrolls, Grilled Carrots, and others)
   cannot be wasted — they are consumed the moment they are purchased. Waste
   analysis only applies to held items that sit in inventory.
