@@ -807,6 +807,26 @@ logs are needed for root cause.
 | `training_taken` | Integer 0 or 1 | Whether the bot chose training over shop this turn |
 | `training_taken_stat` | String or null | Stat trained, or null |
 
+### Action and Mood Context
+
+| Field | Type | Description |
+|---|---|---|
+| `current_race_chain_length` | Integer | Number of consecutive race actions immediately before or including this turn |
+| `races_in_last_5_turns` | Integer | Count of race actions in the last 5 turns |
+| `action_taken` | String | `"train"`, `"race"`, `"rest"`, `"recreation"`, `"outing"`, `"shop_only"`, or `"other"` |
+| `rest_taken` | Integer 0 or 1 | Whether the bot rested this turn |
+| `recreation_taken` | Integer 0 or 1 | Whether the bot used recreation this turn |
+| `mood_item_available` | Integer 0 or 1 | Whether a mood-repair item was available in inventory before action resolution |
+| `energy_item_available` | Integer 0 or 1 | Whether a held energy item was available in inventory before action resolution |
+| `mood_item_used_this_turn` | String or null | Canonical item ID of mood item used this turn, or null |
+| `energy_item_used_this_turn` | String or null | Canonical item ID of energy item used this turn, or null |
+| `pre_action_mood` | Integer 1–5 | Mood before the selected action resolves |
+| `post_action_mood` | Integer 1–5 | Mood after action and item effects resolve |
+
+These fields are required to compute `race_chain_mood_break_failed` and `rest_avoidance_item_gap`
+reliably. Without them, implementations cannot distinguish between "no mood item existed" and
+"a mood item existed but was not used."
+
 ### Inventory at Turn Start
 
 | Field | Type | Description |
@@ -1006,6 +1026,11 @@ choose the field to adjust using this deterministic priority order:
 | `bootcamp_mega_shortage` | 1. `bootcamp_strong_mega_target` 2. `master_hammer_buy_cap_turn` |
 | `sp_catchall_blocked` | 1. `skill_point_hoard_threshold` 2. `skill_point_floor` |
 | `skill_point_hoard` | 1. `skill_point_force_turn` 2. `skill_point_hoard_threshold` |
+| `mood_item_shortage` | 1. `mood_item_min_stock` 2. `cupcake_aggression` 3. `mood_item_buy_enabled` |
+| `mood_item_overstock` | 1. `mood_item_max_stock` 2. `cupcake_aggression` |
+| `cupcake_unused_late` | 1. `mood_item_max_stock` 2. `cupcake_aggression` 3. `dump_window_start_turn` |
+| `race_chain_mood_break_failed` | 1. `race_chain_mood_break_after` 2. `mood_item_min_stock` 3. `cupcake_aggression` |
+| `rest_avoidance_item_gap` | 1. `rest_avoidance_enabled` 2. `energy_buy_threshold` 3. `mood_item_min_stock` |
 
 This table is the canonical tie-break order. Two bots applying the same records
 must choose the same field to adjust. Without this, bots can diverge on field
@@ -1049,6 +1074,15 @@ The "clean career" definition also requires adequate item use, not just absence 
 waste. A career where the bot bought nothing would show no waste flags but would
 not qualify because `skills_purchased = 0`. This prevents the learning optimizer
 from drifting toward "buy less" as the solution to all waste.
+
+**Mood Diagnostic Flags and `qualified_clean`:**
+
+Mood Diagnostic Flags (`mood_item_shortage`, `mood_item_overstock`, `cupcake_unused_late`,
+`race_chain_mood_break_failed`, `rest_avoidance_item_gap`) do **not** disqualify a career
+from `qualified_clean` unless a future scoring or conformance version explicitly promotes
+them to core waste flags. Until that promotion occurs, they are recorded but not checked
+in the `qualified_clean` filter. Implementations must not treat mood diagnostic flags the
+same as `master_cleat_waste = 1` or other core waste flags that do block `qualified_clean`.
 
 **No-qualified-clean-records fallback:**
 
